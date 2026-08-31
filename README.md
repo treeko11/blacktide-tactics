@@ -1,7 +1,9 @@
 # Blacktide Tactics
 
+**[▶ Play it here](https://treeko11.github.io/blacktide-tactics/)**
+
 A pirate/nautical auto battler in the style of Teamfight Tactics. Zero dependencies, zero build
-step — **double-click `index.html`** and it runs in any modern browser.
+step — play in the browser at the link above, or clone and **double-click `index.html`**.
 
 Designed for a window of roughly 1280×800 or larger. It scales down gracefully (the side panels
 fold away under ~1080px wide), but a big window is the good experience.
