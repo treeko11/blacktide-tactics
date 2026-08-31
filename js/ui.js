@@ -281,7 +281,7 @@ const UI = {
       const owned = Game.ownedUnits().filter(u => u.champId === id && u.star === 1).length;
       const card = U.el('div', 'card c' + c.cost + (Game.player.gold < c.cost ? ' cant' : ''));
       card.innerHTML =
-        `<div class="cn"><i>${c.icon}</i>${U.esc(c.name)}</div>` +
+        `<div class="cn"><i>${c.icon}</i><span class="nm">${U.esc(c.name)}</span></div>` +
         `<div class="ct">${c.traits.map(t => `<b>${TRAITS[t].icon} ${TRAITS[t].name}</b>`).join('')}</div>` +
         `<div class="cc">● ${c.cost}</div>` +
         (owned ? `<div class="own">${owned}/3</div>` : '');
