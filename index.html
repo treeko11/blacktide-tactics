@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08131c">
 <title>Blacktide Tactics</title>
 <link rel="stylesheet" href="css/main.css">
 </head>
@@ -27,6 +30,7 @@
         <button data-speed="2" class="spd">2&times;</button>
         <button data-speed="4" class="spd">4&times;</button>
       </div>
+      <button id="drawerBtn" class="ghost-btn only-mobile" title="Fleet &amp; log">☰</button>
       <button id="helpBtn" class="ghost-btn">?</button>
     </div>
   </header>
@@ -51,6 +55,8 @@
         </div>
         <div id="combatBanner"></div>
       </div>
+
+      <div id="mobileStrips"></div>
 
       <div id="benchRow">
         <div class="bench-label">DECK</div>
@@ -90,9 +96,13 @@
       <div id="playerList" class="player-list"></div>
       <div class="panel-title">Log</div>
       <div id="log" class="log"></div>
+      <button id="helpBtn2" class="modal-btn only-mobile">HOW TO SAIL</button>
     </aside>
   </div>
 </div>
+
+<!-- mobile drawer scrim -->
+<div id="drawerScrim" class="drawer-scrim"></div>
 
 <!-- floating tooltip -->
 <div id="tooltip" class="tooltip hidden"></div>

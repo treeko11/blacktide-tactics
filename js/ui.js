@@ -13,10 +13,41 @@ const UI = {
     this.fxLayer = document.getElementById('fxLayer');
     this.tooltip = document.getElementById('tooltip');
     this.ghost = document.getElementById('dragGhost');
+    this.touch = window.matchMedia('(pointer: coarse)').matches;
+    if (this.touch) document.body.classList.add('touch');
+    // remember where the trait list and cargo hold live on desktop
+    const traits = document.getElementById('traitList'), items = document.getElementById('itemBench');
+    this.dock = {
+      traits: { parent: traits.parentElement, next: traits.nextElementSibling },
+      items: { parent: items.parentElement, next: items.nextElementSibling }
+    };
     this.buildBoard();
     this.bindGlobal();
+    this.syncLayoutMode();
     this.fitLayout();
-    window.addEventListener('resize', () => this.fitLayout());
+    window.addEventListener('resize', () => { this.syncLayoutMode(); this.fitLayout(); });
+    window.addEventListener('orientationchange', () => setTimeout(() => { this.syncLayoutMode(); this.fitLayout(); }, 250));
+  },
+
+  isMobile() { return window.matchMedia('(max-width: 1080px)').matches; },
+
+  /** on narrow screens the traits + cargo hold move into a strip above the bench */
+  syncLayoutMode() {
+    const mobile = this.isMobile();
+    document.body.classList.toggle('mobile', mobile);
+    const strips = document.getElementById('mobileStrips');
+    const traits = document.getElementById('traitList');
+    const items = document.getElementById('itemBench');
+    if (mobile) {
+      if (traits.parentElement !== strips) strips.appendChild(traits);
+      if (items.parentElement !== strips) strips.appendChild(items);
+    } else {
+      if (traits.parentElement !== this.dock.traits.parent)
+        this.dock.traits.parent.insertBefore(traits, this.dock.traits.next);
+      if (items.parentElement !== this.dock.items.parent)
+        this.dock.items.parent.insertBefore(items, this.dock.items.next);
+      document.body.classList.remove('drawer-open');
+    }
   },
 
   /** scale the board and the bottom rows so everything fits the window */
@@ -27,13 +58,16 @@ const UI = {
       const s = Math.min(1.15,
         (bf.clientWidth - 10) / BOARD.WIDTH,
         (bf.clientHeight - 10) / BOARD.HEIGHT);
-      wrap.style.transform = 'scale(' + Math.max(0.35, s) + ')';
+      wrap.style.transform = 'translate(-50%,-50%) scale(' + Math.max(0.35, s) + ')';
     }
     const center = document.getElementById('center');
+    const mobile = this.isMobile();
     for (const id of ['shopRow', 'benchRow']) {
       const row = document.getElementById(id);
       if (!row) continue;
       row.style.transform = 'none';
+      row.style.marginTop = '0';
+      if (mobile) continue;           // mobile wraps these rows instead of scaling them
       const natural = row.scrollWidth;
       const avail = center.clientWidth;
       const s = natural > avail ? Math.max(0.5, avail / natural) : 1;
@@ -112,7 +146,7 @@ const UI = {
     const box = document.getElementById('traitList');
     box.innerHTML = '';
     if (!list.length) {
-      box.innerHTML = '<div style="color:#4d6373;font-size:11px;padding:8px 4px">Field your crew to muster traits.</div>';
+      box.innerHTML = '<div class="panel-empty">Field your crew to muster traits.</div>';
       return;
     }
     for (const t of list) {
@@ -126,6 +160,7 @@ const UI = {
         `<div class="tc">${t.count}${next ? '<span style="opacity:.5">/' + next + '</span>' : ''}</div>`;
       row.addEventListener('mouseenter', e => this.showTraitTip(e, tr, t));
       row.addEventListener('mouseleave', () => this.hideTip());
+      this.addTapInfo(row, e => { this.showTraitTip(e, tr, t); this.pinTip(e); });
       box.appendChild(row);
     }
   },
@@ -137,7 +172,7 @@ const UI = {
       box.appendChild(this.itemEl(id, true));
     }
     if (!Game.player.items.length) {
-      box.innerHTML = '<div style="color:#4d6373;font-size:11px">Empty hold.</div>';
+      box.innerHTML = '<div class="panel-empty">Empty hold.</div>';
     }
   },
 
@@ -147,7 +182,7 @@ const UI = {
     e.dataset.item = id;
     e.addEventListener('mouseenter', ev => this.showItemTip(ev, id));
     e.addEventListener('mouseleave', () => this.hideTip());
-    if (draggable) e.addEventListener('pointerdown', ev => this.startDrag(ev, { kind: 'item', id }));
+    if (draggable) e.addEventListener('pointerdown', ev => this.beginPointer(ev, { kind: 'item', id }));
     return e;
   },
 
@@ -165,6 +200,7 @@ const UI = {
       if (p.isBot) {
         row.addEventListener('mouseenter', e => this.showBotTip(e, p));
         row.addEventListener('mouseleave', () => this.hideTip());
+        this.addTapInfo(row, e => { this.showBotTip(e, p); this.pinTip(e); });
       }
       box.appendChild(row);
     }
@@ -209,7 +245,7 @@ const UI = {
   },
 
   attachUnitHandlers(el, u) {
-    el.addEventListener('pointerdown', ev => this.startDrag(ev, { kind: 'unit', unit: u }));
+    el.addEventListener('pointerdown', ev => this.beginPointer(ev, { kind: 'unit', unit: u }));
     el.addEventListener('mouseenter', ev => { this.hoverUnit = u; this.showChampTip(ev, u.champId, u.star, u.items); });
     el.addEventListener('mouseleave', () => { this.hoverUnit = null; this.hideTip(); });
     el.addEventListener('contextmenu', ev => { ev.preventDefault(); Game.sell(u); });
@@ -224,14 +260,8 @@ const UI = {
       const u = Game.player.bench[i];
       if (u) {
         const el = this.unitEl(u, { mana: false });
-        el.style.position = 'relative';
-        el.style.left = '0'; el.style.top = '0';
-        el.style.margin = '0';
-        el.style.width = '52px';
+        el.classList.add('benched');
         el.style.pointerEvents = 'auto';
-        el.querySelector('.bars').style.display = 'none';
-        el.querySelector('.body').style.width = '42px';
-        el.querySelector('.body').style.height = '42px';
         this.attachUnitHandlers(el, u);
         slot.appendChild(el);
       }
@@ -255,19 +285,85 @@ const UI = {
         `<div class="ct">${c.traits.map(t => `<b>${TRAITS[t].icon} ${TRAITS[t].name}</b>`).join('')}</div>` +
         `<div class="cc">● ${c.cost}</div>` +
         (owned ? `<div class="own">${owned}/3</div>` : '');
-      card.addEventListener('click', () => { if (Game.buy(i)) this.pulse(card); });
+      card.addEventListener('click', () => {
+        if (this.swallowClick) { this.swallowClick = false; return; }
+        if (Game.buy(i)) this.pulse(card);
+      });
       card.addEventListener('mouseenter', e => this.showChampTip(e, id, 1));
       card.addEventListener('mouseleave', () => this.hideTip());
+      this.addLongPress(card, e => { this.showChampTip(e, id, 1); this.pinTip(e); });
       box.appendChild(card);
     }
   },
 
   pulse(el) { el.style.transform = 'scale(.9)'; setTimeout(() => { el.style.transform = ''; }, 90); },
 
+  /* ---------------- pointer gestures ----------------
+     Mouse drags start immediately. Touch waits: a short press opens the
+     inspector, movement past a few pixels starts the drag instead. */
+  beginPointer(ev, payload) {
+    if (Game.phase !== 'plan') return;
+    if (ev.button > 0) return;
+    if (ev.pointerType === 'mouse') { this.startDrag(ev, payload); return; }
+    ev.preventDefault();
+    const sx = ev.clientX, sy = ev.clientY;
+    let done = false;
+    const cleanup = () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true; cleanup();
+      this.swallowClick = true;
+      const at = { clientX: sx, clientY: sy };
+      if (payload.kind === 'unit') this.pinTipForUnit(at, payload.unit);
+      else { this.showItemTip(at, payload.id); this.pinTip(at); }
+    }, 340);
+    const move = e => {
+      if (done) return;
+      if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) {
+        done = true; cleanup(); this.startDrag(e, payload);
+      }
+    };
+    const up = () => { if (done) return; done = true; cleanup(); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  },
+
+  /** press-and-hold to inspect something that is not draggable (shop cards) */
+  addLongPress(el, showFn) {
+    el.addEventListener('pointerdown', ev => {
+      if (ev.pointerType === 'mouse') return;
+      const sx = ev.clientX, sy = ev.clientY;
+      const cleanup = () => {
+        clearTimeout(timer);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', cleanup);
+        window.removeEventListener('pointercancel', cleanup);
+      };
+      const timer = setTimeout(() => {
+        cleanup(); this.swallowClick = true; showFn({ clientX: sx, clientY: sy });
+      }, 340);
+      const move = e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 12) cleanup(); };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', cleanup);
+      window.addEventListener('pointercancel', cleanup);
+    });
+  },
+
+  /** plain tap opens the inspector for read-only rows (traits, rival captains) */
+  addTapInfo(el, showFn) {
+    el.addEventListener('click', ev => { if (this.touch) showFn(ev); });
+  },
+
   /* ---------------- drag & drop ---------------- */
   startDrag(ev, payload) {
     if (Game.phase !== 'plan') return;
-    if (ev.button !== 0) return;
+    if (ev.button > 0) return;
     ev.preventDefault();
     this.hideTip();
     this.drag = payload;
@@ -281,20 +377,27 @@ const UI = {
       const c = CHAMP_BY_ID[payload.unit.champId];
       g.innerHTML = `<div class="unit t${c.cost}"><div class="body">${c.icon}</div></div>`;
     }
+    // on touch the ghost floats above the finger, and that is where it drops
+    this.dragDY = (ev.pointerType === 'mouse') ? 0 : -52;
     g.classList.remove('hidden');
     this.moveGhost(ev.clientX, ev.clientY);
 
-    const move = e => { this.moveGhost(e.clientX, e.clientY); this.highlight(e.clientX, e.clientY); };
+    const move = e => { this.moveGhost(e.clientX, e.clientY); this.highlight(e.clientX, e.clientY + this.dragDY); };
     const up = e => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      this.endDrag(e.clientX, e.clientY);
+      window.removeEventListener('pointercancel', up);
+      this.endDrag(e.clientX, e.clientY + this.dragDY);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   },
 
-  moveGhost(x, y) { this.ghost.style.left = x + 'px'; this.ghost.style.top = y + 'px'; },
+  moveGhost(x, y) {
+    this.ghost.style.left = x + 'px';
+    this.ghost.style.top = (y + (this.dragDY || 0)) + 'px';
+  },
 
   targetAt(x, y) {
     const el = document.elementFromPoint(x, y);
@@ -345,13 +448,47 @@ const UI = {
     const t = this.tooltip;
     t.innerHTML = html;
     t.classList.remove('hidden');
+    this.positionTip(ev);
+  },
+  positionTip(ev) {
+    const t = this.tooltip;
     const r = t.getBoundingClientRect();
     let x = ev.clientX + 18, y = ev.clientY + 12;
     if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 18;
     if (y + r.height > innerHeight - 8) y = innerHeight - r.height - 8;
     t.style.left = Math.max(6, x) + 'px'; t.style.top = Math.max(6, y) + 'px';
   },
-  hideTip() { this.tooltip.classList.add('hidden'); },
+  hideTip() {
+    this.tooltip.classList.add('hidden');
+    this.tooltip.classList.remove('pinned');
+    if (this._tipOff) { window.removeEventListener('pointerdown', this._tipOff, true); this._tipOff = null; }
+  },
+
+  /** keep an inspector open until the next tap elsewhere (touch) */
+  pinTip(ev) {
+    const t = this.tooltip;
+    t.classList.add('pinned');
+    this.positionTip(ev);
+    if (this._tipOff) window.removeEventListener('pointerdown', this._tipOff, true);
+    this._tipOff = e => {
+      if (t.contains(e.target)) return;
+      e.preventDefault(); e.stopPropagation();
+      this.hideTip();
+    };
+    setTimeout(() => { if (this._tipOff) window.addEventListener('pointerdown', this._tipOff, true); }, 0);
+  },
+
+  /** inspector for a pirate you own - gets a sell button on touch */
+  pinTipForUnit(ev, u) {
+    this.showChampTip(ev, u.champId, u.star, u.items);
+    if (Game.phase === 'plan') {
+      const v = CHAMP_BY_ID[u.champId].cost * Math.pow(3, u.star - 1);
+      const b = U.el('button', 'tip-sell', 'SELL FOR ● ' + v);
+      b.addEventListener('click', () => { Game.sell(u); this.hideTip(); });
+      this.tooltip.appendChild(b);
+    }
+    this.pinTip(ev);
+  },
 
   showChampTip(ev, champId, star, items) {
     const c = CHAMP_BY_ID[champId];
@@ -518,6 +655,7 @@ const UI = {
 
   /* ---------------- modals ---------------- */
   modal(html, onClose) {
+    document.body.classList.remove('drawer-open');   // never leave the sheet open behind a modal
     const root = document.getElementById('modalRoot');
     const box = document.getElementById('modalBox');
     box.innerHTML = html;
@@ -592,6 +730,14 @@ const UI = {
     document.getElementById('lockBtn').addEventListener('click', () => { Game.shopLocked = !Game.shopLocked; this.renderTop(); });
     document.getElementById('readyBtn').addEventListener('click', () => Main.forceCombat());
     document.getElementById('helpBtn').addEventListener('click', () => this.openHelp());
+    document.getElementById('helpBtn2').addEventListener('click', () => {
+      document.body.classList.remove('drawer-open'); this.openHelp();
+    });
+    document.getElementById('drawerBtn').addEventListener('click', () => {
+      document.body.classList.toggle('drawer-open'); this.hideTip();
+    });
+    document.getElementById('drawerScrim').addEventListener('click', () =>
+      document.body.classList.remove('drawer-open'));
     document.querySelectorAll('.spd').forEach(b => b.addEventListener('click', () => {
       Game.speed = +b.dataset.speed;
       document.querySelectorAll('.spd').forEach(x => x.classList.toggle('on', x === b));

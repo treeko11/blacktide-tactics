@@ -5,8 +5,9 @@
 A pirate/nautical auto battler in the style of Teamfight Tactics. Zero dependencies, zero build
 step — play in the browser at the link above, or clone and **double-click `index.html`**.
 
-Designed for a window of roughly 1280×800 or larger. It scales down gracefully (the side panels
-fold away under ~1080px wide), but a big window is the good experience.
+Plays on desktop and on phones. Below 1080px the layout switches to a touch build: the manifest
+and cargo hold become compact strips above the bench, the bench splits into two rows of five,
+and the fleet standings and log move into a bottom sheet behind the ☰ button.
 
 ---
 
@@ -38,14 +39,26 @@ per pirate. Selling a pirate returns their items to the hold.
 
 ## Controls
 
+**Desktop**
+
 | | |
 |---|---|
 | Drag | move pirates between bench and board, or drop items onto pirates |
+| Hover | inspect anything — pirates, traits, items, rival captains |
 | Right-click / `E` | sell the pirate under the cursor |
 | `D` | refresh the shop |
 | `F` | buy 4 XP |
 | `Space` | start the battle early |
 | `1` `2` `4` | battle speed |
+
+**Touch**
+
+| | |
+|---|---|
+| Drag | same as desktop — the piece floats above your finger and drops where it floats |
+| Press and hold | inspect a pirate, item or shop card; held pirates get a Sell button |
+| Tap | buy from the shop, or inspect a trait / rival captain |
+| ☰ | fleet standings, battle log and the rules |
 
 ## The 13 traits
 
@@ -74,7 +87,7 @@ js/data/champions.js  44 pirates + 7 monsters' worth of stat blocks and abilitie
 js/combat.js          the simulation: fixed 30Hz timestep, runs headless or rendered
 js/ai.js              the seven rival captains
 js/game.js            pool, economy, shop, rounds, matchmaking, damage
-js/ui.js              rendering, drag & drop, tooltips, modals
+js/ui.js              rendering, drag & drop, touch gestures, tooltips, modals
 js/main.js            phase loop
 ```
 
@@ -90,6 +103,17 @@ otherwise attack if the target is within range, otherwise BFS one hex closer. Da
 
 The exact same class runs the AI-vs-AI matches with `render: false` and `runToEnd()` — about
 3ms per battle, so the other six fights resolve instantly between rounds.
+
+### Responsive behaviour
+
+One breakpoint drives everything: `1080px`, declared in `css/main.css` and mirrored by
+`UI.isMobile()`. Crossing it, `UI.syncLayoutMode()` physically moves the trait list and cargo
+hold between the desktop side panel and the mobile strip — same elements, same render code, so
+there is no second UI to keep in sync. `UI.fitLayout()` then scales the board to whatever space
+is left.
+
+Touch input runs through `UI.beginPointer()`: a mouse drags immediately, while a finger waits —
+move past 10px and it becomes a drag, hold still for 340ms and it opens the inspector instead.
 
 ### Tuning knobs
 

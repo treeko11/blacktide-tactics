@@ -90,6 +90,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 
 /* ---------------- traits panel ---------------- */
 .trait-list{overflow-y:auto;flex:1 1 auto;display:flex;flex-direction:column;gap:3px;padding-right:2px}
+.panel-empty{color:#4d6373;font-size:11px;padding:6px 4px}
 .trait-row{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:4px;background:#0a1721;border:1px solid #142a38;cursor:default}
 .trait-row .ti{
   width:24px;height:24px;flex:0 0 auto;display:grid;place-items:center;font-size:13px;
@@ -118,7 +119,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 
 /* ---------------- battlefield ---------------- */
 #battlefield{position:relative;flex:1 1 auto;display:grid;place-items:center;min-height:0;width:100%;overflow:hidden}
-#boardWrap{position:relative;transform-origin:center center}
+#boardWrap{position:absolute;left:50%;top:50%;transform-origin:center center;transform:translate(-50%,-50%)}
 #hexBoard,#unitLayer,#fxLayer{position:absolute;inset:0}
 #unitLayer,#fxLayer{pointer-events:none}
 #unitLayer{z-index:3} #fxLayer{z-index:4}
@@ -172,6 +173,10 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .unit.casting .body{box-shadow:0 0 0 3px #7fe3ff,0 0 18px #7fe3ff}
 .unit.stunned .body{filter:grayscale(.6) brightness(.8)}
 .unit .stunmark{position:absolute;top:-14px;font-size:12px}
+
+.unit.benched{position:relative;left:0;top:0;margin:0;width:52px}
+.unit.benched .bars{display:none}
+.unit.benched .body{width:42px;height:42px}
 
 /* selection / drag */
 .unit.sel .body{box-shadow:0 0 0 3px var(--gold2),0 0 16px #e8b44a99}
@@ -365,8 +370,161 @@ body.dragging #unitLayer .unit{pointer-events:none!important}
 ::-webkit-scrollbar-thumb{background:#1d3b4e;border-radius:4px}
 ::-webkit-scrollbar-thumb:hover{background:#2b5a75}
 
-/* smaller screens: panels fold away, JS scales the board + rows to fit */
+/* smaller screens: the compact layout below takes over at 1080px */
 @media (max-width:1280px){ #leftpanel{width:184px} #rightpanel{width:200px} }
-@media (max-width:1080px){ #rightpanel{display:none} }
-@media (max-width:860px){ #leftpanel{display:none} }
 @media (max-height:820px){ .card{width:110px;height:76px} }
+
+
+/* ============================================================
+   MOBILE / TOUCH
+   ============================================================ */
+.only-mobile{display:none}
+.drawer-scrim{
+  position:fixed;inset:0;background:#000a;backdrop-filter:blur(2px);
+  opacity:0;pointer-events:none;transition:opacity .2s;z-index:240;
+}
+
+/* touch input: draggables must not pan or long-press-select the page */
+body.touch{-webkit-tap-highlight-color:transparent}
+body.touch .unit,body.touch .item,body.touch .bench-slot,
+body.touch .sell-zone,body.touch #boardWrap,body.touch .hex{touch-action:none}
+body.touch .log,body.touch .player-list{touch-action:pan-y}
+body.touch .help-grid,body.touch .modal-box{touch-action:pan-y}
+
+/* a tooltip opened by long-press is interactive and dismissed by the next tap */
+.tooltip.pinned{pointer-events:auto;max-width:min(88vw,340px)}
+.tip-sell{
+  margin-top:9px;width:100%;padding:9px;border-radius:6px;font:700 12px/1 sans-serif;letter-spacing:1px;
+  background:#3a0f18;border:1px solid var(--blood);color:#ff9daa;
+}
+
+@media (max-width:1080px){
+  .only-mobile{display:block}
+
+  /* --- top bar --- */
+  #topbar{padding:4px 8px;padding-top:calc(4px + env(safe-area-inset-top))}
+  .tb-left,.tb-right{gap:5px}
+  .logo{font-size:13px;letter-spacing:1px}
+  .logo span{display:none}
+  .stage-pill{padding:3px 7px;font-size:13px}
+  .phase-pill{display:none}
+  .timer-wrap{width:52px;height:14px}
+  .timer-wrap span{font-size:9px;line-height:14px}
+  .stat{padding:4px 6px;font-size:12px;gap:3px}
+  .stat.streak{display:none}
+  .speed-ctrl .spd{padding:4px 5px;font-size:9px}
+  .ghost-btn{padding:4px 8px;font-size:12px}
+  #helpBtn{display:none}          /* lives in the drawer on mobile */
+  #helpBtn2{margin-top:8px;width:100%;padding:10px}
+
+  /* --- shell --- */
+  #main{padding:4px;gap:4px}
+  #center{gap:3px}
+  #leftpanel{display:none}
+
+  /* the fleet + log become a bottom sheet */
+  #rightpanel{
+    position:fixed;left:0;right:0;bottom:0;width:auto;z-index:250;
+    max-height:72vh;border-radius:14px 14px 0 0;
+    transform:translateY(103%);transition:transform .22s ease;
+    padding-bottom:calc(10px + env(safe-area-inset-bottom));
+    box-shadow:0 -14px 40px #000b;
+  }
+  body.drawer-open #rightpanel{transform:translateY(0)}
+  body.drawer-open .drawer-scrim{opacity:1;pointer-events:auto}
+
+  /* --- compact trait + cargo strips above the bench --- */
+  #mobileStrips{display:flex;flex-direction:column;gap:3px;width:100%;flex:0 0 auto}
+  #mobileStrips #traitList{
+    flex:0 0 auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;
+    gap:4px;padding:0 0 2px;touch-action:pan-x;
+  }
+  #mobileStrips .trait-row{flex:0 0 auto;padding:3px 6px;gap:4px}
+  #mobileStrips .trait-row .tn{display:none}
+  #mobileStrips .trait-row .ti{width:19px;height:19px;font-size:10px;border-radius:3px}
+  #mobileStrips .trait-row .tc{padding:2px 4px;font-size:10px}
+  #mobileStrips #itemBench{
+    flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;min-height:0;gap:4px;padding:0;touch-action:pan-x;
+  }
+  #mobileStrips .item{width:30px;height:30px;font-size:15px;flex:0 0 auto}
+  #mobileStrips>div:empty{display:none}
+  #mobileStrips .panel-empty{display:none}   /* the strips just stay empty */
+  #mobileStrips #traitList::-webkit-scrollbar,
+  #mobileStrips #itemBench::-webkit-scrollbar{height:3px}
+  #mobileStrips #traitList::-webkit-scrollbar-thumb,
+  #mobileStrips #itemBench::-webkit-scrollbar-thumb{background:#1d3b4e}
+
+  /* --- bench: two rows of five keeps the slots thumb-sized --- */
+  #benchRow{gap:4px;width:100%;align-items:stretch}
+  .bench-label{display:none}
+  #bench{flex:1 1 auto;gap:3px;min-width:0;flex-wrap:wrap}
+  .bench-slot{width:auto;flex:0 0 calc(20% - 2.4px);min-width:0;height:47px;border-radius:6px}
+  .unit.benched{width:100%}
+  .unit.benched .body{width:37px;height:37px;font-size:19px}
+  .unit.benched .stars{top:-11px;font-size:8px}
+  .sell-zone{width:52px;height:auto;font-size:7px;letter-spacing:0}
+  .sell-zone .sz-ico{font-size:14px}
+  .sell-zone .price{font-size:11px}
+
+  /* --- shop --- */
+  #shopRow{flex-wrap:wrap;gap:4px;width:100%}
+  #shop{order:1;width:100%;gap:3px}
+  .shop-side{order:2;flex:1 1 auto;gap:4px;min-width:0}
+  .shop-side.right{order:3;flex-direction:row;align-items:stretch;flex:1 1 auto}
+  .odds{display:none}
+  .card{flex:1 1 0;min-width:0;width:auto;height:66px;padding:4px 5px;border-bottom-width:3px}
+  .card .cn{font-size:9px;line-height:1.08;gap:3px;padding-right:15px;max-height:26px;overflow:hidden;word-break:break-word}
+  .card .cn i{font-size:13px}
+  .card .ct{font-size:8px}
+  .card .cc{font-size:10px;top:3px;right:4px}
+  .card .own{font-size:8px;bottom:2px;right:4px}
+  .lvl-box{min-width:0;flex:1 1 auto;padding:4px 7px;gap:2px}
+  .lvl-num{font-size:12px}
+  .xp-bar{height:11px}
+  .xp-bar>span{font-size:8px;line-height:11px}
+  .unit-cap{font-size:9px}
+  .shop-btn{min-width:0;flex:1 1 auto;padding:4px 6px;gap:1px}
+  .shop-btn .sb-title{font-size:9.5px}
+  .shop-btn .sb-cost{font-size:11px}
+  .shop-btn.lock{flex:0 0 30px;font-size:12px}
+  .ready-btn{flex:1 1 auto;padding:8px 10px;font-size:12px;letter-spacing:1px}
+
+  /* --- modals --- */
+  .modal-box{max-width:94vw;padding:16px 14px;max-height:86vh;overflow:auto}
+  .modal-box h2{font-size:19px}
+  .armory-row{flex-direction:column;gap:8px;margin:8px 0 0}
+  .armory-card{
+    width:100%;display:flex;align-items:center;gap:11px;text-align:left;padding:10px 12px;
+  }
+  .armory-card .ai{font-size:26px;margin:0;flex:0 0 auto}
+  .armory-card .an{margin:0 0 2px}
+  .armory-card .ad{font-size:10.5px}
+  .help-grid{font-size:11.5px;max-height:56vh}
+  #combatBanner{font-size:30px;letter-spacing:2px}
+}
+
+/* short landscape phones: squeeze the furniture, keep everything reachable */
+@media (max-width:1080px) and (orientation:landscape) and (max-height:540px){
+  #mobileStrips #traitList{max-height:26px}
+  #mobileStrips .trait-row{padding:2px 5px}
+  #mobileStrips .item{width:26px;height:26px;font-size:13px}
+  .bench-slot{height:38px}
+  .unit.benched .body{width:28px;height:28px;font-size:14px}
+  .sell-zone{height:38px}
+  .card{height:52px}
+  .card .ct{display:none}
+  .ready-btn{padding:6px 10px}
+}
+
+/* very narrow phones: drop the wordmark, tighten the status chips */
+@media (max-width:480px){
+  .logo{display:none}
+  #topbar{gap:4px}
+  .tb-left,.tb-right{gap:4px}
+}
+@media (max-width:400px){
+  .timer-wrap{width:42px}
+  .stat{padding:3px 5px;font-size:11px}
+  .speed-ctrl .spd{padding:3px 4px;font-size:9px}
+  .stage-pill{padding:3px 5px;font-size:12px}
+}
