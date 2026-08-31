@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blacktide Tactics</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <header id="topbar">
+    <div class="tb-left">
+      <div class="logo">BLACKTIDE<span>TACTICS</span></div>
+      <div class="stage-pill" id="stagePill">1&#8209;1</div>
+      <div class="phase-pill" id="phasePill">PLANNING</div>
+      <div class="timer-wrap"><div class="timer-bar" id="timerBar"></div><span id="timerTxt">30</span></div>
+    </div>
+    <div class="tb-right">
+      <div class="stat hp"><span class="ico">&#10084;</span><span id="hpVal">100</span></div>
+      <div class="stat gold"><span class="ico">&#9679;</span><span id="goldVal">0</span></div>
+      <div class="stat streak" id="streakStat"><span class="ico">&#9876;</span><span id="streakVal">0</span></div>
+      <div class="speed-ctrl">
+        <button data-speed="1" class="spd on">1&times;</button>
+        <button data-speed="2" class="spd">2&times;</button>
+        <button data-speed="4" class="spd">4&times;</button>
+      </div>
+      <button id="helpBtn" class="ghost-btn">?</button>
+    </div>
+  </header>
+
+  <div id="main">
+
+    <!-- ============ LEFT: TRAITS ============ -->
+    <aside id="leftpanel">
+      <div class="panel-title">Ship's Manifest</div>
+      <div id="traitList" class="trait-list"></div>
+      <div class="panel-title" style="margin-top:auto">Cargo Hold</div>
+      <div id="itemBench" class="item-bench"></div>
+    </aside>
+
+    <!-- ============ CENTER: BOARD ============ -->
+    <section id="center">
+      <div id="battlefield">
+        <div id="boardWrap">
+          <div id="hexBoard"></div>
+          <div id="unitLayer"></div>
+          <div id="fxLayer"></div>
+        </div>
+        <div id="combatBanner"></div>
+      </div>
+
+      <div id="benchRow">
+        <div class="bench-label">DECK</div>
+        <div id="bench" class="bench"></div>
+        <div id="sellZone" class="sell-zone">
+          <div class="sz-ico">&#128465;</div>
+          <div class="sz-txt">DROP<br>TO SELL</div>
+        </div>
+      </div>
+
+      <div id="shopRow">
+        <div class="shop-side">
+          <div class="lvl-box">
+            <div class="lvl-num">Lv <span id="lvlVal">1</span></div>
+            <div class="xp-bar"><div id="xpFill"></div><span id="xpTxt">0/2</span></div>
+            <div class="unit-cap">Crew <span id="capVal">0/1</span></div>
+          </div>
+          <button id="buyXpBtn" class="shop-btn xp">
+            <div class="sb-title">Buy 4 XP</div><div class="sb-cost">&#9679; 4</div>
+          </button>
+          <button id="rerollBtn" class="shop-btn rr">
+            <div class="sb-title">Refresh</div><div class="sb-cost">&#9679; 2</div>
+          </button>
+          <button id="lockBtn" class="shop-btn lock" title="Lock shop">&#128274;</button>
+        </div>
+        <div id="shop" class="shop"></div>
+        <div class="shop-side right">
+          <div class="odds" id="oddsBox"></div>
+          <button id="readyBtn" class="ready-btn">SET SAIL</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ RIGHT: FLEET ============ -->
+    <aside id="rightpanel">
+      <div class="panel-title">The Fleet</div>
+      <div id="playerList" class="player-list"></div>
+      <div class="panel-title">Log</div>
+      <div id="log" class="log"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- floating tooltip -->
+<div id="tooltip" class="tooltip hidden"></div>
+
+<!-- modal host -->
+<div id="modalRoot" class="modal-root hidden"><div id="modalBox" class="modal-box"></div></div>
+
+<!-- drag ghost -->
+<div id="dragGhost" class="drag-ghost hidden"></div>
+
+<script src="js/util.js"></script>
+<script src="js/data/traits.js"></script>
+<script src="js/data/items.js"></script>
+<script src="js/data/champions.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
