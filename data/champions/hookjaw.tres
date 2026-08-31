@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_5yto5"]
+
+[resource]
+script = ExtResource("1_5yto5")
+id = &"hookjaw"
+display_name = "Hookjaw"
+icon = "🦈"
+cost = 2
+traits = Array[StringName]([&"harpooner", &"reaver"])
+hp = 700.0
+ad = 60.0
+attack_speed = 0.7
+armor = 35.0
+magic_resist = 30.0
+mana_start = 20.0
+mana_max = 60.0
+ability_name = "Feeding Frenzy"
+ability_desc = "Leap at the lowest-Health enemy and bite for {dmg}% Attack Damage, healing for {heal} Health."
+ability_values = {
+&"dmg": [200, 250, 360],
+&"heal": [180, 270, 480]
+}

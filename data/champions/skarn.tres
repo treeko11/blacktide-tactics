@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_cf00q"]
+
+[resource]
+script = ExtResource("1_cf00q")
+id = &"skarn"
+display_name = "Skarn the Hollow"
+icon = "👁"
+cost = 3
+traits = Array[StringName]([&"ghost", &"harpooner"])
+hp = 820.0
+ad = 66.0
+armor = 45.0
+magic_resist = 40.0
+mana_start = 40.0
+mana_max = 85.0
+ability_name = "Soul Drag"
+ability_desc = "Haul the two farthest enemies to you, dealing {dmg} true damage and reducing their Armor by {shred}% for 8s."
+ability_values = {
+&"dmg": [160, 240, 440],
+&"shred": [30, 40, 60]
+}

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_wu3mp"]
+
+[resource]
+script = ExtResource("1_wu3mp")
+id = &"tidecaller"
+display_name = "Tidecaller"
+icon = "🌊"
+description = "The tide mends what steel breaks. Your team heals {hps}% max Health per second. Overhealing becomes a shield, up to {cap}% max Health."
+breakpoints = Array[int]([2, 3, 4])
+values = {
+&"cap": [10, 15, 25],
+&"hps": [1.2, 2.2, 4]
+}

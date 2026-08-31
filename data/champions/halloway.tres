@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_wsb16"]
+
+[resource]
+script = ExtResource("1_wsb16")
+id = &"halloway"
+display_name = "Gunny Halloway"
+icon = "💣"
+cost = 2
+traits = Array[StringName]([&"gunner", &"navigator"])
+hp = 580.0
+ad = 55.0
+attack_speed = 0.75
+attack_range = 4
+mana_start = 20.0
+mana_max = 55.0
+ability_name = "Grapeshot"
+ability_desc = "Spray the three nearest enemies with pellets, hitting each for {dmg}% Attack Damage twice."
+ability_values = {
+&"dmg": [70, 90, 130]
+}

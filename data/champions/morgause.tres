@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_bvqbv"]
+
+[resource]
+script = ExtResource("1_bvqbv")
+id = &"morgause"
+display_name = "Morgause"
+icon = "🎶"
+cost = 2
+traits = Array[StringName]([&"siren", &"stormborn"])
+hp = 580.0
+ad = 40.0
+attack_speed = 0.6
+magic_resist = 30.0
+attack_range = 3
+mana_start = 40.0
+mana_max = 90.0
+ability_name = "Dirge of the Drowned"
+ability_desc = "Sing at the densest cluster of enemies, dealing {dmg} magic damage in a wide area."
+ability_values = {
+&"dmg": [280, 420, 780]
+}

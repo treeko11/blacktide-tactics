@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_yccj8"]
+
+[resource]
+script = ExtResource("1_yccj8")
+id = &"sextant"
+display_name = "Brass Sextant"
+icon = "📐"
+description = "+15 starting Mana"
+is_component = true

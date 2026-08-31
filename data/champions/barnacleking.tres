@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_gbnpd"]
+
+[resource]
+script = ExtResource("1_gbnpd")
+id = &"barnacleking"
+display_name = "The Barnacle King"
+icon = "🐚"
+cost = 4
+traits = Array[StringName]([&"ghost", &"bosun"])
+hp = 1200.0
+ad = 65.0
+attack_speed = 0.55
+armor = 65.0
+magic_resist = 60.0
+mana_start = 70.0
+mana_max = 140.0
+ability_name = "Rise, Drowned Ones"
+ability_desc = "Raise your most valuable fallen ally at {rev}% Health, heal yourself for {heal}, and crush nearby enemies for {dmg} magic damage."
+ability_values = {
+&"dmg": [200, 300, 600],
+&"heal": [350, 525, 1000],
+&"rev": [40, 55, 100]
+}

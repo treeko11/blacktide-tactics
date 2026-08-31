@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_we27r"]
+
+[resource]
+script = ExtResource("1_we27r")
+id = &"krakens_compass"
+display_name = "Kraken's Compass"
+icon = "🧭"
+description = "+15 Ability Power, +30 Mana. After casting, restore 30 Mana."
+recipe = Array[StringName]([&"sextant", &"sextant"])

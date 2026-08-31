@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_vtcan"]
+
+[resource]
+script = ExtResource("1_vtcan")
+id = &"gunner"
+display_name = "Gunner"
+icon = "🔫"
+kind = 1
+description = "Every third attack, Gunners unload {n} extra shots at nearby enemies for {dmg}% Attack Damage."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"dmg": [45, 60, 80],
+&"n": [2, 3, 5]
+}

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_17e6g"]
+
+[resource]
+script = ExtResource("1_17e6g")
+id = &"reaver"
+display_name = "Reaver"
+icon = "🩸"
+kind = 1
+description = "Reavers gain {ov}% Omnivamp and deal {bonus}% bonus damage to enemies below half Health."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"bonus": [15, 28, 50],
+&"ov": [12, 22, 40]
+}

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_mf1wr"]
+
+[resource]
+script = ExtResource("1_mf1wr")
+id = &"ironclad"
+display_name = "Ironclad Cutlass"
+icon = "🔨"
+description = "+15 Attack Damage, +200 Health. At 50% Health, gain a shield equal to 30% max Health and 25% Attack Damage."
+recipe = Array[StringName]([&"blade", &"plate"])

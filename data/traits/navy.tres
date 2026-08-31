@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_lqbf1"]
+
+[resource]
+script = ExtResource("1_lqbf1")
+id = &"navy"
+display_name = "Royal Navy"
+icon = "⚓"
+description = "Discipline holds the line. Your team gains {res} Armor and Magic Resist. Royal Navy units gain double, and recover {heal}% of damage taken over 3s."
+breakpoints = Array[int]([2, 3, 4, 5])
+values = {
+&"heal": [15, 22, 32, 50],
+&"res": [15, 30, 55, 95]
+}

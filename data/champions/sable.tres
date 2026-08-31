@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_hg2wi"]
+
+[resource]
+script = ExtResource("1_hg2wi")
+id = &"sable"
+display_name = "Wavecutter Sable"
+icon = "🌊"
+cost = 3
+traits = Array[StringName]([&"navigator", &"swash"])
+hp = 760.0
+ad = 66.0
+attack_speed = 0.85
+armor = 35.0
+magic_resist = 35.0
+mana_start = 15.0
+mana_max = 50.0
+ability_name = "Wake Cutter"
+ability_desc = "Cut through the three nearest enemies, dealing {dmg}% Attack Damage to each and gaining {as}% Attack Speed for 4s."
+ability_values = {
+&"as": [30, 40, 70],
+&"dmg": [130, 165, 240]
+}

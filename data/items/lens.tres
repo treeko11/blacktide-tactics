@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_wwu3n"]
+
+[resource]
+script = ExtResource("1_wwu3n")
+id = &"lens"
+display_name = "Sea-Glass Lens"
+icon = "🔮"
+description = "+10 Ability Power"
+is_component = true

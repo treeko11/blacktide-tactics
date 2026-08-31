@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_nlxx8"]
+
+[resource]
+script = ExtResource("1_nlxx8")
+id = &"davy"
+display_name = "Davy Grim"
+icon = "💀"
+cost = 5
+traits = Array[StringName]([&"ghost", &"siren"])
+hp = 1200.0
+ad = 75.0
+armor = 55.0
+magic_resist = 60.0
+attack_range = 3
+mana_start = 40.0
+mana_max = 100.0
+ability_name = "The Locker Opens"
+ability_desc = "Deal {dmg} magic damage to all enemies. Every ally that dies in the next {dur}s returns at {rev}% Health."
+ability_values = {
+&"dmg": [350, 525, 2000],
+&"dur": [6, 8, 30],
+&"rev": [40, 50, 100]
+}

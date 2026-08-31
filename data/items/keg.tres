@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_fayoc"]
+
+[resource]
+script = ExtResource("1_fayoc")
+id = &"keg"
+display_name = "Powder Keg"
+icon = "🛢"
+description = "+12% Attack Speed"
+is_component = true

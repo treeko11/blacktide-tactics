@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_hdemb"]
+
+[resource]
+script = ExtResource("1_hdemb")
+id = &"kraken"
+display_name = "The Kraken"
+icon = "🐙"
+cost = 5
+traits = Array[StringName]([&"leviathan", &"harpooner"])
+hp = 1400.0
+ad = 95.0
+attack_speed = 0.6
+armor = 70.0
+magic_resist = 70.0
+attack_range = 2
+mana_start = 50.0
+mana_max = 120.0
+ability_name = "Fleetbreaker"
+ability_desc = "Eight tentacles erupt. Drag every enemy within four hexes inward, dealing {dmg} magic damage and stunning them for {stun}s. Enemies below {ex}% Health are devoured outright."
+ability_values = {
+&"dmg": [500, 750, 4000],
+&"ex": [12, 15, 40],
+&"stun": [1.5, 2, 5]
+}

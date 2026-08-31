@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_as7u0"]
+
+[resource]
+script = ExtResource("1_as7u0")
+id = &"coral_aegis"
+display_name = "Coral Aegis"
+icon = "🧿"
+description = "+30 Ability Power, +25 Armor and Magic Resist. Gain a 350 Health shield for the first 10 seconds."
+recipe = Array[StringName]([&"lens", &"plate"])

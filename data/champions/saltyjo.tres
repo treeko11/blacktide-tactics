@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_0pfd0"]
+
+[resource]
+script = ExtResource("1_0pfd0")
+id = &"saltyjo"
+display_name = "Salty Jo"
+icon = "🔫"
+traits = Array[StringName]([&"gunner", &"corsair"])
+ad = 48.0
+attack_speed = 0.7
+armor = 20.0
+magic_resist = 20.0
+attack_range = 4
+mana_start = 20.0
+mana_max = 55.0
+ability_name = "Three Barrels"
+ability_desc = "Fire three shots at the current target for {dmg}% Attack Damage each."
+ability_values = {
+&"dmg": [85, 105, 145]
+}

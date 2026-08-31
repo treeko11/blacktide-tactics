@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_qe23w"]
+
+[resource]
+script = ExtResource("1_qe23w")
+id = &"maelstrom"
+display_name = "Maelstrom"
+icon = "🌪"
+cost = 4
+traits = Array[StringName]([&"leviathan", &"stormborn"])
+hp = 1100.0
+ad = 70.0
+attack_speed = 0.6
+armor = 55.0
+magic_resist = 55.0
+attack_range = 2
+mana_start = 60.0
+mana_max = 130.0
+ability_name = "Whirlpool"
+ability_desc = "Open a vortex that drags all enemies within three hexes inward and deals {dmg} magic damage over 3 seconds."
+ability_values = {
+&"dmg": [450, 675, 1500]
+}

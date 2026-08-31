@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_iui2r"]
+
+[resource]
+script = ExtResource("1_iui2r")
+id = &"drowned_anchor"
+display_name = "Drowned Anchor"
+icon = "⚓"
+description = "+300 Health, +20 Mana. After casting, shield this unit and the 2 lowest-Health allies for 300 for 6 seconds."
+recipe = Array[StringName]([&"plate", &"sextant"])

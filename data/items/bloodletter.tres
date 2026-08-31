@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_nhu1e"]
+
+[resource]
+script = ExtResource("1_nhu1e")
+id = &"bloodletter"
+display_name = "The Bloodletter"
+icon = "⚔️"
+description = "+45 Attack Damage. Gain 10 Attack Damage whenever this unit lands a killing blow."
+recipe = Array[StringName]([&"blade", &"blade"])

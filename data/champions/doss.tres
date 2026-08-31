@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_2xcl4"]
+
+[resource]
+script = ExtResource("1_2xcl4")
+id = &"doss"
+display_name = "Deadeye Doss"
+icon = "🎯"
+cost = 2
+traits = Array[StringName]([&"gunner", &"reaver"])
+hp = 560.0
+ad = 62.0
+attack_range = 4
+mana_start = 40.0
+mana_max = 80.0
+ability_name = "Widow's Round"
+ability_desc = "Fire a slug at the lowest-Health enemy for {dmg}% Attack Damage, increased by up to {amp}% based on how wounded they are."
+ability_values = {
+&"amp": [80, 100, 160],
+&"dmg": [230, 290, 420]
+}

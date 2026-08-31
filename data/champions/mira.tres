@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_eerx5"]
+
+[resource]
+script = ExtResource("1_eerx5")
+id = &"mira"
+display_name = "Tempest Mira"
+icon = "🌩"
+cost = 2
+traits = Array[StringName]([&"stormborn", &"siren"])
+hp = 570.0
+ad = 42.0
+magic_resist = 30.0
+attack_range = 4
+mana_start = 30.0
+mana_max = 70.0
+ability_name = "Thunderhead"
+ability_desc = "Call down a bolt for {dmg} magic damage to the target and half that to enemies beside it, shredding {shred}% Magic Resist for 6s."
+ability_values = {
+&"dmg": [260, 390, 700],
+&"shred": [25, 30, 45]
+}

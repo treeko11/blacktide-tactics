@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_q0ocr"]
+
+[resource]
+script = ExtResource("1_q0ocr")
+id = &"meredine"
+display_name = "Meredine"
+icon = "🎼"
+cost = 3
+traits = Array[StringName]([&"siren", &"tidecaller"])
+hp = 700.0
+ad = 45.0
+attack_speed = 0.6
+armor = 30.0
+magic_resist = 40.0
+attack_range = 3
+mana_start = 40.0
+mana_max = 100.0
+ability_name = "Hymn of the Deep"
+ability_desc = "Heal all allies for {heal} and grant them {ap} Ability Power for the rest of combat."
+ability_values = {
+&"ap": [15, 22, 45],
+&"heal": [300, 450, 850]
+}

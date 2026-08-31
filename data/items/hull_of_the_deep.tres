@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_gcfk7"]
+
+[resource]
+script = ExtResource("1_gcfk7")
+id = &"hull_of_the_deep"
+display_name = "Hull of the Deep"
+icon = "🚢"
+description = "+800 Health. Regenerate 3% max Health per second."
+recipe = Array[StringName]([&"plate", &"plate"])

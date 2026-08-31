@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_k1uh0"]
+
+[resource]
+script = ExtResource("1_k1uh0")
+id = &"nautica"
+display_name = "Empress Nautica"
+icon = "👑"
+cost = 5
+traits = Array[StringName]([&"navy", &"siren", &"navigator"])
+hp = 1150.0
+ad = 70.0
+attack_speed = 0.7
+armor = 60.0
+magic_resist = 60.0
+attack_range = 3
+mana_start = 40.0
+mana_max = 100.0
+ability_name = "Flagship Broadside"
+ability_desc = "The flagship fires: {dmg} magic damage to all enemies in a huge area. Allies gain {res} Armor and Magic Resist and {ap} Ability Power permanently."
+ability_values = {
+&"ap": [20, 30, 120],
+&"dmg": [400, 600, 2400],
+&"res": [25, 35, 120]
+}

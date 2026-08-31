@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_7v6t0"]
+
+[resource]
+script = ExtResource("1_7v6t0")
+id = &"reckoning"
+display_name = "Corsair's Reckoning"
+icon = "🗝"
+description = "+20 Attack Damage, +20 Ability Power, +25% Omnivamp."
+recipe = Array[StringName]([&"blade", &"lens"])

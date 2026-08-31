@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_rnb3d"]
+
+[resource]
+script = ExtResource("1_rnb3d")
+id = &"barnaby"
+display_name = "Barnaby Kegg"
+icon = "🍺"
+traits = Array[StringName]([&"bosun", &"corsair"])
+hp = 700.0
+attack_speed = 0.6
+armor = 45.0
+magic_resist = 45.0
+mana_start = 30.0
+mana_max = 70.0
+ability_name = "Keg Slam"
+ability_desc = "Slam a powder keg into the deck, dealing {dmg} magic damage to nearby enemies and gaining a {shield} Health shield."
+ability_values = {
+&"dmg": [160, 240, 400],
+&"shield": [180, 300, 550]
+}

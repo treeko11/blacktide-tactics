@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_btr4b"]
+
+[resource]
+script = ExtResource("1_btr4b")
+id = &"nerida"
+display_name = "Nerida"
+icon = "🧜"
+traits = Array[StringName]([&"siren", &"tidecaller"])
+hp = 520.0
+ad = 38.0
+armor = 20.0
+attack_range = 3
+mana_start = 30.0
+mana_max = 65.0
+ability_name = "Salt Balm"
+ability_desc = "Heal the lowest-Health ally for {heal} and shield them for {shield} for 6 seconds."
+ability_values = {
+&"heal": [220, 340, 600],
+&"shield": [120, 190, 340]
+}

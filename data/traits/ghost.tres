@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_cbjdg"]
+
+[resource]
+script = ExtResource("1_cbjdg")
+id = &"ghost"
+display_name = "Ghost Fleet"
+icon = "💀"
+description = "The drowned do not stay down. The first time a Ghost Fleet unit would die it returns after 1.5s with {hp}% Health. At 6, every ally rises once at 30%."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"hp": [35, 55, 80]
+}

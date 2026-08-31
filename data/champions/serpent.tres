@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_s60a6"]
+
+[resource]
+script = ExtResource("1_s60a6")
+id = &"serpent"
+display_name = "Reef Serpent"
+icon = "🐍"
+cost = 0
+hp = 1300.0
+ad = 70.0
+armor = 45.0
+magic_resist = 45.0
+attack_range = 2

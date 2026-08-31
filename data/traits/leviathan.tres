@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_fmxld"]
+
+[resource]
+script = ExtResource("1_fmxld")
+id = &"leviathan"
+display_name = "Leviathan"
+icon = "🐙"
+description = "Things older than ships. Leviathans gain {hp} Health and take {dr}% reduced damage."
+breakpoints = Array[int]([2, 3, 4])
+values = {
+&"dr": [8, 14, 24],
+&"hp": [500, 1000, 1900]
+}

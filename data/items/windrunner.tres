@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_8cavl"]
+
+[resource]
+script = ExtResource("1_8cavl")
+id = &"windrunner"
+display_name = "Windrunner's Chart"
+icon = "🗺"
+description = "+15% Attack Speed, +15 Mana. Every third attack chains lightning to 3 enemies for 90 magic damage and shreds 30% Magic Resist for 5s."
+recipe = Array[StringName]([&"keg", &"sextant"])

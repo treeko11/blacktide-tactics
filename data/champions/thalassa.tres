@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_er8qm"]
+
+[resource]
+script = ExtResource("1_er8qm")
+id = &"thalassa"
+display_name = "Thalassa"
+icon = "🌀"
+cost = 3
+traits = Array[StringName]([&"tidecaller", &"stormborn"])
+hp = 700.0
+ad = 48.0
+attack_speed = 0.6
+armor = 30.0
+magic_resist = 40.0
+attack_range = 4
+mana_start = 40.0
+mana_max = 95.0
+ability_name = "Tidal Surge"
+ability_desc = "Send a wave through the enemy line, dealing {dmg} magic damage to the target and everything behind it, and healing allies for {heal}."
+ability_values = {
+&"dmg": [270, 400, 760],
+&"heal": [140, 210, 380]
+}

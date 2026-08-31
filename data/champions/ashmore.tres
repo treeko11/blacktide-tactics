@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_popmy"]
+
+[resource]
+script = ExtResource("1_popmy")
+id = &"ashmore"
+display_name = "Blackbeard Ashmore"
+icon = "🏴"
+cost = 5
+traits = Array[StringName]([&"corsair", &"gunner", &"reaver"])
+hp = 1100.0
+ad = 100.0
+attack_speed = 0.8
+armor = 45.0
+magic_resist = 45.0
+attack_range = 3
+mana_start = 30.0
+mana_max = 70.0
+ability_name = "Six Pistols"
+ability_desc = "Draw six pistols and fire at the lowest-Health enemies for {dmg}% Attack Damage each. Kills grant {ad} permanent Attack Damage."
+ability_values = {
+&"ad": [10, 15, 60],
+&"dmg": [110, 135, 400]
+}

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_nv0rv"]
+
+[resource]
+script = ExtResource("1_nv0rv")
+id = &"kelpar"
+display_name = "Kelpar"
+icon = "🐋"
+cost = 2
+traits = Array[StringName]([&"leviathan", &"tidecaller"])
+hp = 800.0
+attack_speed = 0.55
+armor = 45.0
+magic_resist = 45.0
+mana_start = 50.0
+mana_max = 100.0
+ability_name = "Whalesong"
+ability_desc = "Heal all allies for {heal} and deal {dmg} magic damage to adjacent enemies."
+ability_values = {
+&"dmg": [140, 210, 380],
+&"heal": [180, 270, 480]
+}

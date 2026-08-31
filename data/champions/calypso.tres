@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_di0wu"]
+
+[resource]
+script = ExtResource("1_di0wu")
+id = &"calypso"
+display_name = "Calypso"
+icon = "⛈️"
+cost = 5
+traits = Array[StringName]([&"stormborn", &"tidecaller"])
+hp = 1150.0
+ad = 70.0
+armor = 50.0
+magic_resist = 60.0
+attack_range = 4
+mana_start = 40.0
+mana_max = 110.0
+ability_name = "Sovereign Storm"
+ability_desc = "Summon a hurricane for 4 seconds: strike a random enemy for {dmg} magic damage every 0.4s while healing all allies for {heal} per second."
+ability_values = {
+&"dmg": [130, 195, 700],
+&"heal": [120, 180, 700]
+}

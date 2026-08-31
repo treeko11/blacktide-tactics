@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_as3ah"]
+
+[resource]
+script = ExtResource("1_as3ah")
+id = &"lyra"
+display_name = "Longshot Lyra"
+icon = "🏹"
+cost = 4
+traits = Array[StringName]([&"gunner", &"corsair"])
+hp = 750.0
+ad = 80.0
+attack_speed = 0.75
+armor = 30.0
+magic_resist = 30.0
+attack_range = 5
+mana_start = 30.0
+mana_max = 75.0
+ability_name = "Piercing Shot"
+ability_desc = "Fire a shot that pierces the whole enemy line for {dmg}% Attack Damage, ignoring {pen}% Armor."
+ability_values = {
+&"dmg": [230, 285, 460],
+&"pen": [40, 50, 80]
+}

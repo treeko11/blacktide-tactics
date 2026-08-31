@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_pdtb8"]
+
+[resource]
+script = ExtResource("1_pdtb8")
+id = &"squall"
+display_name = "Squall"
+icon = "⚡"
+traits = Array[StringName]([&"stormborn", &"navigator"])
+hp = 520.0
+ad = 40.0
+attack_speed = 0.7
+armor = 20.0
+attack_range = 3
+mana_start = 25.0
+mana_max = 60.0
+ability_name = "Forked Sky"
+ability_desc = "Lightning arcs to {n} enemies, dealing {dmg} magic damage to each."
+ability_values = {
+&"dmg": [140, 210, 380],
+&"n": [3, 3, 4]
+}

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_sf5ev"]
+
+[resource]
+script = ExtResource("1_sf5ev")
+id = &"vance"
+display_name = "Grand Admiral Vance"
+icon = "🎖"
+cost = 4
+traits = Array[StringName]([&"navy", &"navigator"])
+hp = 900.0
+ad = 70.0
+attack_speed = 0.7
+armor = 50.0
+magic_resist = 50.0
+attack_range = 3
+mana_start = 40.0
+mana_max = 90.0
+ability_name = "All Hands"
+ability_desc = "Shield every ally for {shield} and grant them {as}% Attack Speed for 6s, then bombard the densest cluster for {dmg} magic damage."
+ability_values = {
+&"as": [25, 35, 65],
+&"dmg": [300, 450, 900],
+&"shield": [250, 375, 700]
+}

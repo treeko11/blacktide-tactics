@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_aqpvh"]
+
+[resource]
+script = ExtResource("1_aqpvh")
+id = &"finn"
+display_name = "Fishgut Finn"
+icon = "🪝"
+traits = Array[StringName]([&"harpooner", &"corsair"])
+hp = 600.0
+ad = 55.0
+attack_speed = 0.7
+armor = 30.0
+mana_start = 20.0
+mana_max = 50.0
+ability_name = "Gut Hook"
+ability_desc = "Rip the target for {dmg}% Attack Damage as physical damage plus {tr} true damage."
+ability_values = {
+&"dmg": [160, 200, 280],
+&"tr": [60, 95, 170]
+}

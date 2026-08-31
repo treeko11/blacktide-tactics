@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_8j0uu"]
+
+[resource]
+script = ExtResource("1_8j0uu")
+id = &"stormglass"
+display_name = "Stormglass"
+icon = "🌀"
+description = "+30 Ability Power, +15% Attack Speed. After casting, gain 40% Attack Speed for 5 seconds."
+recipe = Array[StringName]([&"lens", &"keg"])

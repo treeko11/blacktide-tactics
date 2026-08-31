@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_77emo"]
+
+[resource]
+script = ExtResource("1_77emo")
+id = &"siren"
+display_name = "Siren"
+icon = "🧜"
+description = "Songs that drown men. Your team gains {teamAp} Ability Power. Sirens gain {ap} instead and refund {mana} Mana after casting."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"ap": [30, 60, 110],
+&"mana": [10, 20, 30],
+&"teamAp": [10, 20, 35]
+}

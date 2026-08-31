@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_exsv6"]
+
+[resource]
+script = ExtResource("1_exsv6")
+id = &"plate"
+display_name = "Barnacle Plate"
+icon = "🛡"
+description = "+20 Armor, +20 Magic Resist"
+is_component = true

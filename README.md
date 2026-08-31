@@ -2,8 +2,35 @@
 
 **[▶ Play it here](https://treeko11.github.io/blacktide-tactics/)**
 
-A pirate/nautical auto battler in the style of Teamfight Tactics. Zero dependencies, zero build
-step — play in the browser at the link above, or clone and **double-click `index.html`**.
+A pirate/nautical auto battler in the style of Teamfight Tactics.
+
+## Two builds
+
+The game is being **moved into Godot 4.7**, and both builds currently live in this repository.
+
+| | Browser build | Godot build |
+|---|---|---|
+| Where | `index.html`, `css/`, `js/` | `project.godot`, `scenes/`, `scripts/`, `data/` |
+| Run it | the play link above, or double-click `index.html` | double-click `Play.bat` |
+| State | complete, and what the play link serves | full feature parity, plus the first playtest's fixes |
+
+The browser build stays until the Godot one is clearly ahead, so the play link never breaks. Both
+are the same game: same 44 pirates, same 13 traits, same 20 items, same round loop and economy.
+
+**What the Godot build adds**, all from the first playthrough's notes: shop cards call out
+duplicates and star-ups, gold and the round clock sit beside the shop instead of across the screen,
+every archetype has its own directional attack effect rather than one shared line and ring, items
+announce themselves when acquired and explain what they do, a forge chart shows every component
+pairing, the AI actually collects and forges items, and tooltips close when you stop hovering them.
+
+Development notes for the Godot build are in [CLAUDE.md](CLAUDE.md).
+
+---
+
+## The browser build
+
+Zero dependencies, zero build step — play in the browser at the link above, or clone and
+**double-click `index.html`**.
 
 Plays on desktop and on phones. Below 1080px the layout switches to a touch build: the manifest
 and cargo hold become compact strips above the bench, the bench splits into two rows of five,

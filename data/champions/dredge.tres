@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_8pmcg"]
+
+[resource]
+script = ExtResource("1_8pmcg")
+id = &"dredge"
+display_name = "Dredge"
+icon = "🦀"
+cost = 3
+traits = Array[StringName]([&"leviathan", &"bosun"])
+hp = 950.0
+ad = 65.0
+attack_speed = 0.55
+armor = 55.0
+magic_resist = 50.0
+mana_start = 50.0
+mana_max = 110.0
+ability_name = "Crushing Claw"
+ability_desc = "Crush all enemies within two hexes for {dmg} magic damage, stunning them for {stun}s."
+ability_values = {
+&"dmg": [260, 390, 720],
+&"stun": [1.25, 1.5, 3]
+}

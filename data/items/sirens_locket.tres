@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_fnjim"]
+
+[resource]
+script = ExtResource("1_fnjim")
+id = &"sirens_locket"
+display_name = "Siren's Locket"
+icon = "📿"
+description = "+25 Ability Power, +20 Mana. After casting, restore 20 Mana and gain 10 permanent Ability Power."
+recipe = Array[StringName]([&"lens", &"sextant"])

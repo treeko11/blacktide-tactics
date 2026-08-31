@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_jprse"]
+
+[resource]
+script = ExtResource("1_jprse")
+id = &"rook"
+display_name = "Blackwater Rook"
+icon = "🗡"
+cost = 4
+traits = Array[StringName]([&"corsair", &"reaver"])
+hp = 850.0
+ad = 85.0
+attack_speed = 0.85
+armor = 40.0
+magic_resist = 40.0
+mana_start = 20.0
+mana_max = 55.0
+ability_name = "Cutthroat"
+ability_desc = "Vanish and reappear beside the lowest-Health enemy, dealing {dmg}% Attack Damage. If this kills them, immediately do it again."
+ability_values = {
+&"dmg": [280, 340, 600]
+}

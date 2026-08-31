@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_6vdbh"]
+
+[resource]
+script = ExtResource("1_6vdbh")
+id = &"marlowe"
+display_name = "Marlowe"
+icon = "⚓"
+traits = Array[StringName]([&"gunner", &"navy"])
+hp = 540.0
+armor = 30.0
+magic_resist = 30.0
+attack_range = 4
+mana_start = 30.0
+mana_max = 60.0
+ability_name = "Hull-Piercer"
+ability_desc = "Fire a shot for {dmg}% Attack Damage that ignores {pen}% of the target Armor."
+ability_values = {
+&"dmg": [180, 230, 320],
+&"pen": [50, 60, 85]
+}

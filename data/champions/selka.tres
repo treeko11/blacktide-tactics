@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_7hbx6"]
+
+[resource]
+script = ExtResource("1_7hbx6")
+id = &"selka"
+display_name = "Selka"
+icon = "🐬"
+cost = 2
+traits = Array[StringName]([&"tidecaller", &"swash"])
+hp = 640.0
+ad = 54.0
+attack_speed = 0.8
+armor = 30.0
+magic_resist = 35.0
+mana_start = 15.0
+mana_max = 45.0
+ability_name = "Dance of Tides"
+ability_desc = "Strike three times for {dmg}% Attack Damage, healing the lowest-Health ally for {heal} with each strike."
+ability_values = {
+&"dmg": [70, 88, 125],
+&"heal": [80, 120, 210]
+}

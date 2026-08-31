@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_136gf"]
+
+[resource]
+script = ExtResource("1_136gf")
+id = &"kessa"
+display_name = "Bloodtide Kessa"
+icon = "🩸"
+cost = 4
+traits = Array[StringName]([&"reaver", &"swash"])
+hp = 900.0
+ad = 88.0
+attack_speed = 0.9
+armor = 40.0
+magic_resist = 40.0
+mana_start = 10.0
+mana_max = 40.0
+ability_name = "Bloodtide"
+ability_desc = "Enter a frenzy: strike six times for {dmg}% Attack Damage, healing for {ov}% of all damage dealt."
+ability_values = {
+&"dmg": [55, 68, 110],
+&"ov": [35, 45, 80]
+}

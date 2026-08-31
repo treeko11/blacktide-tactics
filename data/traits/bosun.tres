@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_vivgg"]
+
+[resource]
+script = ExtResource("1_vivgg")
+id = &"bosun"
+display_name = "Bosun"
+icon = "💪"
+kind = 1
+description = "Bosuns gain {hp} Health. Your other units gain {team} Health."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"hp": [350, 750, 1400],
+&"team": [0, 150, 350]
+}

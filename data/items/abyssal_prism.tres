@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_b55ip"]
+
+[resource]
+script = ExtResource("1_b55ip")
+id = &"abyssal_prism"
+display_name = "Abyssal Prism"
+icon = "💎"
+description = "+80 Ability Power."
+recipe = Array[StringName]([&"lens", &"lens"])

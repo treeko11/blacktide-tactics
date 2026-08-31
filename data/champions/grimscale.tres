@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_3xpxs"]
+
+[resource]
+script = ExtResource("1_3xpxs")
+id = &"grimscale"
+display_name = "Grimscale"
+icon = "🐟"
+traits = Array[StringName]([&"harpooner", &"ghost"])
+hp = 620.0
+ad = 52.0
+armor = 35.0
+magic_resist = 30.0
+mana_start = 40.0
+mana_max = 80.0
+ability_name = "Gaff Hook"
+ability_desc = "Drag the farthest enemy to your side, dealing {dmg} magic damage and stunning them for {stun}s."
+ability_values = {
+&"dmg": [140, 210, 340],
+&"stun": [1, 1.25, 2]
+}

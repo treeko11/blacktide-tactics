@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_6lbwe"]
+
+[resource]
+script = ExtResource("1_6lbwe")
+id = &"corsair"
+display_name = "Corsair"
+icon = "🏴"
+description = "Plunder fuels the crew. Your team gains {teamAd}% Attack Damage. Corsairs gain double, plus {crit}% Critical Strike Chance."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"crit": [15, 25, 40],
+&"teamAd": [10, 22, 40]
+}

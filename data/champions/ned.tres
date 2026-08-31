@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_usy3p"]
+
+[resource]
+script = ExtResource("1_usy3p")
+id = &"ned"
+display_name = "Old Anchor Ned"
+icon = "🦾"
+traits = Array[StringName]([&"bosun", &"navy"])
+hp = 750.0
+ad = 45.0
+attack_speed = 0.55
+armor = 55.0
+magic_resist = 55.0
+mana_start = 40.0
+mana_max = 80.0
+ability_name = "Anchor Down"
+ability_desc = "Gain a {shield} Health shield and {res} Armor and Magic Resist for 8 seconds."
+ability_values = {
+&"res": [30, 45, 80],
+&"shield": [250, 400, 750]
+}

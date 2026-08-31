@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_tcqsb"]
+
+[resource]
+script = ExtResource("1_tcqsb")
+id = &"grull"
+display_name = "Ironbelly Grull"
+icon = "🐗"
+cost = 3
+traits = Array[StringName]([&"bosun", &"reaver"])
+hp = 980.0
+ad = 68.0
+attack_speed = 0.6
+armor = 50.0
+magic_resist = 45.0
+mana_start = 40.0
+mana_max = 85.0
+ability_name = "Gorge"
+ability_desc = "Heal {heal}% of missing Health and smash nearby enemies for {dmg}% Attack Damage."
+ability_values = {
+&"dmg": [150, 190, 280],
+&"heal": [30, 38, 60]
+}

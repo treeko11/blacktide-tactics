@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_gb5e0"]
+
+[resource]
+script = ExtResource("1_gb5e0")
+id = &"sirene"
+display_name = "Queen Sirene"
+icon = "👑"
+cost = 4
+traits = Array[StringName]([&"siren", &"navy"])
+hp = 800.0
+attack_speed = 0.6
+armor = 40.0
+magic_resist = 50.0
+attack_range = 3
+mana_start = 40.0
+mana_max = 100.0
+ability_name = "Sovereign's Song"
+ability_desc = "Enthrall the three nearest enemies, stunning them for {stun}s and dealing {dmg} magic damage over the duration."
+ability_values = {
+&"dmg": [350, 520, 1100],
+&"stun": [1.5, 1.75, 4]
+}

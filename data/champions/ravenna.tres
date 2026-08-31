@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_scidp"]
+
+[resource]
+script = ExtResource("1_scidp")
+id = &"ravenna"
+display_name = "Captain Ravenna"
+icon = "🌹"
+cost = 3
+traits = Array[StringName]([&"corsair", &"swash"])
+hp = 750.0
+ad = 70.0
+attack_speed = 0.8
+armor = 35.0
+magic_resist = 35.0
+mana_start = 20.0
+mana_max = 60.0
+ability_name = "Blackrose Flourish"
+ability_desc = "Unleash five cuts for {dmg}% Attack Damage each, gaining {crit}% Critical Strike Chance for the rest of combat."
+ability_values = {
+&"crit": [10, 15, 30],
+&"dmg": [65, 80, 125]
+}

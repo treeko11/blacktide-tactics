@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_onfq7"]
+
+[resource]
+script = ExtResource("1_onfq7")
+id = &"skiff"
+display_name = "Ghost Skiff"
+icon = "🛶"
+cost = 0
+hp = 1100.0
+ad = 65.0
+attack_speed = 0.7
+armor = 35.0
+magic_resist = 55.0
+attack_range = 4

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_7lmtn"]
+
+[resource]
+script = ExtResource("1_7lmtn")
+id = &"brine"
+display_name = "Brine Wraith"
+icon = "👻"
+traits = Array[StringName]([&"ghost", &"reaver"])
+hp = 600.0
+ad = 54.0
+armor = 30.0
+magic_resist = 30.0
+mana_start = 30.0
+mana_max = 60.0
+ability_name = "Drown the Living"
+ability_desc = "Deal {dmg} magic damage to the target and heal for {heal}% of the damage dealt."
+ability_values = {
+&"dmg": [200, 300, 520],
+&"heal": [60, 70, 90]
+}

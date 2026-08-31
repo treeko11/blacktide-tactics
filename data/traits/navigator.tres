@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_tcf28"]
+
+[resource]
+script = ExtResource("1_tcf28")
+id = &"navigator"
+display_name = "Navigator"
+icon = "🧭"
+kind = 1
+description = "Your team starts with {start} Mana and gains {reg} Mana per second. Navigators also gain {as}% Attack Speed."
+breakpoints = Array[int]([2, 3, 4])
+values = {
+&"as": [15, 25, 45],
+&"reg": [3, 6, 10],
+&"start": [15, 30, 50]
+}

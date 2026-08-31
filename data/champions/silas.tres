@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_i01je"]
+
+[resource]
+script = ExtResource("1_i01je")
+id = &"silas"
+display_name = "Drowned Silas"
+icon = "💀"
+cost = 2
+traits = Array[StringName]([&"ghost", &"bosun"])
+hp = 850.0
+ad = 52.0
+attack_speed = 0.6
+armor = 50.0
+magic_resist = 45.0
+mana_start = 40.0
+mana_max = 80.0
+ability_name = "Barnacle Skin"
+ability_desc = "Gain a {shield} Health shield, then deal {dmg} magic damage to nearby enemies each second for 3 seconds."
+ability_values = {
+&"dmg": [70, 105, 190],
+&"shield": [300, 450, 820]
+}

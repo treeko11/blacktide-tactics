@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_n3777"]
+
+[resource]
+script = ExtResource("1_n3777")
+id = &"grapeshot"
+display_name = "Grapeshot Bandolier"
+icon = "💥"
+description = "+45% Attack Speed. Attacks burn the target for 1.5% max Health per second and reduce its healing by 33% for 5s."
+recipe = Array[StringName]([&"keg", &"keg"])

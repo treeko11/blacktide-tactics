@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_jfyrr"]
+
+[resource]
+script = ExtResource("1_jfyrr")
+id = &"pip"
+display_name = "Pip Sparrow"
+icon = "🐦"
+traits = Array[StringName]([&"swash", &"corsair"])
+hp = 550.0
+ad = 55.0
+attack_speed = 0.75
+mana_start = 20.0
+mana_max = 50.0
+ability_name = "Featherstep"
+ability_desc = "Skip to the lowest-Health enemy and strike for {dmg}% Attack Damage, then gain {as}% Attack Speed for 5 seconds."
+ability_values = {
+&"as": [40, 55, 90],
+&"dmg": [190, 240, 330]
+}

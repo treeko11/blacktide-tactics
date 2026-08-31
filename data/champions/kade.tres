@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_dilw6"]
+
+[resource]
+script = ExtResource("1_dilw6")
+id = &"kade"
+display_name = "Bolt-Eye Kade"
+icon = "🔭"
+cost = 3
+traits = Array[StringName]([&"stormborn", &"gunner"])
+hp = 680.0
+ad = 62.0
+attack_speed = 0.75
+armor = 30.0
+magic_resist = 30.0
+attack_range = 4
+mana_start = 30.0
+mana_max = 70.0
+ability_name = "Storm Rounds"
+ability_desc = "Fire three charged rounds that each deal {dmg} magic damage and arc to a second enemy for half."
+ability_values = {
+&"dmg": [180, 270, 500]
+}

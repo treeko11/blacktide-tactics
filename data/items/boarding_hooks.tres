@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_bp05x"]
+
+[resource]
+script = ExtResource("1_bp05x")
+id = &"boarding_hooks"
+display_name = "Boarding Hooks"
+icon = "⛓️"
+description = "+250 Health, +12% Attack Speed. Each attack made or taken grants 3 Armor and Magic Resist (max 25 stacks)."
+recipe = Array[StringName]([&"plate", &"keg"])

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_kt5dt"]
+
+[resource]
+script = ExtResource("1_kt5dt")
+id = &"coral"
+display_name = "Coral"
+icon = "🐚"
+traits = Array[StringName]([&"tidecaller", &"siren"])
+hp = 540.0
+ad = 40.0
+attack_range = 3
+mana_start = 40.0
+mana_max = 80.0
+ability_name = "Reef Bloom"
+ability_desc = "Burst coral at the target for {dmg} magic damage to it and adjacent enemies, healing nearby allies for {heal}."
+ability_values = {
+&"dmg": [150, 225, 380],
+&"heal": [130, 200, 350]
+}

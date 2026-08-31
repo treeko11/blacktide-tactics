@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_20026"]
+
+[resource]
+script = ExtResource("1_20026")
+id = &"stormborn"
+display_name = "Stormborn"
+icon = "⚡"
+description = "Every 3 seconds, lightning strikes the {n} highest-Health enemies for {dmg} magic damage."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"dmg": [180, 380, 850],
+&"n": [1, 2, 4]
+}

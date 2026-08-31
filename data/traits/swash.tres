@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/trait_def.gd" id="1_nxr4g"]
+
+[resource]
+script = ExtResource("1_nxr4g")
+id = &"swash"
+display_name = "Swashbuckler"
+icon = "🗡"
+kind = 1
+description = "Swashbucklers gain {as}% Attack Speed per attack, stacking 8 times, and have {dodge}% chance to dodge attacks."
+breakpoints = Array[int]([2, 4, 6])
+values = {
+&"as": [5, 9, 15],
+&"dodge": [10, 18, 30]
+}

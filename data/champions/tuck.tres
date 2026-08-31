@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChampionDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/champion_def.gd" id="1_mbmq6"]
+
+[resource]
+script = ExtResource("1_mbmq6")
+id = &"tuck"
+display_name = "Cap'n Tuck"
+icon = "🧭"
+traits = Array[StringName]([&"navigator", &"navy"])
+hp = 560.0
+ad = 42.0
+attack_speed = 0.7
+armor = 30.0
+magic_resist = 30.0
+attack_range = 3
+mana_start = 25.0
+mana_max = 60.0
+ability_name = "Chart the Course"
+ability_desc = "Grant all allies {mana} Mana and {as}% Attack Speed for 6 seconds."
+ability_values = {
+&"as": [22, 32, 55],
+&"mana": [12, 18, 30]
+}
