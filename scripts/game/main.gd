@@ -143,13 +143,15 @@ func _build_overlays() -> void:
 	_banner.modulate.a = 0.0
 	add_child(_banner)
 
+	# Over the right of the *board*, not over the fleet panel — a toast that
+	# covers the standings hides the thing it is interrupting.
 	toasts = ToastLayer.new()
 	toasts.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	toasts.anchor_left = 1.0
 	toasts.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	toasts.offset_left = -330
-	toasts.offset_top = 60
-	toasts.offset_right = -16
+	toasts.offset_right = -(SIDE_WIDTH + 20.0)
+	toasts.offset_left = toasts.offset_right - 320.0
+	toasts.offset_top = 62
 	add_child(toasts)
 
 	tooltip = Tooltip.new()

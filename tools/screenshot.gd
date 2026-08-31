@@ -44,6 +44,13 @@ func run() -> void:
 	if units != "":
 		_field(game, units.split(","))
 
+	if arg("modal") != "":
+		_open_modal(arg("modal"), game)
+		await _frames(3)
+		_capture()
+		finish()
+		return
+
 	if arg("phase") == "combat":
 		await _run_a_fight(game)
 	else:
@@ -96,3 +103,24 @@ func _capture() -> void:
 		fail("could not write %s (error %d)" % [_out, error])
 	else:
 		print("  wrote %s" % ProjectSettings.globalize_path(_out))
+
+
+## Opens one of the dialogs directly, so a screenshot can prove it renders.
+func _open_modal(which: String, game: Node) -> void:
+	if _scene == null:
+		return
+	match which:
+		"forge":
+			# Hold a few components so the chart has something to mark as makeable.
+			for id in [&"blade", &"plate", &"lens"]:
+				game.give_item(id, &"salvage")
+			_scene.modals.open_forge_chart()
+		"armoury":
+			var offers: Array[StringName] = []
+			for item in content().forged_items().slice(0, 3):
+				offers.append(item.id)
+			_scene.modals.open_armoury(offers)
+		"help":
+			_scene.modals.open_help()
+		_:
+			fail("unknown modal '%s'" % which)
