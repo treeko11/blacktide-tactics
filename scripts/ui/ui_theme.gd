@@ -64,17 +64,35 @@ static var _ui_font: Font = null
 ## A font that can actually draw the champion and item icons.
 ##
 ## Every pirate, monster and item is identified by an emoji, carried straight
-## over from the web build. Godot's fallback font has no colour glyphs, so
-## without this the whole roster renders as empty boxes. The project's MSDF font
-## rendering is off for the same reason — it cannot represent colour glyphs.
+## over from the web build, so this is not decoration — without it the entire
+## roster is blank boxes.
+##
+## **It is bundled rather than asked for from the system.** A `SystemFont` naming
+## "Segoe UI Emoji" works on Windows and produces nothing at all in the web
+## export, which runs in a WASM sandbox with no system fonts: every unit, item
+## and trait rendered as tofu. Shipping the font also means a Mac player sees the
+## same icons as a Windows one instead of Apple's completely different set.
+##
+## Noto Color Emoji is SIL Open Font License 1.1 — see fonts/LICENSE-*.txt.
+## The project's MSDF font rendering is off because it cannot represent colour
+## glyphs.
+const EMOJI_FONT_PATH := "res://fonts/NotoColorEmoji.ttf"
+
 static func emoji_font() -> Font:
 	if _emoji_font == null:
-		var font := SystemFont.new()
-		font.font_names = PackedStringArray([
-			"Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol",
-		])
-		font.allow_system_fallback = true
-		_emoji_font = font
+		if ResourceLoader.exists(EMOJI_FONT_PATH):
+			_emoji_font = load(EMOJI_FONT_PATH)
+		else:
+			# Only reachable if the font is missing from the project; better a
+			# system font than nothing, even though the web build has none.
+			push_warning("UITheme: %s is missing, falling back to a system font"
+				% EMOJI_FONT_PATH)
+			var font := SystemFont.new()
+			font.font_names = PackedStringArray([
+				"Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji",
+			])
+			font.allow_system_fallback = true
+			_emoji_font = font
 	return _emoji_font
 
 

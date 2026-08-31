@@ -11,11 +11,14 @@ The game is being **moved into Godot 4.7**, and both builds currently live in th
 | | Browser build | Godot build |
 |---|---|---|
 | Where | `index.html`, `css/`, `js/` | `project.godot`, `scenes/`, `scripts/`, `data/` |
-| Run it | the play link above, or double-click `index.html` | double-click `Play.bat` |
-| State | complete, and what the play link serves | full feature parity, plus the first playtest's fixes |
+| Play it | **[the link above](https://treeko11.github.io/blacktide-tactics/)**, or double-click `index.html` | **[/web/](https://treeko11.github.io/blacktide-tactics/web/)**, or double-click `Play.bat` |
+| Input | mouse **and touch** | mouse only — no touch input yet |
+| Load | instant | ~50 MB WebAssembly download |
+| State | complete | full feature parity, plus the first playtest's fixes |
 
-The browser build stays until the Godot one is clearly ahead, so the play link never breaks. Both
-are the same game: same 44 pirates, same 13 traits, same 20 items, same round loop and economy.
+The browser build keeps the top-level link because it is the one that works on a phone and loads
+instantly; the Godot build sits a click away at `/web/` until it grows touch input. Both are the
+same game: same 44 pirates, same 13 traits, same 20 items, same round loop and economy.
 
 **What the Godot build adds**, all from the first playthrough's notes: shop cards call out
 duplicates and star-ups, gold and the round clock sit beside the shop instead of across the screen,

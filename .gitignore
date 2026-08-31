@@ -9,7 +9,6 @@ desktop.ini
 # Godot
 .godot/
 *.import
-export_presets.cfg
 
 # Screenshots written by tools/screenshot.gd
 shot_*.png
