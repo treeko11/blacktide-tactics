@@ -186,6 +186,24 @@ Each of these cost a debugging session or settles a design argument.
   breakpoints readable against `css/main.css`. Godot's window size on the web is
   in **device** pixels, so the ratio comes from `window.devicePixelRatio` through
   `JavaScriptBridge`; without it a phone looks like a 1125-pixel tablet.
+- **On a phone the board has to win the space fight, and it loses by default.**
+  It is the one panel that takes what is left over, and the first compact layout
+  left it 24% of the screen at a scale of 0.30 — a 21-point hex, which is not a
+  target a thumb can hit. The cause was the shop taking 39%: five cards wrapped
+  to two rows, and each card put the name between the icon and the price, so
+  "Old Anchor Ned" wrapped into four stacked fragments and made the card 150
+  points tall. One row of five, with the name on its own line under the icon,
+  took the shop to 24% and the board to 46% at a 43-point hex. `screenshot.gd
+  --measure` prints the height of every block; **decide this with numbers**, not
+  by squinting at a screenshot.
+- **Sideways is a different shape, not a tighter one.** Stacking the portrait
+  arrangement on a 390-point-tall landscape phone left the board 94 points —
+  less than the board is tall, so it was drawn at the scale floor and *clipped*,
+  with the back rows unreachable. A landscape phone is a wide short screen,
+  which is what the desktop layout is for, so it gets two columns: board on the
+  left, everything else in a narrow column on the right. That column is narrow,
+  so the shop and bench inside it use the *portrait* arrangement — the screen
+  being wide says nothing about the column.
 - **The window size is polled, not watched.** `Window.size_changed` does not fire
   when a browser canvas resizes, so a phone turned sideways kept its portrait
   layout stretched across a landscape window. A Vector2i compare once a frame is

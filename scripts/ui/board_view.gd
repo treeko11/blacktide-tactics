@@ -60,7 +60,12 @@ func _fit() -> void:
 	var board := Hex.board_size()
 	var usable := size - Vector2(MARGIN, MARGIN) * 2.0
 	board_scale = minf(MAX_SCALE, minf(usable.x / board.x, usable.y / board.y))
-	board_scale = maxf(0.3, board_scale)
+	# The floor only guards against a degenerate zero while the layout settles.
+	# It used to be 0.3, which on a sideways phone was larger than the space the
+	# board had been given: the grid was drawn at 0.3 and clipped, and the back
+	# rows could not be reached at all. A board too small to play is still better
+	# than a board with rows missing, and no layout should reach either.
+	board_scale = maxf(0.12, board_scale)
 	board_offset = (size - board * board_scale) * 0.5
 
 	var transform_scale := Vector2.ONE * board_scale

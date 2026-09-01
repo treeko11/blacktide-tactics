@@ -19,6 +19,7 @@ extends "res://tools/tool_script.gd"
 ##   --hold=<what>    press and hold a "card" or a "bench" slot, then photograph
 ##                    the inspector it opens
 ##   --rotate=<WxH>   resize again once the HUD is up, to prove it rebuilds
+##   --measure        print how tall each block of the HUD ended up
 ##   --shop=<ids>     comma-separated champion ids to seat in the shop
 
 var _out := "user://shot.png"
@@ -70,6 +71,13 @@ func run() -> void:
 	if arg("modal") != "":
 		await _open_modal(arg("modal"), game)
 		await _frames(3)
+		_capture()
+		finish()
+		return
+
+	if has_flag("measure"):
+		await _frames(6)
+		_measure()
 		_capture()
 		finish()
 		return
@@ -128,6 +136,34 @@ func _stock_shop(game: Node, ids: PackedStringArray) -> void:
 	for i in game.shop.size():
 		game.shop[i] = &"" if i >= ids.size() else StringName(ids[i].strip_edges())
 	events().shop_rolled.emit(game.shop.duplicate())
+
+
+## Prints the height of every block of the HUD.
+##
+## The phone layout is a fight over vertical space and the board loses it by
+## default: it is the one panel that takes what is left over. Numbers beat
+## squinting at a screenshot when deciding which piece of furniture to cut.
+func _measure() -> void:
+	var total: float = Layout.css_size.y
+	print("  viewport %d x %d (css)" % [Layout.css_size.x, total])
+	var blocks := {
+		"top bar": _scene.top_bar,
+		"board": _scene.board,
+		"traits": _scene.traits,
+		"cargo hold": _scene.hold,
+		"bench": _scene.bench,
+		"shop": _scene.shop,
+	}
+	for name in blocks:
+		var control: Control = blocks[name]
+		if control == null:
+			continue
+		print("  %-12s %6.1f  (%4.1f%%)"
+			% [name, control.size.y, 100.0 * control.size.y / maxf(total, 1.0)])
+	print("  board scale %.3f -> %d x %d hexes drawn"
+		% [_scene.board.board_scale,
+			roundi(Hex.board_size().x * _scene.board.board_scale),
+			roundi(Hex.board_size().y * _scene.board.board_scale)])
 
 
 ## Resizes a running HUD and checks it rebuilt into the other layout.

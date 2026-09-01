@@ -45,8 +45,9 @@ static func compact() -> bool:
 	return mode == Mode.COMPACT
 
 
-## A short landscape phone. Everything vertical has to be tighter here — there is
-## no room for the two-row bench the portrait layout uses.
+## A short landscape phone: wide, and with barely any height. It gets a different
+## shape entirely rather than a tighter version of portrait — see
+## Main._build_landscape.
 static func short() -> bool:
 	return mode == Mode.COMPACT and css_size.y < SHORT_HEIGHT
 
@@ -126,42 +127,43 @@ static func font_body() -> int:
 
 static func bench_slot() -> Vector2:
 	if short():
-		return Vector2(44, 44)
-	return Vector2(52, 52) if compact() else Vector2(64, 64)
+		return Vector2(40, 40)
+	return Vector2(46, 46) if compact() else Vector2(64, 64)
 
 
 static func item_chip() -> Vector2:
 	if short():
 		return Vector2(28, 28)
-	return Vector2(32, 32) if compact() else Vector2(36, 36)
+	return Vector2(30, 30) if compact() else Vector2(36, 36)
 
 
-## Height of a shop card. Compact cards are wider relative to the screen and
-## shorter, because vertical space is the scarce one on a phone.
+## Minimum size of a shop card. The compact one is a *floor*, not a size: five of
+## them share whatever width there is, and the height is whatever the name and
+## traits need. What matters here is that five minimum widths still fit across a
+## narrow phone, or the row overflows the screen.
 static func shop_card() -> Vector2:
 	if short():
-		return Vector2(88, 54)
-	return Vector2(96, 74) if compact() else Vector2(126, 92)
+		return Vector2(60, 50)
+	return Vector2(60, 62) if compact() else Vector2(126, 92)
 
 
-## How many shop cards sit on a row. Five across a phone is four characters of
-## champion name; the JS build wraps to three and so does this.
+## How many shop cards sit on a row: always all five.
 ##
-## A phone held sideways is wide and desperately short, so there the cards go
-## back to one row — the height matters more than the name does.
+## Wrapping to three, as the JS build does, costs a whole second row — and on a
+## phone that row comes out of the board, which was left at 24% of the screen and
+## a 21-point hex. A hex has to be big enough to drop a pirate on.
 static func shop_columns() -> int:
-	if not compact():
-		return 5
-	return 5 if short() else 3
+	return 5
 
 
-## How many bench slots sit on a row. Two rows of five on a portrait phone keeps
-## every slot thumb-sized; sideways there is width for all nine and no height to
-## spend on a second row.
+## How many bench slots sit on a row. Two rows of five keeps every slot
+## thumb-sized on a phone; nine across a 375-point screen is a 36-point slot,
+## under the smallest comfortable touch target.
+##
+## Sideways counts as a phone too, even though the screen is wide: there the
+## bench is in a column beside the board, not across the bottom.
 static func bench_columns() -> int:
-	if not compact():
-		return 9
-	return 9 if short() else 5
+	return 5 if compact() else 9
 
 
 ## Gap between the major blocks of the HUD.

@@ -146,7 +146,7 @@ func _build() -> void:
 	column.add_child(margins)
 
 	if compact:
-		margins.add_child(_build_centre())
+		margins.add_child(_build_landscape() if Layout.short() else _build_centre())
 		_build_sheet()
 	else:
 		var body := HBoxContainer.new()
@@ -201,22 +201,18 @@ func _build_centre() -> Control:
 	column.add_child(_preview)
 
 	# With no side columns to live in, the manifest and the hold become strips
-	# between the board and the bench — still glanceable, a fifth of the height.
-	# Sideways they share one line, because there height is the scarce thing.
+	# between the board and the bench. They share one line: two lines cost sixty
+	# points of height, and on a phone that height is the board's.
 	if compact:
 		traits = SidePanels.TraitPanel.new()
 		hold = SidePanels.HoldPanel.new()
-		if Layout.short():
-			var strips := HBoxContainer.new()
-			strips.add_theme_constant_override("separation", 6)
-			traits.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			strips.add_child(traits)
-			strips.add_child(hold)
-			column.add_child(strips)
-		else:
-			column.add_child(traits)
-			column.add_child(hold)
+		var strips := HBoxContainer.new()
+		strips.add_theme_constant_override("separation", 6)
+		traits.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		strips.add_child(traits)
+		strips.add_child(hold)
+		column.add_child(strips)
 
 	bench = BenchBar.new()
 	column.add_child(bench)
@@ -225,6 +221,57 @@ func _build_centre() -> Control:
 	column.add_child(shop)
 
 	return column
+
+
+## A phone held sideways: the board on the left, everything else stacked on the
+## right.
+##
+## Stacking the furniture the way portrait does leaves the board 94 points of a
+## 390-point screen, which is less than the board is tall — it was drawn at the
+## minimum scale and *clipped*, so the back rows were unreachable. But a sideways
+## phone is a wide short screen, which is the shape the desktop layout is for. So
+## it gets that shape instead: the height all goes to the board, and the width
+## pays for it.
+func _build_landscape() -> Control:
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 6)
+
+	board = BoardView.new()
+	board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	board.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(board)
+
+	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 3)
+	side.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Wide enough for five shop cards to stay legible; the board takes the rest.
+	side.custom_minimum_size = Vector2(minf(400.0, Layout.css_size.x * 0.5), 0)
+
+	traits = SidePanels.TraitPanel.new()
+	hold = SidePanels.HoldPanel.new()
+	var strips := HBoxContainer.new()
+	strips.add_theme_constant_override("separation", 6)
+	traits.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	strips.add_child(traits)
+	strips.add_child(hold)
+	side.add_child(strips)
+
+	_preview = UITheme.label("", UITheme.FONT_SMALL, UITheme.GOLD_BRIGHT)
+	_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_preview.custom_minimum_size = Vector2(0, 14)
+	_preview.clip_text = true
+	side.add_child(_preview)
+
+	bench = BenchBar.new()
+	side.add_child(bench)
+
+	shop = ShopBar.new()
+	side.add_child(shop)
+
+	body.add_child(side)
+	return body
 
 
 ## The fleet and the log, on a phone: a sheet over the bottom of the screen that

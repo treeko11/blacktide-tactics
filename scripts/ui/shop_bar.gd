@@ -102,7 +102,11 @@ func _build_wide() -> Control:
 	return row
 
 
-## The same parts stacked, for a screen with no width to spare.
+## The same parts stacked, for a narrow column.
+##
+## Used by both phone layouts: upright it is the bottom of the screen, sideways
+## it is the column beside the board. Both are narrow, which is the thing that
+## decides the arrangement — the sideways screen is wide, but the shop is not.
 ##
 ## The order is the order they get used in: cards first, because the planning
 ## phase is mostly spent looking at them, then the money and the clock, then the
@@ -113,35 +117,6 @@ func _build_compact() -> Control:
 
 	column.add_child(_make_cards())
 
-	# A phone held sideways has width to spare and no height at all: three
-	# stacked rows of furniture pushed the board off the screen entirely, so
-	# everything below the cards goes on one line.
-	if Layout.short():
-		var line := HBoxContainer.new()
-		line.add_theme_constant_override("separation", 6)
-
-		var meter := VBoxContainer.new()
-		meter.add_theme_constant_override("separation", 2)
-		meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		meter.add_child(_make_level_row())
-		meter.add_child(_make_xp_bar())
-		line.add_child(meter)
-
-		line.add_child(_make_gold_panel())
-
-		var clock := _make_timer_row()
-		clock.custom_minimum_size = Vector2(96, 0)
-		line.add_child(clock)
-
-		line.add_child(_make_buttons())
-
-		var quick_sail := _make_ready_button()
-		quick_sail.custom_minimum_size = Vector2(110, 0)
-		line.add_child(quick_sail)
-
-		column.add_child(line)
-		return column
-
 	var status := HBoxContainer.new()
 	status.add_theme_constant_override("separation", 6)
 
@@ -149,13 +124,23 @@ func _build_compact() -> Control:
 	level.add_theme_constant_override("separation", 2)
 	level.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	level.add_child(_make_level_row())
-	level.add_child(_make_xp_bar())
-	status.add_child(level)
 
+	# The XP bar and the round clock share a line. They are different meters, but
+	# they are both thin bars and a second row of one costs the board twenty
+	# points of height. Colour tells them apart: purple fills, foam drains.
+	var meters := HBoxContainer.new()
+	meters.add_theme_constant_override("separation", 6)
+	var xp := _make_xp_bar()
+	xp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	meters.add_child(xp)
+	var clock := _make_timer_row()
+	clock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	meters.add_child(clock)
+	level.add_child(meters)
+
+	status.add_child(level)
 	status.add_child(_make_gold_panel())
 	column.add_child(status)
-
-	column.add_child(_make_timer_row())
 
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 4)
@@ -398,31 +383,48 @@ class ShopCard extends PanelContainer:
 		pad.add_theme_constant_override("margin_right", 4)
 		add_child(pad)
 
+		var compact := Layout.compact()
+
 		var column := VBoxContainer.new()
-		column.add_theme_constant_override("separation", 2)
+		column.add_theme_constant_override("separation", 1 if compact else 2)
 		pad.add_child(column)
+
+		_icon = Label.new()
+		_icon.add_theme_font_override("font", UITheme.emoji_font())
+		_icon.add_theme_font_size_override("font_size", 14 if compact else 18)
+		_name = UITheme.label("", UITheme.FONT_TINY if compact else UITheme.FONT_SMALL,
+			UITheme.INK)
+		_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_cost = UITheme.label("", UITheme.FONT_TINY if compact else UITheme.FONT_SMALL,
+			UITheme.GOLD_BRIGHT)
 
 		var header := HBoxContainer.new()
 		header.add_theme_constant_override("separation", 5)
-		_icon = Label.new()
-		_icon.add_theme_font_override("font", UITheme.emoji_font())
-		_icon.add_theme_font_size_override("font_size", 18)
 		header.add_child(_icon)
-		_name = UITheme.label("", UITheme.FONT_SMALL, UITheme.INK)
-		_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		header.add_child(_name)
-		_cost = UITheme.label("", UITheme.FONT_SMALL, UITheme.GOLD_BRIGHT)
-		header.add_child(_cost)
-		column.add_child(header)
+		if compact:
+			# Five cards across a phone leaves a card about seventy points wide.
+			# With the icon and the price beside it the name had twenty-eight of
+			# those, so "Old Anchor Ned" came out as four stacked fragments and a
+			# card 150 points tall — the height the board was missing. On its own
+			# line the name gets the whole card.
+			header.add_child(UITheme.spacer())
+			header.add_child(_cost)
+			column.add_child(header)
+			column.add_child(_name)
+		else:
+			header.add_child(_name)
+			header.add_child(_cost)
+			column.add_child(header)
 
-		_traits = UITheme.label("", UITheme.FONT_TINY, UITheme.MUTED)
+		_traits = UITheme.label("", 9 if compact else UITheme.FONT_TINY, UITheme.MUTED)
 		_traits.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_traits.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		column.add_child(_traits)
 
-		_badge = UITheme.label("", UITheme.FONT_TINY, UITheme.FOAM)
+		_badge = UITheme.label("", 9 if compact else UITheme.FONT_TINY, UITheme.FOAM)
 		_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_badge.clip_text = true
 		column.add_child(_badge)
 
 		mouse_entered.connect(func(): hovered.emit(global_position + Vector2(size.x * 0.5, 0)))
@@ -479,22 +481,26 @@ class ShopCard extends PanelContainer:
 		# Two copies of a card the player owns nothing of used to look exactly
 		# like a card they already had one of — same wording weight, same frame —
 		# so the one signal worth acting on was buried in the one that is not.
+		# A phone card has room for a word, not a sentence. The frame and the pips
+		# carry the same message either way.
+		var narrow := Layout.compact()
 		if completes_upgrade:
-			_badge.text = "%s BUY THIS" % UITheme.STAR.repeat(2)
+			_badge.text = ("%s BUY" if narrow else "%s BUY THIS") % UITheme.STAR.repeat(2)
 			_badge.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 		elif pair_completes_upgrade:
-			_badge.text = "%s BUY BOTH" % UITheme.STAR.repeat(2)
+			_badge.text = ("%s BOTH" if narrow else "%s BUY BOTH") % UITheme.STAR.repeat(2)
 			_badge.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 		elif owned > 0:
-			_badge.text = "IN FLEET  %d/3" % owned
+			_badge.text = "%d/3" % owned if narrow else "IN FLEET  %d/3" % owned
 			_badge.add_theme_color_override("font_color", UITheme.GOOD)
 		elif fleet_count > 0:
 			# Owned, but every copy is already starred up, so buying does not
 			# merge. Still worth knowing the pirate is one of yours.
-			_badge.text = "IN FLEET %s" % UITheme.STAR.repeat(fleet_star)
+			_badge.text = UITheme.STAR.repeat(fleet_star) if narrow \
+				else "IN FLEET %s" % UITheme.STAR.repeat(fleet_star)
 			_badge.add_theme_color_override("font_color", UITheme.GOOD)
 		elif duplicate_in_shop:
-			_badge.text = "pair in shop"
+			_badge.text = "pair" if narrow else "pair in shop"
 			_badge.add_theme_color_override("font_color", UITheme.MUTED)
 		else:
 			_badge.text = ""
