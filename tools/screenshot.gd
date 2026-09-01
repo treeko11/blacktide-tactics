@@ -326,6 +326,12 @@ func _press_and_hold(game: Node, what: String) -> void:
 		"card":
 			target = _scene.shop._cards[0]
 		"bench":
+			# A slot with nobody in it reports no hover, so there is nothing for
+			# the hold to pin and nothing for SELL to sell. Seat a pirate the way
+			# "item" hands itself loot, unless --bench already put one there.
+			if game.bench[0] == null:
+				_bench(game, PackedStringArray([_a_champion(game)]))
+				await _frames(4)
 			target = _scene.bench._slots[0]
 		"item":
 			for id in [&"blade", &"plate"]:
@@ -374,6 +380,17 @@ func _press_and_hold(game: Node, what: String) -> void:
 
 	if what == "bench":
 		await _check_sell_button(game)
+
+
+## Any champion, for a test that needs a body on the bench and does not care
+## whose. The shop has already rolled, so its first card keeps this deterministic
+## for a given seed rather than pinning the test to one hand-picked id.
+func _a_champion(game: Node) -> String:
+	for id in game.shop:
+		if id != &"":
+			return String(id)
+	var all: Array = content().champions()
+	return String(all[0].id)
 
 
 ## The SELL button is the only way to sell a pirate without a right mouse button,
