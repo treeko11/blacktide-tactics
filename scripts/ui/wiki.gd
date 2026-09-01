@@ -802,7 +802,9 @@ func _guide_page(id: StringName) -> String:
 
 Lose a fight and your [b]hull[/b] takes damage; at zero you are out. Seven rivals are doing the same thing to each other. The last captain afloat wins.
 
-A round is a planning phase on a clock, then a battle, then the aftermath. Every other round is a monster wave rather than a captain, and the end of a stage offers an item from the %s.""" % _link(&"guide", &"items", "armoury")
+A round is a planning phase on a clock, then a battle, then the aftermath. Every other round is a monster wave rather than a captain, and the end of a stage offers an item from the %s.
+
+A run opens on this page with that clock [b]stopped[/b]: it starts when you close the almanac, or when you press SET SAIL. Only the first one waits — after that the clock runs whether or not this is open, so a page read mid-round is read on your own time.""" % _link(&"guide", &"items", "armoury")
 		&"upgrading":
 			body = """Three copies of the same pirate merge into a %s version; three of those merge again into %s. Copies sitting on the bench count towards it, so a spare is never wasted.
 

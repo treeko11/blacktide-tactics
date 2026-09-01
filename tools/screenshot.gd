@@ -20,6 +20,9 @@ extends "res://tools/tool_script.gd"
 ##                    square, then photograph the inspector it opens
 ##   --rotate=<WxH>   resize again once the HUD is up, to prove it rebuilds
 ##   --measure        print how tall each block of the HUD ended up
+##   --briefing       photograph the opening almanac, and assert the run is
+##                    holding its clock behind it and starts when it closes
+##   --sfx            fight a real round and assert sound actually came out of it
 ##   --sequence=forge replay the reported lock-up: read the forge chart, close
 ##                    it, then try to buy from the shop
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
@@ -58,6 +61,14 @@ func run() -> void:
 		return
 
 	manual_quit = true
+
+	# The briefing is the first thing every run shows and the only screen with the
+	# clock stopped behind it, so it is photographed before anything is dismissed.
+	if has_flag("briefing"):
+		await _briefing(game)
+		finish()
+		return
+
 	_close_modals()
 
 	# Closing the opening almanac is what starts a new run's clock. The wiring
@@ -113,6 +124,11 @@ func run() -> void:
 	if arg("hold") != "":
 		await _press_and_hold(game, arg("hold"))
 		_capture()
+		finish()
+		return
+
+	if has_flag("sfx"):
+		await _listen_to_a_fight(game)
 		finish()
 		return
 
@@ -562,6 +578,76 @@ func _run_a_fight(game: Node) -> void:
 	_capture()
 
 
+## Sound, asserted by what came out rather than by what is on disk.
+##
+## `test_audio` can only check the bank: the suite is headless, so `Audio` builds
+## no voices there and every cue is a no-op. That leaves the whole feed untested
+## — the bus connections, `FxLayer` calling in, the throttle, the voice pool —
+## and every one of those fails as silence, which is indistinguishable from a
+## quiet moment. So this fights a round with the sound on and asks what played.
+func _listen_to_a_fight(game: Node) -> void:
+	if game.awaiting_start:
+		fail("the run was still holding, so nothing would have fought")
+		return
+
+	# Fetched by node path, never named. `Audio` is an autoload, and an autoload
+	# named in a `--script` target does not resolve at compile time — it fails the
+	# whole tool to compile, and takes the script it was named in down with it.
+	var sound := autoload("Audio")
+	if sound == null:
+		fail("no Audio")
+		return
+
+	# Mute is a saved player setting, so it is borrowed and put back rather than
+	# left however this tool happened to leave it.
+	var was_muted := bool(sound.muted)
+	sound.set_muted(false)
+	sound.plays = 0
+	sound.cues_played.clear()
+
+	if game.board.is_empty():
+		_field(game, PackedStringArray(["pip", "grimscale", "ned"]))
+		await _frames(2)
+
+	game.start_combat_now()
+	await _frames(int(arg("combat_frames", "220")))
+	_capture()
+
+	if int(sound.plays) == 0:
+		fail("a whole round went by without a single sound")
+		sound.set_muted(was_muted)
+		return
+
+	# A fight is the half fed by the renderer rather than by the bus, and it is
+	# the half that can break without anything else noticing: the UI cues fire
+	# from signals that other panels also listen to, where an attack sound has
+	# only `FxLayer` behind it.
+	var played: Dictionary = sound.cues_played
+	var fight := 0
+	for cue in played:
+		if String(cue).begins_with("shot") or String(cue).begins_with("melee") 				or cue in [&"crit", &"death", &"cast", &"nova"]:
+			fight += int(played[cue])
+	if fight == 0:
+		fail("the round made noise, but none of it came from the fight: %s"
+			% str(played.keys()))
+		sound.set_muted(was_muted)
+		return
+
+	print("  %d sounds, %d of them from the fight: %s"
+		% [int(sound.plays), fight, str(played.keys())])
+
+	# And the mute has to actually stop it, which is the one control the player
+	# has over any of this.
+	sound.set_muted(true)
+	var before := int(sound.plays)
+	sound.play(&"buy")
+	if int(sound.plays) != before:
+		fail("muted, and a cue played anyway")
+	else:
+		print("  muted: silent")
+	sound.set_muted(was_muted)
+
+
 ## The meter with no fight behind it. It has to say so in words and stay
 ## dismissable; an empty panel and a live CLOSE are the difference between "no
 ## data yet" and "the game has stopped responding".
@@ -646,6 +732,39 @@ func _check_dps_meter(game: Node) -> void:
 	# Left on whichever tab was asked for, so the shot is of that one.
 	meter.show_tab(StringName(arg("tab", "dealt")))
 	await _frames(2)
+
+
+## The opening screen: the almanac up, the run holding its clock behind it.
+##
+## Both halves are asserted because both are invisible in the shot. A briefing
+## over a clock that is already counting looks exactly like one over a clock that
+## is not, and `HOLD` on the shop's clock is the only thing on screen that says
+## which — so if that word is missing, the shot is of a game quietly eating the
+## player's first planning phase while they read.
+func _briefing(game: Node) -> void:
+	await _frames(4)
+
+	if not _scene.wiki.is_open():
+		fail("a new run did not open the briefing")
+	if not game.awaiting_start:
+		fail("the briefing was up but the run's clock was already running")
+
+	var clock: String = _scene.shop._timer_label.text
+	if clock != "HOLD":
+		fail("the shop clock says '%s' behind the briefing, not HOLD" % clock)
+	print("  briefing up, clock says %s" % clock)
+
+	# Photographed here, with the almanac still up: this is the shot. Closing it
+	# below is the assertion, and a capture after it is a picture of the ordinary
+	# opening board with nothing to show.
+	_capture()
+
+	# And it lets go when the almanac does. This is the whole point of the screen.
+	_scene.wiki.close()
+	await _frames(2)
+	if game.awaiting_start:
+		fail("closing the briefing left the run holding at the line")
+	print("  closing it started the run")
 
 
 ## The almanac opens on the first run and would otherwise be in every shot.

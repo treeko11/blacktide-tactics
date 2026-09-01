@@ -58,6 +58,11 @@ signal item_forged(item_id: StringName, unit_uid: int)
 ## A line for the log panel. `style` is "", "good" or "bad".
 signal logged(text: String, style: StringName)
 
+## Sound was turned off or back on. The button that did it is thrown away and
+## rebuilt whenever the window crosses a breakpoint, so it reads `Audio.muted`
+## when it builds and listens to this while it lives.
+signal sound_muted_changed(muted: bool)
+
 ## A transient message to put in front of the player — "Not enough gold", "Deck
 ## is full". The old build computed these and dropped them on the floor.
 signal notice(text: String, style: StringName)

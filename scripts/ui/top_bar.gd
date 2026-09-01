@@ -15,6 +15,7 @@ signal speed_changed(speed: int)
 signal help_pressed()
 signal fleet_pressed()
 signal dps_pressed()
+signal sound_toggled()
 
 const SPEEDS := [1, 2, 4]
 
@@ -24,6 +25,7 @@ var _hp: Label = null
 var _gold: Label = null
 var _streak: Label = null
 var _speed_buttons: Array[Button] = []
+var _sound_button: Button = null
 
 
 func _ready() -> void:
@@ -79,6 +81,16 @@ func _ready() -> void:
 		sheet.pressed.connect(func(): fleet_pressed.emit())
 		row.add_child(sheet)
 
+	# The one control here that is not about the run. It is an icon at every
+	# width because it is the one button whose meaning a symbol carries better
+	# than a word, and it reads `Audio.muted` rather than starting at "on": mute
+	# is remembered between sessions, and a rotation rebuilds this bar.
+	_sound_button = UITheme.button("", UITheme.FONT_SMALL)
+	_sound_button.add_theme_font_override("font", UITheme.emoji_font())
+	_sound_button.pressed.connect(func(): sound_toggled.emit())
+	row.add_child(_sound_button)
+	show_muted(Audio.muted)
+
 	# Kept to three letters at every width. The dialog behind it is themed —
 	# "The Butcher's Bill" — but the handle is not the place to be clever: a
 	# player looking for a damage meter is looking for these three letters.
@@ -94,6 +106,7 @@ func _ready() -> void:
 	help.pressed.connect(func(): help_pressed.emit())
 	row.add_child(help)
 
+	Events.sound_muted_changed.connect(show_muted)
 	Events.gold_changed.connect(func(amount, _d): _gold.text = str(amount))
 	Events.health_changed.connect(func(amount, _d): _hp.text = str(amount))
 	Events.phase_changed.connect(_on_phase_changed)
@@ -131,6 +144,15 @@ func _add_stat_chip(row: HBoxContainer, icon: String, value: String, color: Colo
 		UITheme.FONT_SMALL if Layout.compact() else UITheme.FONT_TITLE, color)
 	inner.add_child(label)
 	return label
+
+
+## The bell, crossed out or not. Two emoji rather than a word, so the button
+## stays the same width in both states and at every layout — and a bell rather
+## than a speaker because the speaker emoji is drawn black, which on this bar is
+## a dark grey smudge. The bell is yellow, and the game already rings one to
+## start a fight.
+func show_muted(is_muted: bool) -> void:
+	_sound_button.text = "🔕" if is_muted else "🔔"
 
 
 func _select_speed(value: int) -> void:

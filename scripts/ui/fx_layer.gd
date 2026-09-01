@@ -84,6 +84,11 @@ func add_effect(entry: Dictionary) -> void:
 	if has_source:
 		effect["angle"] = (at - from).angle()
 
+	# Sound comes off the same entry that becomes a drawing, and for the same
+	# reason: this is the fight being watched. Six more resolve every round with
+	# `Sim.render` false, never reach a renderer, and are silent for free.
+	Audio.fx(kind, effect["style"])
+
 	match kind:
 		&"projectile":
 			var distance: float = at.distance_to(effect["from"])

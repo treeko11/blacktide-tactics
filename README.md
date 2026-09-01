@@ -29,6 +29,12 @@ It also carries an almanac of every pirate, trait, item and wave behind the ALMA
 DPS meter behind DPS — damage dealt, damage taken and healing done, for both fleets, updating while
 the fight runs.
 
+**It has sound**, and a run no longer starts without you. The almanac opens on the round loop when a
+run begins and the planning clock stays stopped behind it until you close it or press SET SAIL —
+only the first round waits. Everything the game does makes a noise: coins for a purchase, an anvil
+for a forge, a ship's bell to start a fight, and a different attack sound for each archetype, from a
+cannon to a cutlass. The bell button in the top bar turns it off, and it stays off next time.
+
 **On a phone** it reflows the way the browser build does: below 900 points the side columns collapse
 into a trait strip and a cargo strip above the bench, the bench splits into two rows of five, the
 shop keeps all five cards on one row so the board does not pay for a second one, and the fleet

@@ -24,6 +24,11 @@ Events="*res://scripts/autoload/events.gd"
 Content="*res://scripts/autoload/content.gd"
 GameState="*res://scripts/autoload/game_state.gd"
 
+; After GameState, deliberately. GameState starts a run in its own _ready(),
+; which rolls a shop and announces a round; connected before it, Audio would
+; play the whole opening at once into a window that has not been drawn yet.
+Audio="*res://scripts/autoload/audio.gd"
+
 ; DEV BUILD ONLY. Delete this line and scripts/dev/ before release; nothing in
 ; the game references either, so there is nothing else to unpick.
 Dev="*res://scripts/dev/dev.gd"

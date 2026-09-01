@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item\|almanac`, `--live`, `--modal=dps`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
@@ -113,7 +113,8 @@ Eighteen units per fight is not that, and readable code wins.
 
 ```
 data/champions/, traits/, items/   authored .tres definitions
-scripts/autoload/                  Events, Content, GameState
+audio/                             CC0 sound files + CREDITS.md
+scripts/autoload/                  Events, Content, GameState, Audio
 scripts/core/                      Hex, Sim, SimUnit, Captain, Bot, RosterUnit,
                                    the three *Def resources, ScriptDir, and the
                                    three extension-point base classes
@@ -341,6 +342,39 @@ Each of these cost a debugging session or settles a design argument.
   health without touching the mouse again, and fails if the panel does not
   follow.
 
+### Sound
+
+- **Sound has two feeds, and the split is the same one rendering uses.** Anything
+  the run *announces* comes off the `Events` bus, so no panel calls `Audio`;
+  anything a *fight* does comes through `FxLayer.add_effect`, the one node that
+  draws every effect. That second one is not a shortcut, it is the point: seven
+  fights resolve every round and six never reach a renderer, so they are silent
+  for free. Fed from `Sim` instead, every round would play six invisible battles
+  over the top of the one being watched.
+- **Cues are data.** `Audio.BANK` is one line per cue — files, volume, the pitch
+  range, and the shortest gap between two plays. The gap is not a nicety: at 4x,
+  eighteen pirates attack faster than a sound finishes, and without it a fight is
+  mush. Pitch is part of the cue too, and does real work — there is no cannon in
+  a CC0 interface pack, so the cannon is a heavy metal impact at half speed, and
+  the same file at its own pitch is the forge's anvil.
+- **The sounds were picked by name, not by ear.** They are CC0 from Kenney (see
+  `audio/CREDITS.md`), chosen so that "confirmation" and "error" carry their own
+  meaning and an impact on wood or leather is a physical noise that means
+  whatever it is put behind. Kenney's jingle pack is deliberately unused: a
+  melody picked without hearing it is a coin flip on whether losing a round
+  sounds triumphant. If one of them sounds wrong, it is a filename in `BANK`.
+- **`Audio` stands down headless but still wires itself up.** Playback needs a
+  listener and the test suite is not one, so no voices are built there — but
+  `_connect_bus()` runs anyway, because a signal named wrongly is a cue that
+  never plays and `connect()` is the only thing that ever says so.
+- **A sound system is the DPS meter problem again**: it looks perfect while
+  producing nothing, and silence is also what most of a game sounds like.
+  `test_audio` can only check the bank headless — every cue's file loads, every
+  shipped file is used, every attack style in `Sim.ATTACK_STYLES` has its own cue
+  rather than falling back — so **`screenshot.gd --sfx` is the one that fights a
+  round with the sound on and asserts what actually came out**, including that
+  mute stops it.
+
 ### What the first playtest asked for
 
 Sam's notes after his first game, and where each landed. Do not quietly undo
@@ -486,6 +520,13 @@ generator only to add something new.
   are on the numbers: that one side's *dealt* equals the other's *taken*, that a
   shield absorbing a hit still counts as taking it, and that the snapshot the
   meter reads survives `Sim.dispose()`.
+- `test_audio.gd` walks the cue bank: every cue names a file that loads, every
+  file in `audio/` is played by something, and every attack style has a cue of
+  its own. It cannot test playback — headless has no voices — which is what
+  `screenshot.gd --sfx` is for.
+- `test_round_start.gd` holds the opening gate: a new run does not run its clock,
+  closing the briefing or pressing SET SAIL starts it, and an `instant` run is
+  never held, which is what keeps `playthrough.gd` from stalling on 1-1.
 - `test_economy.gd` checks that **no champion copies are lost** over forty rounds
   of bot shopping. A card rolled and neither bought nor returned drains the
   shared pool silently, and the shop slowly stops offering that champion to
