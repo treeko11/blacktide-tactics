@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item`, `--live`, all of which assert |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
@@ -277,6 +277,21 @@ Each of these cost a debugging session or settles a design argument.
 - **The tooltip closes itself.** A tooltip opened by a hover and closed only by
   the matching un-hover stays up forever when the panel underneath rebuilds —
   which the shop does on every purchase. It watches its owner every frame.
+- **The tooltip re-reads its subject; it does not remember it.** Text built once
+  by the handler that opened the inspector is a photograph, and the board only
+  reports a hover when the cursor *moves* — so a mid-fight stat block, read the
+  way anyone reads one, by holding still, was frozen at whatever was true when
+  the cursor arrived, and a pinned one on a phone never changed at all. Callers
+  hand `show_text` and `pin` a `refresh` Callable instead, built by the
+  `_*_text` functions in Main, and the tooltip calls it ten times a second,
+  assigning the label only when the string differs. A refresh returning `""`
+  means the subject is gone — sold, merged into a star-up, killed, the fight
+  over — and closes the inspector, which is the only way a *pinned* one on a
+  touchscreen ever finds out. The refresh is dropped on close, because one for a
+  fight is a lambda holding a SimUnit and that is exactly what `Sim.dispose()`
+  exists to break. `screenshot.gd --live` hovers a pirate mid-fight, changes its
+  health without touching the mouse again, and fails if the panel does not
+  follow.
 
 ### What the first playtest asked for
 

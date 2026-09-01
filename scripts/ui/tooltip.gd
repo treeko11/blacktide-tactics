@@ -21,6 +21,17 @@ extends PanelContainer
 ## button — and a SELL button when the thing being inspected is a pirate the
 ## player owns, because selling is otherwise bound to a right-click a phone does
 ## not have.
+##
+## **It re-reads what it is showing rather than remembering it.** The text was
+## built once, at the moment of the hover, which made every number in it a
+## photograph: a pirate's health sat at whatever it was when the cursor arrived
+## and only changed if the cursor moved, so the mid-fight inspector — the one
+## place an item's effect is visible as a figure — was wrong for as long as you
+## held still to read it, and a pinned one on a phone never changed at all. So a
+## caller hands over a `refresh` Callable that rebuilds the text from the live
+## object, and the tooltip calls it a few times a second. A refresh returning ""
+## means the thing is gone (sold, merged, dead, the fight over) and closes the
+## inspector, which is the only way a pinned one on a touchscreen finds out.
 
 signal sell_requested(unit: RosterUnit)
 
@@ -28,6 +39,11 @@ signal sell_requested(unit: RosterUnit)
 const GAP := 12.0
 const EDGE := 8.0
 const MAX_WIDTH := 340.0
+
+## How often the text is rebuilt. Ten a second is smooth to read and keeps the
+## bbcode re-parse off every frame of a 4x fight; the label is only assigned when
+## the string actually differs, so a static tooltip costs one comparison.
+const REFRESH_SECONDS := 0.1
 
 var pinned: bool = false
 
@@ -37,6 +53,17 @@ var _footer: HBoxContainer = null
 var _sell_button: Button = null
 var _sell_unit: RosterUnit = null
 var _owner: Control = null
+
+## Rebuilds the body text from whatever the tooltip is describing. Empty when
+## the caller had nothing live to read back from.
+var _refresh_source: Callable = Callable()
+var _refresh_timer: float = 0.0
+
+## Where the tooltip was asked to appear, and the size it was placed at. Kept so
+## that text which grows or shrinks under a refresh can be re-anchored without
+## the caller being involved.
+var _anchor: Vector2 = Vector2.ZERO
+var _placed_size: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -89,10 +116,18 @@ func _ready() -> void:
 
 
 ## Shows `text`, anchored near `at`. `owned_by` is the control the cursor is over.
-func show_text(text: String, at: Vector2, owned_by: Control = null) -> void:
+##
+## `refresh` rebuilds the text from the live object a few times a second, so the
+## numbers in an open inspector are the current ones rather than the ones that
+## happened to be true when the cursor arrived. Pass nothing for anything that
+## cannot change while it is on screen.
+func show_text(text: String, at: Vector2, owned_by: Control = null,
+		refresh: Callable = Callable()) -> void:
 	_body.text = text
 	_owner = owned_by
+	_set_refresh(refresh)
 	visible = true
+	reset_size()
 	# Wait a frame for the label to lay out before measuring it to place it.
 	await get_tree().process_frame
 	if visible:
@@ -108,18 +143,23 @@ func show_text(text: String, at: Vector2, owned_by: Control = null) -> void:
 ## Re-showing it here means a hold does not depend on that.
 ##
 ## `sell_unit` is the pirate the SELL button would sell, or null for anything
-## that is not a pirate the player owns.
-func pin(text: String, at: Vector2, sell_unit: RosterUnit = null) -> void:
+## that is not a pirate the player owns. `refresh` is as in `show_text`, and
+## matters more here: a pinned inspector is the only one on a touchscreen, and
+## nothing else will ever tell it that its pirate died or was sold.
+func pin(text: String, at: Vector2, sell_unit: RosterUnit = null,
+		refresh: Callable = Callable()) -> void:
 	_body.text = text
 	visible = true
 	pinned = true
 	_sell_unit = sell_unit
 	_owner = null                       # nothing to watch; it is held open now
+	_set_refresh(refresh)
 	_footer.visible = true
 	# Note what it does *not* do: change mouse_filter. See arm_input.
 	_sell_button.visible = sell_unit != null and GameState.phase == GameState.Phase.PLAN
 	if _sell_button.visible:
 		_sell_button.text = "SELL  %s %d" % [UITheme.COIN, sell_unit.sell_value()]
+	reset_size()
 	await get_tree().process_frame
 	if visible:
 		_place(at)
@@ -154,6 +194,9 @@ func hide_now() -> void:
 	pinned = false
 	_owner = null
 	_sell_unit = null
+	# Dropped rather than kept: a refresh for a fight is a lambda holding a
+	# SimUnit, and `Sim.dispose()` exists because those keep a whole battle alive.
+	_set_refresh(Callable())
 	# Both filters, not just this node's. Leaving the inner column on PASS meant
 	# that the next hover — which makes the tooltip visible again — put an
 	# invisible-to-the-eye but very much hit-testable panel over the shop, and the
@@ -165,7 +208,14 @@ func hide_now() -> void:
 		_footer.visible = false
 
 
+func _set_refresh(refresh: Callable) -> void:
+	_refresh_source = refresh
+	_refresh_timer = REFRESH_SECONDS
+
+
 func _place(at: Vector2) -> void:
+	_anchor = at
+	_placed_size = size
 	var viewport := get_viewport_rect().size
 	var wanted := size
 	var pos := at + Vector2(GAP, GAP)
@@ -181,8 +231,24 @@ func _place(at: Vector2) -> void:
 ## A pinned tooltip opts out — it is held open deliberately, and on a touchscreen
 ## the emulated cursor sits wherever the last tap landed, which is rarely still
 ## over the thing being read.
-func _process(_delta: float) -> void:
-	if not visible or pinned or _owner == null:
+func _process(delta: float) -> void:
+	if not visible:
+		return
+
+	_refresh_timer -= delta
+	if _refresh_timer <= 0.0:
+		_refresh_timer = REFRESH_SECONDS
+		_reread()
+		if not visible:
+			return
+
+	# Text that grew or shrank is re-anchored, so a refreshed inspector near an
+	# edge does not slide off it. Nothing moves while the size is steady, which
+	# is the usual case — the numbers change, the line count does not.
+	if size != _placed_size:
+		_place(_anchor)
+
+	if pinned or _owner == null:
 		return
 	if not is_instance_valid(_owner) or not _owner.is_inside_tree():
 		hide_now()
@@ -190,6 +256,23 @@ func _process(_delta: float) -> void:
 	var rect := Rect2(_owner.global_position, _owner.size)
 	if not rect.has_point(get_viewport().get_mouse_position()):
 		hide_now()
+
+
+## Rebuilds the body from the live object, if the caller gave us a way to.
+##
+## An empty string is the source saying it is gone — a pirate sold, merged into a
+## star-up, killed in the fight it was being read during — and closes the
+## inspector rather than leaving a panel describing something no longer there.
+func _reread() -> void:
+	if not _refresh_source.is_valid():
+		return
+	var text: String = _refresh_source.call()
+	if text == "":
+		hide_now()
+		return
+	if text != _body.text:
+		_body.text = text
+		reset_size()
 
 
 # =============================================================================

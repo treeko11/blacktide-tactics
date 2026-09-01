@@ -22,6 +22,8 @@ extends "res://tools/tool_script.gd"
 ##   --measure        print how tall each block of the HUD ended up
 ##   --sequence=forge replay the reported lock-up: read the forge chart, close
 ##                    it, then try to buy from the shop
+##   --live           hover a pirate mid-fight and prove the inspector keeps up
+##                    with it without the cursor moving again
 ##   --shop=<ids>     comma-separated champion ids to seat in the shop
 
 var _out := "user://shot.png"
@@ -99,6 +101,11 @@ func run() -> void:
 	if arg("hold") != "":
 		await _press_and_hold(game, arg("hold"))
 		_capture()
+		finish()
+		return
+
+	if has_flag("live"):
+		await _watch_a_fight(game)
 		finish()
 		return
 
@@ -393,6 +400,75 @@ func _check_sell_button(game: Node) -> void:
 		fail("selling from the inspector paid nothing")
 	if _scene.tooltip.visible:
 		fail("the inspector stayed open after selling the pirate it described")
+
+
+## Rests the cursor on a pirate mid-fight and checks the inspector keeps up.
+##
+## The board only reports a hover when the cursor *moves*, so a stat block read by
+## holding still — which is how anyone reads one — used to be frozen at whatever
+## was true when the cursor arrived. One motion event, then nothing: everything
+## after this point has to come from the tooltip re-reading the unit itself.
+##
+## The damage is applied by hand rather than waited for. What is under test is
+## whether a change in the unit reaches the panel, and letting the fight decide
+## when someone gets hit makes that a coin toss on the frame count.
+func _watch_a_fight(game: Node) -> void:
+	game.start_combat_now()
+	await _frames(20)
+
+	var sim = game.sim
+	if sim == null:
+		fail("no fight to watch")
+		return
+
+	# Untyped on purpose: naming a class whose script mentions an autoload makes
+	# this whole tool fail to compile. See tool_script.gd.
+	var unit = null
+	for u in sim.units:
+		if u.team == 0 and u.alive:
+			unit = u
+			break
+	if unit == null:
+		fail("nobody of ours is in the fight — pass --units=")
+		return
+
+	var board = _scene.board
+	var at: Vector2 = board.global_position + unit.pos * board.board_scale + board.board_offset
+	var motion := InputEventMouseMotion.new()
+	motion.position = at
+	motion.global_position = at
+	Input.parse_input_event(motion)
+	await _frames(4)
+
+	if not _scene.tooltip.visible:
+		fail("hovering a pirate mid-fight opened no inspector")
+		return
+	var before: String = _scene.tooltip._body.text
+
+	# The cursor does not move again from here.
+	unit.hp = maxf(1.0, unit.hp - 30.0)
+	await _frames(20)
+	var after: String = _scene.tooltip._body.text
+
+	print("  health %d, inspector says %s" % [roundi(unit.hp), _line_with(after, "Health")])
+	if after == before:
+		fail("the inspector froze: it still reads %s" % _line_with(before, "Health"))
+	_capture()
+
+	# And it closes itself when the pirate it describes is killed, which on a
+	# touchscreen is the only way a pinned one ever finds out.
+	unit.alive = false
+	await _frames(20)
+	print("  after the pirate died: inspector visible=%s" % str(_scene.tooltip.visible))
+	if _scene.tooltip.visible:
+		fail("the inspector stayed open over a dead pirate")
+
+
+func _line_with(text: String, needle: String) -> String:
+	for line in text.split("\n"):
+		if line.contains(needle):
+			return line.strip_edges()
+	return "(no %s line)" % needle
 
 
 ## Starts a battle and photographs it a couple of seconds in, when the effects

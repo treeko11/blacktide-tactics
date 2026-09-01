@@ -60,6 +60,11 @@ var _hover_kind: StringName = &""
 var _hover_text: String = ""
 var _hover_unit: RosterUnit = null
 
+## Rebuilds `_hover_text` from whatever it describes. The tooltip calls it while
+## it is open; a hold that pins calls it once more, because a third of a second
+## of a fight is long enough for the text to be stale before it appears.
+var _hover_refresh: Callable = Callable()
+
 var _hold_origin := Vector2.ZERO
 var _hold_time: float = 0.0
 var _holding: bool = false
@@ -505,6 +510,14 @@ func _process(delta: float) -> void:
 # Each handler records *what* is under the cursor as well as showing it, because
 # a press-and-hold that lands a third of a second later needs to know whether the
 # thing it is pinning is a pirate the player could sell.
+#
+# Each also hands the tooltip a way to build its text *again*, rather than only
+# the text. Everything an inspector shows is live — a pirate's health during a
+# fight, a trait's count as pirates are placed, whether a component's partner is
+# in the hold — and a string built at the moment of the hover is a photograph of
+# all of it. The builders below are the one definition of each panel's text,
+# called once to open the tooltip and then by the tooltip itself ten times a
+# second. Returning "" means the subject is gone, and closes the inspector.
 
 func _on_shop_card_hovered(index: int, at: Vector2) -> void:
 	if tooltip.pinned or index >= GameState.shop.size():
@@ -520,9 +533,20 @@ func _on_shop_card_hovered(index: int, at: Vector2) -> void:
 func _on_roster_unit_hovered(unit: RosterUnit, at: Vector2) -> void:
 	if tooltip.pinned:
 		return
-	var text := Tooltip.champion_text(unit.champion, unit.star, unit.items)
-	_note_hover(&"unit", text, unit)
-	tooltip.show_text(text, at, null)
+	var refresh := func() -> String: return _roster_unit_text(unit)
+	var text := _roster_unit_text(unit)
+	_note_hover(&"unit", text, unit, refresh)
+	tooltip.show_text(text, at, null, refresh)
+
+
+## A pirate the player owns. Its star and its items both change while it is being
+## read — an item dropped on it, a third copy bought — and a pinned inspector on
+## a phone is still up when the unit it describes is sold or merged away, which
+## is what the empty string is for.
+func _roster_unit_text(unit: RosterUnit) -> String:
+	if not (unit in GameState.board or unit in GameState.bench):
+		return ""
+	return Tooltip.champion_text(unit.champion, unit.star, unit.items)
 
 
 ## Hovering a pirate mid-fight shows its *live* numbers, which is the only place
@@ -530,14 +554,34 @@ func _on_roster_unit_hovered(unit: RosterUnit, at: Vector2) -> void:
 func _on_sim_unit_hovered(unit: SimUnit, at: Vector2) -> void:
 	if tooltip.pinned:
 		return
-	var text := Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
-	_note_hover(&"sim", text)
-	tooltip.show_text(text, at, null)
+	var refresh := func() -> String: return _sim_unit_text(unit)
+	var text := _sim_unit_text(unit)
+	_note_hover(&"sim", text, null, refresh)
+	tooltip.show_text(text, at, null, refresh)
+
+
+## The live numbers of a pirate in the fight now running: health falling, mana
+## filling, a shield appearing and going again. This is the tooltip that most
+## needed re-reading — the board only reports a hover when the cursor *moves*, so
+## holding still to read a stat block was what froze it.
+func _sim_unit_text(unit: SimUnit) -> String:
+	if not unit.alive or GameState.phase != GameState.Phase.COMBAT:
+		return ""
+	return Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
 
 
 func _on_trait_hovered(trait_id: StringName, at: Vector2) -> void:
 	if tooltip.pinned:
 		return
+	var refresh := func() -> String: return _trait_tip_text(trait_id)
+	var text := _trait_tip_text(trait_id)
+	_note_hover(&"trait", text, null, refresh)
+	tooltip.show_text(text, at, traits, refresh)
+
+
+## A trait at its current count and tier, both of which move as pirates are put
+## on the board — which is exactly when its breakpoint list is being read.
+func _trait_tip_text(trait_id: StringName) -> String:
 	var count := 0
 	var tier := -1
 	for entry in GameState.board_traits():
@@ -545,9 +589,7 @@ func _on_trait_hovered(trait_id: StringName, at: Vector2) -> void:
 			count = entry["count"]
 			tier = entry["tier"]
 			break
-	var text := Tooltip.trait_text(trait_id, count, tier)
-	_note_hover(&"trait", text)
-	tooltip.show_text(text, at, traits)
+	return Tooltip.trait_text(trait_id, count, tier)
 
 
 ## A square of the forge chart. Same inspector as everywhere else, so press and
@@ -555,31 +597,40 @@ func _on_trait_hovered(trait_id: StringName, at: Vector2) -> void:
 func _on_chart_item_hovered(item_id: StringName, at: Vector2, source: Control) -> void:
 	if tooltip.pinned:
 		return
+	# An item's text is live as well: the ticks against its pairings are the ones
+	# the player could forge right now, and equipping a component changes them.
+	var refresh := func() -> String: return Tooltip.item_text(item_id)
 	var text := Tooltip.item_text(item_id)
-	_note_hover(&"item", text)
-	tooltip.show_text(text, at, source)
+	_note_hover(&"item", text, null, refresh)
+	tooltip.show_text(text, at, source, refresh)
 
 
 func _on_item_hovered(item_id: StringName, at: Vector2) -> void:
 	if tooltip.pinned:
 		return
+	var refresh := func() -> String: return Tooltip.item_text(item_id)
 	var text := Tooltip.item_text(item_id)
-	_note_hover(&"item", text)
-	tooltip.show_text(text, at, hold)
+	_note_hover(&"item", text, null, refresh)
+	tooltip.show_text(text, at, hold, refresh)
 
 
+## A rival captain, whose hull and streak change under the tooltip every time a
+## round resolves.
 func _on_captain_hovered(captain: Captain, at: Vector2) -> void:
 	if tooltip.pinned:
 		return
+	var refresh := func() -> String: return Tooltip.captain_text(captain)
 	var text := Tooltip.captain_text(captain)
-	_note_hover(&"captain", text)
-	tooltip.show_text(text, at, fleet)
+	_note_hover(&"captain", text, null, refresh)
+	tooltip.show_text(text, at, fleet, refresh)
 
 
-func _note_hover(kind: StringName, text: String, unit: RosterUnit = null) -> void:
+func _note_hover(kind: StringName, text: String, unit: RosterUnit = null,
+		refresh: Callable = Callable()) -> void:
 	_hover_kind = kind
 	_hover_text = text
 	_hover_unit = unit
+	_hover_refresh = refresh
 
 
 ## Closes the inspector whatever state it is in, pinned included.
@@ -607,6 +658,7 @@ func _forget_hover() -> void:
 	_hover_kind = &""
 	_hover_text = ""
 	_hover_unit = null
+	_hover_refresh = Callable()
 
 
 # =============================================================================
@@ -669,7 +721,17 @@ func _complete_hold() -> void:
 		ShopBar.swallow_click = true
 	# Only a pirate you own between fights can be sold from the inspector.
 	var sellable: RosterUnit = _hover_unit if _hover_kind == &"unit" else null
-	tooltip.pin(_hover_text, _hold_origin, sellable)
+
+	# The recorded text is a third of a second old, and in a fight that is several
+	# attacks ago. Read it again before it goes up — and abandon the pin entirely
+	# if whatever the finger came down on has gone in the meantime.
+	var text := _hover_text
+	if _hover_refresh.is_valid():
+		text = _hover_refresh.call()
+		if text == "":
+			_forget_hover()
+			return
+	tooltip.pin(text, _hold_origin, sellable, _hover_refresh)
 
 
 # =============================================================================
