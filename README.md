@@ -12,19 +12,25 @@ The game is being **moved into Godot 4.7**, and both builds currently live in th
 |---|---|---|
 | Where | `index.html`, `css/`, `js/` | `project.godot`, `scenes/`, `scripts/`, `data/` |
 | Play it | **[the link above](https://treeko11.github.io/blacktide-tactics/)**, or double-click `index.html` | **[/web/](https://treeko11.github.io/blacktide-tactics/web/)**, or double-click `Play.bat` |
-| Input | mouse **and touch** | mouse only — no touch input yet |
+| Input | mouse **and touch** | mouse **and touch** |
 | Load | instant | ~50 MB WebAssembly download |
 | State | complete | full feature parity, plus the first playtest's fixes |
 
-The browser build keeps the top-level link because it is the one that works on a phone and loads
-instantly; the Godot build sits a click away at `/web/` until it grows touch input. Both are the
-same game: same 44 pirates, same 13 traits, same 20 items, same round loop and economy.
+The browser build keeps the top-level link because it loads instantly rather than pulling ~50 MB of
+WebAssembly; the Godot build sits a click away at `/web/`. Both are the same game: same 44 pirates,
+same 13 traits, same 20 items, same round loop and economy, and both now play on a phone.
 
 **What the Godot build adds**, all from the first playthrough's notes: shop cards call out
 duplicates and star-ups, gold and the round clock sit beside the shop instead of across the screen,
 every archetype has its own directional attack effect rather than one shared line and ring, items
 announce themselves when acquired and explain what they do, a forge chart shows every component
 pairing, the AI actually collects and forges items, and tooltips close when you stop hovering them.
+
+**On a phone** it reflows the way the browser build does: below 900 points the side columns collapse
+into a trait strip and a cargo strip above the bench, the bench splits into two rows of five, the
+shop wraps to three cards a row, and the fleet standings and log move into a sheet behind the FLEET
+button. Press and hold anything to inspect it; the inspector for a pirate you own carries a SELL
+button, since a phone has no right mouse button. Turning the phone sideways rebuilds the layout.
 
 Development notes for the Godot build are in [CLAUDE.md](CLAUDE.md).
 

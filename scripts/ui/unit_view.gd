@@ -141,7 +141,7 @@ func _draw_stars() -> void:
 	if star <= 1:
 		return
 	var font := UITheme.ui_font()
-	var text := "★".repeat(star)
+	var text := UITheme.STAR.repeat(star)
 	var size := 13 if star < 3 else 15
 	var color := UITheme.GOLD_BRIGHT if star < 3 else Color("ffe9a8")
 	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x

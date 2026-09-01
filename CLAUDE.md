@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless` |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and press-and-hold: `--size=390x844`, `--rotate=`, `--hold=card`, all of which assert |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
@@ -105,15 +105,22 @@ scripts/core/                      Hex, Sim, SimUnit, Captain, Bot, RosterUnit,
 scripts/core/abilities/            one file per champion (44)
 scripts/core/traits/               one file per trait (13)
 scripts/core/items/                one file per item (20)
-scripts/ui/                        UITheme, BoardView, UnitView, FxLayer,
-                                   ShopBar, BenchBar, SidePanels, TopBar,
-                                   Tooltip, ToastLayer, Modals
+scripts/ui/                        UITheme, Layout, BoardView, UnitView,
+                                   FxLayer, ShopBar, BenchBar, SidePanels,
+                                   TopBar, Tooltip, ToastLayer, Modals
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 scenes/main.tscn                   a bare Control; the HUD is built in code
 tests/                             test_*.gd, discovered automatically
 tools/                             entry points, all extending tool_script.gd
 js/, css/, index.html              the original JavaScript build (see below)
 ```
+
+**There are two HUDs.** `Layout` picks one from the window width in CSS pixels:
+the wide one with a column either side of the board, and a compact one for a
+phone. They are different arrangements of the same panels, not one arrangement
+at two sizes, so crossing a breakpoint **rebuilds** the HUD rather than resizing
+it — safe because every piece of state lives in GameState. Each panel reads
+`Layout.compact()` and `Layout.short()` when it builds itself.
 
 The HUD is **built in code, not in a .tscn**. The layout is almost entirely
 containers and generated rows; a scene file full of nodes nobody positions by
@@ -170,6 +177,37 @@ Each of these cost a debugging session or settles a design argument.
   armoury on the array the previous stage's pickup had cleared: a modal with a
   title, no items, and no way to dismiss it. The run stopped there every time.
   `_start_combat` had it right — build the sim, announce COMBAT last.
+- **The phone layout is measured in CSS pixels, and the wide one is not.** The
+  project ships a 1600x900 design stretched with `canvas_items` + `expand`. On a
+  375-point phone that resolves to a 0.23x scale and a 1600x3466 viewport: a
+  microscopic HUD in a column of dead space. No uniform scale fixes it — 12px at
+  0.23x is three pixels. So `Layout` sets `content_scale_size` to the window *in
+  CSS pixels* when compact, which makes one game unit one CSS pixel and the
+  breakpoints readable against `css/main.css`. Godot's window size on the web is
+  in **device** pixels, so the ratio comes from `window.devicePixelRatio` through
+  `JavaScriptBridge`; without it a phone looks like a 1125-pixel tablet.
+- **The window size is polled, not watched.** `Window.size_changed` does not fire
+  when a browser canvas resizes, so a phone turned sideways kept its portrait
+  layout stretched across a landscape window. A Vector2i compare once a frame is
+  cheaper than being wrong on the platform the layout exists for. And **both**
+  breakpoints trigger the rebuild: portrait and short-landscape are both
+  "compact", and watching only WIDE/COMPACT missed the rotation entirely.
+- **The web export cannot draw `●`, `★` or a non-breaking hyphen.** There are no
+  system fonts in a WASM sandbox, Godot's bundled fallback covers little beyond
+  Latin-1, and the only font this project ships is Noto Color Emoji — which has
+  neither, because neither is an emoji. Every price and star rating rendered as a
+  tofu box in the browser. `UITheme.COIN` and `UITheme.STAR` are now the emoji
+  that mean the same thing, and `game_theme()` puts the emoji font behind the
+  text font so they resolve in ordinary labels and in BBCode. **Check any new
+  symbol in the web export**, not on Windows, where Segoe UI hides the problem.
+- **Press-and-hold is the touch inspector, and it lives in Main.** A finger has
+  no hover. Main watches real `InputEventScreenTouch` — never the emulated mouse,
+  which cannot be told from a real one, and a mouse held still for a third of a
+  second is a slow click. A hold re-shows the tooltip from the text the hover
+  handler recorded rather than pinning whatever is on screen, because the tooltip
+  watches the cursor and has usually closed itself by then. A shop card is the
+  only thing a bare tap acts on, so it buys on *release* and skips the release
+  that a hold consumed (`ShopBar.swallow_click`).
 - **The tooltip closes itself.** A tooltip opened by a hover and closed only by
   the matching un-hover stays up forever when the panel underneath rebuilds —
   which the shop does on every purchase. It watches its owner every frame.

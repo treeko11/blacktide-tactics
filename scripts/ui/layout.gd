@@ -1,0 +1,169 @@
+class_name Layout
+extends RefCounted
+
+## Where the HUD decides how much room it actually has.
+##
+## The build shipped with one fixed 1600x900 design and `canvas_items` stretching
+## set to `expand`. On a 375-point phone that resolves to a 0.23x scale and a
+## 1600x3466 virtual viewport: a microscopic HUD stranded in a column of dead
+## space. No uniform scale rescues that — a 12px font at 0.23x is three pixels
+## tall — because the design is simply wider than a phone. So the phone gets its
+## own layout rather than a shrunken copy of this one.
+##
+## The compact layout is measured in **CSS pixels**, the same unit the JavaScript
+## build's media queries use, and one game unit is one CSS pixel there. That is
+## what makes a 12px font arrive as a 12px font instead of a smear, and it means
+## the breakpoints below can be read against `css/main.css` directly.
+##
+## Nothing here is allowed to name an autoload: `Events` is emitted by Main,
+## which owns the rebuild.
+
+enum Mode { WIDE, COMPACT }
+
+## Below this many CSS pixels of width, the HUD reflows. The JS build breaks at
+## 1080px; this one breaks lower because the Godot HUD has no fixed-width
+## sidebars to fit — it collapses them instead.
+const COMPACT_WIDTH := 900.0
+
+## The design the wide layout is drawn against, unchanged from before.
+const DESIGN := Vector2i(1600, 900)
+
+## A compact layout shorter than this is a phone held sideways: the board has to
+## give up room to the furniture rather than the other way round.
+const SHORT_HEIGHT := 460.0
+
+static var mode: Mode = Mode.WIDE
+
+## The window in CSS pixels — the compact layout's coordinate space.
+static var css_size: Vector2 = Vector2(DESIGN)
+
+## Device pixels per CSS pixel: 1 on a desktop monitor, 2-3 on a phone.
+static var pixel_ratio: float = 1.0
+
+
+static func compact() -> bool:
+	return mode == Mode.COMPACT
+
+
+## A short landscape phone. Everything vertical has to be tighter here — there is
+## no room for the two-row bench the portrait layout uses.
+static func short() -> bool:
+	return mode == Mode.COMPACT and css_size.y < SHORT_HEIGHT
+
+
+## Whether to offer press-and-hold inspection and tap-to-sell.
+##
+## Gated on the device having a touchscreen rather than on the layout being
+## compact: a small window on a desktop is still driven by a mouse, and a mouse
+## held down for a third of a second should not pop an inspector open.
+static func touch() -> bool:
+	return DisplayServer.is_touchscreen_available()
+
+
+## Sizes the window's content scale for the screen it is actually on, and reports
+## whether that changed which layout the HUD should be built as.
+##
+## Called on every resize, so it must be cheap and must not rebuild anything
+## itself — Main owns that decision.
+static func apply(window: Window) -> bool:
+	var px := Vector2(window.size)
+	if px.x < 1.0 or px.y < 1.0:
+		return false
+
+	var was_mode := mode
+	var was_short := short()
+
+	pixel_ratio = _pixel_ratio()
+	css_size = px / pixel_ratio
+	mode = Mode.COMPACT if css_size.x < COMPACT_WIDTH else Mode.WIDE
+
+	# Crossing *either* breakpoint is a rebuild. Watching only WIDE/COMPACT meant
+	# a phone turned sideways kept its portrait arrangement — two rows of bench, a
+	# three-wide shop, the strips stacked — in a window with no height for any of
+	# it, because both orientations are "compact".
+	var changed := mode != was_mode or short() != was_short
+
+	if mode == Mode.COMPACT:
+		# One game unit per CSS pixel. With aspect `expand` the resulting scale is
+		# exactly the device pixel ratio, so the HUD is laid out at phone-native
+		# sizes and drawn at full device resolution.
+		window.content_scale_size = Vector2i(maxi(1, roundi(css_size.x)),
+			maxi(1, roundi(css_size.y)))
+	else:
+		window.content_scale_size = DESIGN
+
+	return changed
+
+
+## Device pixels per CSS pixel.
+##
+## The browser is the only place this is not 1, and it is the only place that can
+## answer it: Godot's window size on the web is in device pixels, so without this
+## a phone at 375 CSS pixels looks like a 1125-pixel tablet and gets the wide
+## layout at an unreadable third of a size.
+static func _pixel_ratio() -> float:
+	if OS.has_feature("web"):
+		var value: Variant = JavaScriptBridge.eval("window.devicePixelRatio", true)
+		if typeof(value) == TYPE_FLOAT or typeof(value) == TYPE_INT:
+			var ratio := float(value)
+			if ratio > 0.0:
+				return ratio
+	var scale := DisplayServer.screen_get_scale()
+	return scale if scale > 0.0 else 1.0
+
+
+# --- sizes that differ between the two layouts -------------------------------
+#
+# Kept here rather than as literals in each panel so the compact pass is one
+# file to read, and so a widget cannot end up compact in one dimension and not
+# the other.
+
+## Body text. The compact layout does not shrink it — a phone is held closer, but
+## not that much closer, and the JS build settled on the same sizes.
+static func font_body() -> int:
+	return UITheme.FONT_SMALL if compact() else UITheme.FONT_BODY
+
+
+static func bench_slot() -> Vector2:
+	if short():
+		return Vector2(44, 44)
+	return Vector2(52, 52) if compact() else Vector2(64, 64)
+
+
+static func item_chip() -> Vector2:
+	if short():
+		return Vector2(28, 28)
+	return Vector2(32, 32) if compact() else Vector2(36, 36)
+
+
+## Height of a shop card. Compact cards are wider relative to the screen and
+## shorter, because vertical space is the scarce one on a phone.
+static func shop_card() -> Vector2:
+	if short():
+		return Vector2(88, 54)
+	return Vector2(96, 74) if compact() else Vector2(126, 92)
+
+
+## How many shop cards sit on a row. Five across a phone is four characters of
+## champion name; the JS build wraps to three and so does this.
+##
+## A phone held sideways is wide and desperately short, so there the cards go
+## back to one row — the height matters more than the name does.
+static func shop_columns() -> int:
+	if not compact():
+		return 5
+	return 5 if short() else 3
+
+
+## How many bench slots sit on a row. Two rows of five on a portrait phone keeps
+## every slot thumb-sized; sideways there is width for all nine and no height to
+## spend on a second row.
+static func bench_columns() -> int:
+	if not compact():
+		return 9
+	return 9 if short() else 5
+
+
+## Gap between the major blocks of the HUD.
+static func gap() -> int:
+	return 4 if compact() else 8

@@ -6,6 +6,11 @@ extends RefCounted
 ##
 ## One file because they are three variations on "a titled column of rows", and
 ## three near-identical files drift apart.
+##
+## Two of the three have a compact form. On a phone there are no side columns to
+## stand in, so the manifest and the hold become horizontal strips that scroll
+## sideways above the bench — icons and counts, no names — and the fleet moves
+## into a sheet that slides up from the bottom. See scripts/ui/layout.gd.
 
 # =============================================================================
 #  Ship's Manifest — which traits are live, and what is one pirate away
@@ -15,25 +20,52 @@ class TraitPanel extends VBoxContainer:
 	signal trait_hovered(trait_id: StringName, at: Vector2)
 	signal trait_unhovered()
 
+	## Rows go in here rather than straight into the panel, so refresh() can clear
+	## them by emptying one container. It used to walk its own children and delete
+	## anything that was a TraitRow "or a Label starting with Field", which is the
+	## kind of test that quietly stops matching.
+	var _rows: Container = null
+	var _compact: bool = false
+
 	func _init() -> void:
+		_compact = Layout.compact()
 		add_theme_constant_override("separation", 3)
-		add_child(UITheme.heading("Ship's Manifest"))
+
+		if _compact:
+			# A sideways strip of badges. No heading: on a phone the row of trait
+			# icons above the bench is self-evident, and the words cost a line.
+			var scroll := ScrollContainer.new()
+			scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			scroll.custom_minimum_size = Vector2(0, 26 if Layout.short() else 30)
+			var strip := HBoxContainer.new()
+			strip.add_theme_constant_override("separation", 4)
+			scroll.add_child(strip)
+			add_child(scroll)
+			_rows = strip
+		else:
+			add_child(UITheme.heading("Ship's Manifest"))
+			_rows = VBoxContainer.new()
+			_rows.add_theme_constant_override("separation", 3)
+			add_child(_rows)
 
 	func _ready() -> void:
 		Events.board_changed.connect(refresh)
 		refresh()
 
 	func refresh() -> void:
-		for child in get_children():
-			if child is TraitRow or child is Label and child.text.begins_with("Field"):
-				child.queue_free()
+		for child in _rows.get_children():
+			child.queue_free()
 
 		var traits: Array = GameState.board_traits()
 		if traits.is_empty():
+			if _compact:
+				# The strip just stays empty; a phone has no line to spare for
+				# saying so, and the bench underneath makes the point.
+				return
 			var empty := UITheme.label("Field your crew to muster traits.",
 				UITheme.FONT_TINY, Color("4d6373"))
 			empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			add_child(empty)
+			_rows.add_child(empty)
 			return
 
 		for entry in traits:
@@ -41,7 +73,7 @@ class TraitPanel extends VBoxContainer:
 			row.show_trait(entry)
 			row.hovered.connect(func(at): trait_hovered.emit(entry["id"], at))
 			row.unhovered.connect(func(): trait_unhovered.emit())
-			add_child(row)
+			_rows.add_child(row)
 
 
 class TraitRow extends PanelContainer:
@@ -56,16 +88,19 @@ class TraitRow extends PanelContainer:
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
+		row.add_theme_constant_override("separation", 4 if Layout.compact() else 6)
 		add_child(row)
 
 		_icon = Label.new()
 		_icon.add_theme_font_override("font", UITheme.emoji_font())
-		_icon.add_theme_font_size_override("font_size", 14)
+		_icon.add_theme_font_size_override("font_size", 13 if Layout.compact() else 14)
 		row.add_child(_icon)
 
+		# The name is the first thing to go on a phone: eight trait badges have to
+		# fit across a strip, and the icon already identifies the trait.
 		_name = UITheme.label("", UITheme.FONT_SMALL, UITheme.INK)
 		_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_name.visible = not Layout.compact()
 		row.add_child(_name)
 
 		_count = UITheme.label("", UITheme.FONT_SMALL, UITheme.MUTED)
@@ -103,26 +138,51 @@ class HoldPanel extends VBoxContainer:
 	signal item_unhovered()
 	signal forge_chart_requested()
 
-	var _grid: HFlowContainer = null
+	var _grid: Container = null
+	var _compact: bool = false
 	## Items that arrived since the panel was last looked at, drawn with a flash.
 	var _fresh: Dictionary = {}
 
 	func _init() -> void:
+		_compact = Layout.compact()
 		add_theme_constant_override("separation", 4)
+
+		if _compact:
+			# One row: chips on the left, the forge chart button pinned on the
+			# right. The heading goes — the button names the panel well enough.
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 4)
+			add_child(row)
+
+			var scroll := ScrollContainer.new()
+			scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			scroll.custom_minimum_size = Vector2(0, Layout.item_chip().y)
+			var strip := HBoxContainer.new()
+			strip.add_theme_constant_override("separation", 4)
+			scroll.add_child(strip)
+			row.add_child(scroll)
+			row.add_child(_chart_button())
+			_grid = strip
+			return
 
 		var header := HBoxContainer.new()
 		header.add_child(UITheme.heading("Cargo Hold"))
 		header.add_child(UITheme.spacer())
+		header.add_child(_chart_button())
+		add_child(header)
+
+		var flow := HFlowContainer.new()
+		flow.add_theme_constant_override("h_separation", 4)
+		flow.add_theme_constant_override("v_separation", 4)
+		add_child(flow)
+		_grid = flow
+
+	func _chart_button() -> Button:
 		var chart := UITheme.button("Forge chart", UITheme.FONT_TINY)
 		chart.tooltip_text = "Every component pairing and what it makes"
 		chart.pressed.connect(func(): forge_chart_requested.emit())
-		header.add_child(chart)
-		add_child(header)
-
-		_grid = HFlowContainer.new()
-		_grid.add_theme_constant_override("h_separation", 4)
-		_grid.add_theme_constant_override("v_separation", 4)
-		add_child(_grid)
+		return chart
 
 	func _ready() -> void:
 		Events.board_changed.connect(refresh)
@@ -138,6 +198,8 @@ class HoldPanel extends VBoxContainer:
 			child.queue_free()
 
 		if GameState.player.items.is_empty():
+			if _compact:
+				return       # the strip just stays empty
 			_grid.add_child(UITheme.label("Empty hold.", UITheme.FONT_TINY, Color("4d6373")))
 			return
 
@@ -155,7 +217,6 @@ class ItemChip extends Control:
 	signal hovered(at: Vector2)
 	signal unhovered()
 
-	const CHIP_SIZE := Vector2(36, 36)
 	## How long a newly acquired item keeps its highlight, in milliseconds.
 	const FRESH_MS := 6000.0
 
@@ -163,7 +224,7 @@ class ItemChip extends Control:
 	var fresh_since: int = 0
 
 	func _init() -> void:
-		custom_minimum_size = CHIP_SIZE
+		custom_minimum_size = Layout.item_chip()
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		mouse_entered.connect(func(): hovered.emit(global_position + Vector2(size.x, 0)))
 		mouse_exited.connect(func(): unhovered.emit())
@@ -182,7 +243,6 @@ class ItemChip extends Control:
 			return null
 		var preview := ItemChip.new()
 		preview.item = item
-		preview.custom_minimum_size = CHIP_SIZE
 		set_drag_preview(preview)
 		return { "kind": &"item", "id": item.id }
 
@@ -202,10 +262,10 @@ class ItemChip extends Control:
 
 		draw_rect(Rect2(Vector2.ZERO, size), border, false, 1.5)
 		var font := UITheme.emoji_font()
-		var glyph_size := 19
+		var glyph_size := roundi(size.y * 0.53)
 		var width := font.get_string_size(item.icon, HORIZONTAL_ALIGNMENT_LEFT, -1, glyph_size).x
-		draw_string(font, Vector2((size.x - width) * 0.5, size.y * 0.5 + 7.0), item.icon,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, glyph_size)
+		draw_string(font, Vector2((size.x - width) * 0.5, size.y * 0.5 + glyph_size * 0.37),
+			item.icon, HORIZONTAL_ALIGNMENT_LEFT, -1, glyph_size)
 
 
 # =============================================================================

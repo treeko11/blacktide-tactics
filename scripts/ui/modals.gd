@@ -3,14 +3,21 @@ extends Control
 
 ## The full-screen dialogs: the armoury, the forge chart, how to play, and the
 ## end of the run.
+##
+## The box sizes itself to the screen and scrolls when it runs out of room, which
+## is what makes these usable on a phone: the forge chart is a six-by-six grid and
+## the help is eight paragraphs, and neither shrinks usefully.
 
 signal armoury_chosen(item_id: StringName)
 signal restart_requested()
 
 var _scrim: ColorRect = null
 var _box: PanelContainer = null
+var _scroll: ScrollContainer = null
 var _content: VBoxContainer = null
+var _actions: VBoxContainer = null
 var _dismissable: bool = true
+var _max_height: float = 0.0
 
 
 func _ready() -> void:
@@ -31,12 +38,42 @@ func _ready() -> void:
 	_box = PanelContainer.new()
 	_box.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("0e2534"), UITheme.LINE, 10))
-	_box.custom_minimum_size = Vector2(520, 0)
 	centre.add_child(_box)
+
+	# A dialog wider than the screen is a dialog with its buttons off the edge.
+	var room := Layout.css_size
+	_box.custom_minimum_size = Vector2(minf(520.0, room.x - 24.0), 0)
+	_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 10)
+	_box.add_child(stack)
+
+	_max_height = room.y * 0.82
+
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	stack.add_child(scroll)
 
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 10)
-	_box.add_child(_content)
+	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_content)
+	_scroll = scroll
+
+	# Buttons live below the scroll, never inside it. The help is eight
+	# paragraphs on a phone, and WEIGH ANCHOR scrolled off the bottom of its own
+	# dialog — a dismiss button you have to find is a dialog that looks stuck.
+	_actions = VBoxContainer.new()
+	_actions.add_theme_constant_override("separation", 6)
+	stack.add_child(_actions)
+
+	set_process(true)
+
+
+func _process(_delta: float) -> void:
+	if visible:
+		_fit_height()
 
 
 func is_open() -> bool:
@@ -51,12 +88,18 @@ func close() -> void:
 func _clear() -> void:
 	for child in _content.get_children():
 		child.queue_free()
+	for child in _actions.get_children():
+		child.queue_free()
 
 
 func _open(title: String, subtitle: String, dismissable: bool = true) -> void:
 	_clear()
 	_dismissable = dismissable
 	visible = true
+
+	# Opened at full height so the content lays out at its real width; _fit_height
+	# shrinks it once the labels know how wide they are.
+	_scroll.custom_minimum_size = Vector2(0, _max_height)
 
 	var heading := UITheme.label(title, 26, UITheme.GOLD)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -67,6 +110,27 @@ func _open(title: String, subtitle: String, dismissable: bool = true) -> void:
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_content.add_child(sub)
+
+
+## Sized every frame the dialog is open rather than once when it opens.
+##
+## An autowrapping label asked for its minimum height before it has been given a
+## width answers as though every word were on its own line — the three-item
+## armoury measured 5895 points tall on the frame it was built. One layout pass
+## later the same question gets the right answer, so the fit converges instead of
+## trusting the first number it is told.
+func _fit_height() -> void:
+	if _scroll == null or not visible:
+		return
+	var wanted: float = minf(_content.get_combined_minimum_size().y, _max_height)
+	if absf(wanted - _scroll.custom_minimum_size.y) > 0.5:
+		_scroll.custom_minimum_size = Vector2(0, wanted)
+
+
+## Adds a button under the scroll rather than inside it, where it cannot be
+## scrolled out of reach.
+func _add_action(button: Button) -> void:
+	_actions.add_child(button)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -85,9 +149,15 @@ func _unhandled_input(event: InputEvent) -> void:
 func open_armoury(offers: Array[StringName]) -> void:
 	_open("The Armoury", "Salvage from the wreck — take one. (+2 gold)", false)
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Three cards side by side is 200 points each, which no phone has. Stacked,
+	# each card becomes a full-width row instead, as in the JS build.
+	var row: BoxContainer
+	if Layout.compact():
+		row = VBoxContainer.new()
+	else:
+		row = HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8 if Layout.compact() else 12)
 	_content.add_child(row)
 
 	for item_id in offers:
@@ -105,7 +175,10 @@ func open_armoury(offers: Array[StringName]) -> void:
 
 func _item_card(item: ItemDef) -> PanelContainer:
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(200, 0)
+	if Layout.compact():
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		card.custom_minimum_size = Vector2(200, 0)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("132a3a"), Color("24485c"), 8))
@@ -179,7 +252,7 @@ func open_forge_chart() -> void:
 
 	var close_button := UITheme.button("CLOSE", UITheme.FONT_BODY)
 	close_button.pressed.connect(close)
-	_content.add_child(close_button)
+	_add_action(close_button)
 
 
 func _can_make(held: Dictionary, a: StringName, b: StringName) -> bool:
@@ -188,9 +261,14 @@ func _can_make(held: Dictionary, a: StringName, b: StringName) -> bool:
 	return held.has(a) and held.has(b)
 
 
+## Chart cells. Six columns of 72 is 432 points wide, so a phone gets 48.
+func _chart_size() -> Vector2:
+	return Vector2(48, 34) if Layout.compact() else Vector2(72, 40)
+
+
 func _chart_header(component: ItemDef) -> Control:
 	var cell := PanelContainer.new()
-	cell.custom_minimum_size = Vector2(72, 40)
+	cell.custom_minimum_size = _chart_size()
 	cell.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("11283a"), Color("2f5a72"), 5))
 	cell.tooltip_text = component.display_name
@@ -207,7 +285,7 @@ func _chart_header(component: ItemDef) -> Control:
 
 func _chart_cell(result: ItemDef, makeable: bool) -> Control:
 	var cell := PanelContainer.new()
-	cell.custom_minimum_size = Vector2(72, 40)
+	cell.custom_minimum_size = _chart_size()
 	var border := UITheme.GOOD if makeable else Color("1d3b4e")
 	cell.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("0d1c26") if not makeable else Color("0e2a1e"), border, 5))
@@ -227,11 +305,13 @@ func _chart_cell(result: ItemDef, makeable: bool) -> Control:
 	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(glyph)
 
-	var name_label := UITheme.label(result.display_name, 8,
-		UITheme.GOOD if makeable else UITheme.MUTED)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(name_label)
+	# The name does not fit a 48-point cell. The icon and the tooltip carry it.
+	if not Layout.compact():
+		var name_label := UITheme.label(result.display_name, 8,
+			UITheme.GOOD if makeable else UITheme.MUTED)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(name_label)
 
 	return cell
 
@@ -246,22 +326,35 @@ func open_help() -> void:
 	var body := RichTextLabel.new()
 	body.bbcode_enabled = true
 	body.fit_content = true
-	body.custom_minimum_size = Vector2(560, 380)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(minf(560.0, Layout.css_size.x - 48.0), 0)
 	body.add_theme_font_size_override("normal_font_size", UITheme.FONT_SMALL)
 	body.text = _help_text()
 	_content.add_child(body)
 
 	var button := UITheme.button("WEIGH ANCHOR", UITheme.FONT_BODY)
 	button.pressed.connect(close)
-	_content.add_child(button)
+	_add_action(button)
 
 
 func _help_text() -> String:
+	# Two different sets of controls, because a phone has neither a right mouse
+	# button nor a keyboard, and telling a player to right-click on one is worse
+	# than saying nothing.
+	var controls := "[b]Drag[/b] pirates between bench and board · [b]Right-click[/b] to sell" \
+		+ " · [b]D[/b] refresh · [b]F[/b] buy XP · [b]Space[/b] start the battle early" \
+		+ " · [b]1 / 2 / 4[/b] battle speed"
+	if Layout.touch():
+		controls = "[b]Drag[/b] pirates between bench and board · [b]Press and hold[/b]" \
+			+ " anything to inspect it · the inspector for a pirate you own has a" \
+			+ " [b]SELL[/b] button · [b]FLEET[/b] up top opens the standings and the log."
+	var two := UITheme.STAR.repeat(2)
+	var three := UITheme.STAR.repeat(3)
 	return """[color=#7fe3ff][b]THE LOOP[/b][/color]
 Buy pirates from the shop, drag them onto your half of the board, and your crew fights on its own. Lose and your [b]hull[/b] takes damage. Last captain afloat wins.
 
 [color=#7fe3ff][b]UPGRADING[/b][/color]
-Three copies of the same pirate merge into a ★★ version; three of those make ★★★. Copies on the bench count. The shop marks a card [color=#ffd98a]BUY THIS[/color] when it completes an upgrade.
+Three copies of the same pirate merge into a %s version; three of those make %s. Copies on the bench count. The shop marks a card [color=#ffd98a]BUY THIS[/color] when it completes an upgrade.
 
 [color=#7fe3ff][b]TRAITS[/b][/color]
 Every pirate has an [b]Origin[/b] and a [b]Class[/b]. Fielding enough [i]different[/i] pirates sharing a trait activates a fleet-wide bonus — three copies of one pirate is a star-up, not a trait. Hover the manifest to read them.
@@ -273,7 +366,7 @@ Every pirate has an [b]Origin[/b] and a [b]Class[/b]. Fielding enough [i]differe
 Monster rounds drop components. Drag two onto the same pirate to [b]forge[/b] a full item — three per pirate. The [b]Forge chart[/b] button over the cargo hold shows every pairing. The armoury at the end of a stage offers a finished item.
 
 [color=#7fe3ff][b]CONTROLS[/b][/color]
-[b]Drag[/b] pirates between bench and board · [b]Right-click[/b] to sell · [b]D[/b] refresh · [b]F[/b] buy XP · [b]Space[/b] start the battle early · [b]1 / 2 / 4[/b] battle speed"""
+%s""" % [two, three, controls]
 
 
 # =============================================================================
@@ -302,4 +395,4 @@ func open_game_over(place: int) -> void:
 	button.pressed.connect(func():
 		close()
 		restart_requested.emit())
-	_content.add_child(button)
+	_add_action(button)

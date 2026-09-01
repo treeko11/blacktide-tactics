@@ -6,9 +6,14 @@ extends PanelContainer
 ## Gold lives here *and* in the shop row. That is deliberate duplication: this
 ## copy is for reading the run at a glance, the shop's copy is for spending, and
 ## during the planning phase the player never looks up here.
+##
+## On a phone the bar sheds everything that is not a number the player steers by:
+## the wordmark, the phase name and the streak all go, and a FLEET button
+## arrives, because the fleet panel has become a sheet that needs opening.
 
 signal speed_changed(speed: int)
 signal help_pressed()
+signal fleet_pressed()
 
 const SPEEDS := [1, 2, 4]
 
@@ -21,30 +26,37 @@ var _speed_buttons: Array[Button] = []
 
 
 func _ready() -> void:
+	var compact := Layout.compact()
 	add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("0d2130"), UITheme.LINE, 0))
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 5 if compact else 12)
 	add_child(row)
 
-	var logo := UITheme.label("BLACKTIDE", UITheme.FONT_TITLE, UITheme.GOLD)
-	row.add_child(logo)
+	if not compact:
+		row.add_child(UITheme.label("BLACKTIDE", UITheme.FONT_TITLE, UITheme.GOLD))
 
-	_stage = UITheme.label("1‑1", UITheme.FONT_TITLE, UITheme.GOLD_BRIGHT)
+	_stage = UITheme.label("1-1",
+		UITheme.FONT_BODY if compact else UITheme.FONT_TITLE, UITheme.GOLD_BRIGHT)
 	row.add_child(_stage)
 
+	# Kept built either way so refresh() has something to write to; a phone just
+	# never sees it. Branching on the label's existence instead means every
+	# reader needs a null check for a saving of one Label.
 	_phase = UITheme.label("PLANNING", UITheme.FONT_TINY, UITheme.FOAM)
+	_phase.visible = not compact
 	row.add_child(_phase)
 
 	row.add_child(UITheme.spacer())
 
 	for spec in [
 		["❤", "100", Color("ff7d8a"), "hp"],
-		["●", "0", UITheme.GOLD_BRIGHT, "gold"],
+		[UITheme.COIN, "0", UITheme.GOLD_BRIGHT, "gold"],
 		["⚔", "–", UITheme.FOAM, "streak"],
 	]:
 		var chip := _stat_chip(spec[0], spec[1], spec[2])
+		chip[0].visible = not (compact and spec[3] == "streak")
 		row.add_child(chip[0])
 		set("_%s" % spec[3], chip[1])
 
@@ -59,14 +71,21 @@ func _ready() -> void:
 		_speed_buttons.append(button)
 	row.add_child(speeds)
 
-	var help := UITheme.button("?", UITheme.FONT_BODY)
+	if compact:
+		# The fleet and the log live in a sheet on a phone, and a sheet with no
+		# handle is a panel that does not exist.
+		var sheet := UITheme.button("FLEET", UITheme.FONT_TINY)
+		sheet.pressed.connect(func(): fleet_pressed.emit())
+		row.add_child(sheet)
+
+	var help := UITheme.button("?", UITheme.FONT_BODY if not compact else UITheme.FONT_SMALL)
 	help.pressed.connect(func(): help_pressed.emit())
 	row.add_child(help)
 
 	Events.gold_changed.connect(func(amount, _d): _gold.text = str(amount))
 	Events.health_changed.connect(func(amount, _d): _hp.text = str(amount))
 	Events.phase_changed.connect(_on_phase_changed)
-	Events.round_began.connect(func(stage, number): _stage.text = "%d‑%d" % [stage, number])
+	Events.round_began.connect(func(stage, number): _stage.text = "%d-%d" % [stage, number])
 	Events.round_resolved.connect(func(_w, _d, _o): refresh())
 	refresh()
 
@@ -86,12 +105,13 @@ func _stat_chip(icon: String, value: String, color: Color) -> Array:
 
 	var glyph := Label.new()
 	glyph.add_theme_font_override("font", UITheme.emoji_font())
-	glyph.add_theme_font_size_override("font_size", 12)
+	glyph.add_theme_font_size_override("font_size", 10 if Layout.compact() else 12)
 	glyph.text = icon
 	glyph.add_theme_color_override("font_color", color)
 	row.add_child(glyph)
 
-	var label := UITheme.label(value, UITheme.FONT_TITLE, color)
+	var label := UITheme.label(value,
+		UITheme.FONT_SMALL if Layout.compact() else UITheme.FONT_TITLE, color)
 	row.add_child(label)
 	return [chip, label]
 
@@ -108,7 +128,7 @@ func refresh() -> void:
 	_streak.text = GameState.player.streak_label()
 	_streak.add_theme_color_override("font_color",
 		Color("ffb15c") if absi(GameState.player.streak) >= 3 else UITheme.FOAM)
-	_stage.text = "%d‑%d" % [GameState.stage, GameState.round_number]
+	_stage.text = "%d-%d" % [GameState.stage, GameState.round_number]
 
 
 func _on_phase_changed(phase: int) -> void:

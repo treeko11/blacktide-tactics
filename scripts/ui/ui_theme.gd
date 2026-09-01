@@ -48,6 +48,21 @@ const PROC := Color("ffe9a8")
 ## Warning colour for the shop clock as it runs out.
 const WARNING := Color("ff8a5c")
 
+## The gold piece and the star, as emoji rather than as ● and ★.
+##
+## **The web export cannot draw either of those.** Godot's bundled fallback font
+## covers Latin-1 and little else: ●, ★ and the non-breaking hyphen the stage
+## label used all came out as tofu boxes in the browser, so every price, every
+## star rating and the round number read as squares. There is no system font in a
+## WASM sandbox to fall back to, and the only font this project ships is Noto
+## Color Emoji — which has no ● or ★, because neither is an emoji.
+##
+## So the two symbols become the emoji that mean the same thing and *are* in the
+## font already paying for itself. It suits a game whose entire roster is emoji,
+## and it is the one fix that needs no new asset.
+const COIN := "🪙"
+const STAR := "⭐"
+
 const FONT_TINY := 10
 const FONT_SMALL := 12
 const FONT_BODY := 14
@@ -59,6 +74,7 @@ const FONT_HUGE := 34
 
 static var _emoji_font: Font = null
 static var _ui_font: Font = null
+static var _theme: Theme = null
 
 
 ## A font that can actually draw the champion and item icons.
@@ -96,13 +112,32 @@ static func emoji_font() -> Font:
 	return _emoji_font
 
 
+## The text font, with the emoji font behind it.
+##
+## The fallback is what lets COIN and STAR appear in ordinary labels and in
+## BBCode. A SystemFont resolves to Segoe UI on Windows and to nothing at all in
+## the browser, where Latin then comes from Godot's own bundled fallback and the
+## emoji come from ours — verified in the web export rather than assumed, because
+## a font chain that silently ends in tofu is exactly this bug again.
 static func ui_font() -> Font:
 	if _ui_font == null:
 		var font := SystemFont.new()
 		font.font_names = PackedStringArray(["Segoe UI", "Helvetica Neue", "Arial"])
 		font.allow_system_fallback = true
+		font.fallbacks = [emoji_font()]
 		_ui_font = font
 	return _ui_font
+
+
+## A theme carrying that font, applied once at the root of the HUD.
+##
+## Every Label and Button previously took the theme default font, which is how a
+## missing glyph in one font became a missing glyph in the whole interface.
+static func game_theme() -> Theme:
+	if _theme == null:
+		_theme = Theme.new()
+		_theme.default_font = ui_font()
+	return _theme
 
 
 ## Border colour for a champion of a given cost.

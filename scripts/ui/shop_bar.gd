@@ -32,6 +32,14 @@ signal ready_pressed()
 const REROLL_COST := 2
 const XP_COST := 4
 
+## Set by Main when a press-and-hold has already served the press that is about
+## to end — the player asked to read the card, not to buy it. Cleared by the
+## card that consumes it.
+##
+## A card is the only thing in the HUD a bare tap *acts* on; everywhere else a
+## tap either starts a drag or does nothing, so nothing else needs this.
+static var swallow_click: bool = false
+
 var _cards: Array[ShopCard] = []
 var _gold_label: Label = null
 var _level_label: Label = null
@@ -50,14 +58,7 @@ var _gold_flash: float = 0.0
 
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UITheme.panel_style(UITheme.PANEL, UITheme.LINE, 8))
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	add_child(row)
-
-	row.add_child(_build_left_controls())
-	row.add_child(_build_cards())
-	row.add_child(_build_right_controls())
+	add_child(_build_compact() if Layout.compact() else _build_wide())
 
 	Events.gold_changed.connect(_on_gold_changed)
 	Events.level_changed.connect(_on_level_changed)
@@ -72,34 +73,138 @@ func _ready() -> void:
 	refresh()
 
 
-func _build_left_controls() -> Control:
+## Level, cards and gold in one row across the bottom of a desktop screen.
+func _build_wide() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 4)
+	left.custom_minimum_size = Vector2(150, 0)
+	left.add_child(_make_level_row())
+	left.add_child(_make_xp_bar())
+	left.add_child(_make_buttons())
+	row.add_child(left)
+
+	row.add_child(_make_cards())
+
+	# Gold and the clock, side by side with the cards rather than in the top bar.
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 4)
+	right.custom_minimum_size = Vector2(140, 0)
+	right.add_child(_make_gold_panel())
+	right.add_child(_make_timer_row())
+	var sail := _make_ready_button()
+	sail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(sail)
+	row.add_child(right)
+
+	return row
+
+
+## The same parts stacked, for a screen with no width to spare.
+##
+## The order is the order they get used in: cards first, because the planning
+## phase is mostly spent looking at them, then the money and the clock, then the
+## buttons, and SET SAIL last where a thumb already rests.
+func _build_compact() -> Control:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 4)
-	column.custom_minimum_size = Vector2(150, 0)
 
-	var level_row := HBoxContainer.new()
-	_level_label = UITheme.label("Lv 1", UITheme.FONT_TITLE, UITheme.GOLD_BRIGHT)
-	level_row.add_child(_level_label)
-	level_row.add_child(UITheme.spacer())
+	column.add_child(_make_cards())
+
+	# A phone held sideways has width to spare and no height at all: three
+	# stacked rows of furniture pushed the board off the screen entirely, so
+	# everything below the cards goes on one line.
+	if Layout.short():
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 6)
+
+		var meter := VBoxContainer.new()
+		meter.add_theme_constant_override("separation", 2)
+		meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		meter.add_child(_make_level_row())
+		meter.add_child(_make_xp_bar())
+		line.add_child(meter)
+
+		line.add_child(_make_gold_panel())
+
+		var clock := _make_timer_row()
+		clock.custom_minimum_size = Vector2(96, 0)
+		line.add_child(clock)
+
+		line.add_child(_make_buttons())
+
+		var quick_sail := _make_ready_button()
+		quick_sail.custom_minimum_size = Vector2(110, 0)
+		line.add_child(quick_sail)
+
+		column.add_child(line)
+		return column
+
+	var status := HBoxContainer.new()
+	status.add_theme_constant_override("separation", 6)
+
+	var level := VBoxContainer.new()
+	level.add_theme_constant_override("separation", 2)
+	level.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	level.add_child(_make_level_row())
+	level.add_child(_make_xp_bar())
+	status.add_child(level)
+
+	status.add_child(_make_gold_panel())
+	column.add_child(status)
+
+	column.add_child(_make_timer_row())
+
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 4)
+	var buttons := _make_buttons()
+	buttons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(buttons)
+	var sail := _make_ready_button()
+	sail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(sail)
+	column.add_child(actions)
+
+	return column
+
+
+# --- the parts both layouts are assembled from -------------------------------
+
+func _make_level_row() -> Control:
+	var row := HBoxContainer.new()
+	_level_label = UITheme.label("Lv 1",
+		UITheme.FONT_BODY if Layout.compact() else UITheme.FONT_TITLE, UITheme.GOLD_BRIGHT)
+	row.add_child(_level_label)
+	row.add_child(UITheme.spacer())
 	_crew_label = UITheme.label("Crew 0/1", UITheme.FONT_SMALL, UITheme.MUTED)
-	level_row.add_child(_crew_label)
-	column.add_child(level_row)
+	row.add_child(_crew_label)
+	return row
 
+
+func _make_xp_bar() -> Control:
 	_xp_bar = MeterBar.new()
-	_xp_bar.custom_minimum_size = Vector2(0, 14)
+	_xp_bar.custom_minimum_size = Vector2(0, 12 if Layout.compact() else 14)
 	_xp_bar.fill_color = Color("a98bff")
 	_xp_bar.show_text = true
-	column.add_child(_xp_bar)
+	return _xp_bar
 
+
+func _make_buttons() -> Control:
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 4)
 
-	_xp_button = UITheme.button("Buy XP  ● 4")
+	# "Buy XP  * 4" does not fit a third of a phone. The cost still shows; the
+	# verb is the half a returning player does not need read out.
+	var compact := Layout.compact()
+
+	_xp_button = UITheme.button(("XP  %s 4" if compact else "Buy XP  %s 4") % UITheme.COIN)
 	_xp_button.pressed.connect(func(): xp_pressed.emit())
 	_xp_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(_xp_button)
 
-	_reroll_button = UITheme.button("Refresh  ● 2")
+	_reroll_button = UITheme.button(("Roll  %s 2" if compact else "Refresh  %s 2") % UITheme.COIN)
 	_reroll_button.pressed.connect(func(): reroll_pressed.emit())
 	_reroll_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(_reroll_button)
@@ -110,14 +215,24 @@ func _build_left_controls() -> Control:
 	_lock_button.toggled.connect(func(on): lock_toggled.emit(on))
 	buttons.add_child(_lock_button)
 
-	column.add_child(buttons)
-	return column
+	return buttons
 
 
-func _build_cards() -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+func _make_cards() -> Control:
+	var holder: Container
+	if Layout.compact():
+		# Five cards across a phone leaves four characters of champion name. The
+		# JS build wraps to three per row and so does this.
+		var grid := GridContainer.new()
+		grid.columns = Layout.shop_columns()
+		grid.add_theme_constant_override("h_separation", 4)
+		grid.add_theme_constant_override("v_separation", 4)
+		holder = grid
+	else:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		holder = row
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	for i in GameState.SHOP_SIZE:
 		var card := ShopCard.new()
@@ -126,29 +241,29 @@ func _build_cards() -> Control:
 		card.pressed.connect(func(): card_pressed.emit(i))
 		card.hovered.connect(func(at): card_hovered.emit(i, at))
 		card.unhovered.connect(func(): card_unhovered.emit())
-		row.add_child(card)
+		holder.add_child(card)
 		_cards.append(card)
 
-	return row
+	return holder
 
 
-## Gold and the clock, side by side with the cards rather than in the top bar.
-func _build_right_controls() -> Control:
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 4)
-	column.custom_minimum_size = Vector2(140, 0)
-
+func _make_gold_panel() -> Control:
+	var compact := Layout.compact()
 	var gold_panel := PanelContainer.new()
 	gold_panel.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("1a1509"), UITheme.GOLD, 6))
 	var gold_row := HBoxContainer.new()
 	gold_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	gold_row.add_child(UITheme.label("●", UITheme.FONT_TITLE, UITheme.GOLD))
-	_gold_label = UITheme.label("0", UITheme.FONT_HUGE, UITheme.GOLD_BRIGHT)
+	gold_row.add_child(UITheme.label(UITheme.COIN,
+		UITheme.FONT_BODY if compact else UITheme.FONT_TITLE, UITheme.GOLD))
+	_gold_label = UITheme.label("0",
+		UITheme.FONT_TITLE if compact else UITheme.FONT_HUGE, UITheme.GOLD_BRIGHT)
 	gold_row.add_child(_gold_label)
 	gold_panel.add_child(gold_row)
-	column.add_child(gold_panel)
+	return gold_panel
 
+
+func _make_timer_row() -> Control:
 	var timer_row := HBoxContainer.new()
 	timer_row.add_theme_constant_override("separation", 5)
 	_timer_bar = MeterBar.new()
@@ -158,18 +273,17 @@ func _build_right_controls() -> Control:
 	timer_row.add_child(_timer_bar)
 	_timer_label = UITheme.label("32", UITheme.FONT_SMALL, UITheme.MUTED)
 	timer_row.add_child(_timer_label)
-	column.add_child(timer_row)
+	return timer_row
 
+
+func _make_ready_button() -> Button:
 	_ready_button = UITheme.button("SET SAIL", UITheme.FONT_BODY)
 	_ready_button.add_theme_stylebox_override("normal",
 		UITheme.panel_style(Color("6d1a26"), UITheme.BLOOD, 6))
 	_ready_button.add_theme_stylebox_override("hover",
 		UITheme.panel_style(Color("8a2130"), Color("ff8a9a"), 6))
-	_ready_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_ready_button.pressed.connect(func(): ready_pressed.emit())
-	column.add_child(_ready_button)
-
-	return column
+	return _ready_button
 
 
 # --- state -------------------------------------------------------------------
@@ -274,7 +388,7 @@ class ShopCard extends PanelContainer:
 	var _badge: Label = null
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(126, 92)
+		custom_minimum_size = Layout.shop_card()
 		mouse_filter = Control.MOUSE_FILTER_STOP
 
 		# The bottom four pixels are the cost bar, drawn over everything. Without
@@ -314,10 +428,20 @@ class ShopCard extends PanelContainer:
 		mouse_entered.connect(func(): hovered.emit(global_position + Vector2(size.x * 0.5, 0)))
 		mouse_exited.connect(func(): unhovered.emit())
 
+	## Buying happens on release, not on press.
+	##
+	## On press there is no way to know yet whether the player is tapping to buy
+	## or holding to read: a hold is only a hold once a third of a second has
+	## gone by, and by then a press-triggered purchase has already happened.
 	func _gui_input(event: InputEvent) -> void:
-		if event is InputEventMouseButton and event.pressed \
-				and event.button_index == MOUSE_BUTTON_LEFT and champion != null:
-			pressed.emit()
+		if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if event.pressed or champion == null:
+			return
+		if ShopBar.swallow_click:
+			ShopBar.swallow_click = false
+			return
+		pressed.emit()
 
 	func show_champion(champion_id: StringName, info: Dictionary, gold: int) -> void:
 		var content: Node = Engine.get_main_loop().root.get_node(^"/root/Content")
@@ -342,7 +466,7 @@ class ShopCard extends PanelContainer:
 		affordable = gold >= champion.cost
 		_icon.text = champion.icon
 		_name.text = champion.display_name
-		_cost.text = "● %d" % champion.cost
+		_cost.text = "%s %d" % [UITheme.COIN, champion.cost]
 
 		var trait_names := PackedStringArray()
 		for trait_id in champion.traits:
@@ -356,10 +480,10 @@ class ShopCard extends PanelContainer:
 		# like a card they already had one of — same wording weight, same frame —
 		# so the one signal worth acting on was buried in the one that is not.
 		if completes_upgrade:
-			_badge.text = "★★  BUY THIS"
+			_badge.text = "%s BUY THIS" % UITheme.STAR.repeat(2)
 			_badge.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 		elif pair_completes_upgrade:
-			_badge.text = "★★  BUY BOTH"
+			_badge.text = "%s BUY BOTH" % UITheme.STAR.repeat(2)
 			_badge.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 		elif owned > 0:
 			_badge.text = "IN FLEET  %d/3" % owned
@@ -367,7 +491,7 @@ class ShopCard extends PanelContainer:
 		elif fleet_count > 0:
 			# Owned, but every copy is already starred up, so buying does not
 			# merge. Still worth knowing the pirate is one of yours.
-			_badge.text = "IN FLEET  %s" % "★".repeat(fleet_star)
+			_badge.text = "IN FLEET %s" % UITheme.STAR.repeat(fleet_star)
 			_badge.add_theme_color_override("font_color", UITheme.GOOD)
 		elif duplicate_in_shop:
 			_badge.text = "pair in shop"

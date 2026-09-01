@@ -10,6 +10,10 @@ extends PanelContainer
 ## Every drop target also reports what a drop *would* do before it happens —
 ## which unit would be sold and for how much, which item two components would
 ## forge into. Both are irreversible, and both used to be guesses.
+##
+## On a phone the nine slots wrap into two rows of five rather than one row of
+## nine. Nine across a 375-point screen is a 36-point slot, which is under the
+## smallest comfortable touch target; five across is 64 and stays thumb-sized.
 
 signal preview_changed(text: String)
 signal unit_dropped(unit: RosterUnit, slot: int)
@@ -25,24 +29,46 @@ var _sell_zone: SellZone = null
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UITheme.panel_style(UITheme.PANEL, UITheme.LINE, 8))
 
+	var compact := Layout.compact()
+
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 5)
+	row.add_theme_constant_override("separation", 4 if compact else 5)
 	add_child(row)
 
-	row.add_child(UITheme.heading("Deck"))
+	if not compact:
+		row.add_child(UITheme.heading("Deck"))
+
+	# One row of nine on a desktop; two rows of five on a phone, where nine
+	# across would put every slot below a comfortable touch target.
+	var slots: Container
+	if compact:
+		var grid := GridContainer.new()
+		grid.columns = Layout.bench_columns()
+		grid.add_theme_constant_override("h_separation", 4)
+		grid.add_theme_constant_override("v_separation", 4)
+		slots = grid
+	else:
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 5)
+		slots = line
+	slots.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(slots)
 
 	for i in GameState.BENCH_SIZE:
 		var slot := BenchSlot.new()
 		slot.index = i
+		if compact:
+			slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slot.preview_changed.connect(func(text): preview_changed.emit(text))
 		slot.unit_dropped.connect(func(unit): unit_dropped.emit(unit, slot.index))
 		slot.item_dropped.connect(func(item_id, unit): item_dropped.emit(item_id, unit))
 		slot.unit_hovered.connect(func(unit, at): unit_hovered.emit(unit, at))
 		slot.unit_unhovered.connect(func(): unit_unhovered.emit())
-		row.add_child(slot)
+		slots.add_child(slot)
 		_slots.append(slot)
 
-	row.add_child(UITheme.spacer(8))
+	if not compact:
+		row.add_child(UITheme.spacer(8))
 
 	_sell_zone = SellZone.new()
 	_sell_zone.unit_sold.connect(func(unit): unit_sold.emit(unit))
@@ -68,21 +94,23 @@ class BenchSlot extends PanelContainer:
 	signal unit_hovered(unit: RosterUnit, at: Vector2)
 	signal unit_unhovered()
 
-	const SLOT_SIZE := Vector2(64, 64)
-
 	var index: int = 0
 	var unit: RosterUnit = null
 
 	var _view: UnitView = null
 
 	func _init() -> void:
-		custom_minimum_size = SLOT_SIZE
+		var slot := Layout.bench_slot()
+		custom_minimum_size = slot
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		add_theme_stylebox_override("panel",
 			UITheme.panel_style(Color("0a1a24"), Color("17323f"), 7))
 
 		_view = UnitView.new()
-		_view.scale = Vector2(0.72, 0.72)
+		# The pirate is drawn at a fixed size, so a smaller slot needs a smaller
+		# pirate or it draws outside its own panel.
+		var view_scale := 0.72 * slot.y / 64.0
+		_view.scale = Vector2(view_scale, view_scale)
 		add_child(_view)
 
 		resized.connect(_centre_view)
@@ -109,9 +137,10 @@ class BenchSlot extends PanelContainer:
 		var preview := UnitView.new()
 		preview.bind_roster(unit)
 		var holder := Control.new()
-		holder.custom_minimum_size = SLOT_SIZE
+		var slot := Layout.bench_slot()
+		holder.custom_minimum_size = slot
 		holder.add_child(preview)
-		preview.position = SLOT_SIZE * 0.5
+		preview.position = slot * 0.5
 		set_drag_preview(holder)
 		return { "kind": &"unit", "unit": unit }
 
@@ -155,7 +184,7 @@ class SellZone extends PanelContainer:
 	var _armed: bool = false
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(96, 64)
+		custom_minimum_size = Vector2(52, 0) if Layout.compact() else Vector2(96, 64)
 		add_theme_stylebox_override("panel",
 			UITheme.panel_style(Color("1a0a0e"), Color("5e2a34"), 7))
 		_label = UITheme.label("DROP\nTO SELL", UITheme.FONT_TINY, Color("a95a68"))
@@ -168,7 +197,7 @@ class SellZone extends PanelContainer:
 			return false
 		# Naming the price on the zone means a sale is never a surprise.
 		var unit: RosterUnit = data["unit"]
-		_label.text = "SELL FOR\n● %d" % unit.sell_value()
+		_label.text = "SELL FOR\n%s %d" % [UITheme.COIN, unit.sell_value()]
 		_label.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 		_armed = true
 		return true

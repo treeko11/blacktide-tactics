@@ -508,7 +508,7 @@ func _merge_three(three: Array, star: int) -> void:
 		else:
 			bench.append(upgraded)
 
-	log_line("%s %s!" % ["★★" if star == 1 else "★★★", upgraded.champion.display_name], &"good")
+	log_line("%s %s!" % [UITheme.STAR.repeat(2) if star == 1 else UITheme.STAR.repeat(3), upgraded.champion.display_name], &"good")
 	Events.unit_upgraded.emit(upgraded.id(), upgraded.star)
 
 

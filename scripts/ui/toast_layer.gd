@@ -54,7 +54,7 @@ func _on_unit_upgraded(champion_id: StringName, star: int) -> void:
 	var champion: ChampionDef = GameState.content.champion(champion_id)
 	if champion == null:
 		return
-	_push(champion.icon, champion.display_name, "%s UPGRADE" % "★".repeat(star),
+	_push(champion.icon, champion.display_name, "%s UPGRADE" % UITheme.STAR.repeat(star),
 		UITheme.GOLD_BRIGHT)
 
 
