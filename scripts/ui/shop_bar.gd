@@ -29,9 +29,6 @@ signal xp_pressed()
 signal lock_toggled(locked: bool)
 signal ready_pressed()
 
-const REROLL_COST := 2
-const XP_COST := 4
-
 ## Set by Main when a press-and-hold has already served the press that is about
 ## to end — the player asked to read the card, not to buy it. Cleared by the
 ## card that consumes it.
@@ -184,18 +181,24 @@ func _make_buttons() -> Control:
 	# verb is the half a returning player does not need read out.
 	var compact := Layout.compact()
 
-	_xp_button = UITheme.button(("XP  %s 4" if compact else "Buy XP  %s 4") % UITheme.COIN)
+	_xp_button = UITheme.button(("XP  %s %d" if compact else "Buy XP  %s %d")
+		% [UITheme.COIN, GameState.XP_COST])
 	_xp_button.pressed.connect(func(): xp_pressed.emit())
 	_xp_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(_xp_button)
 
-	_reroll_button = UITheme.button(("Roll  %s 2" if compact else "Refresh  %s 2") % UITheme.COIN)
+	_reroll_button = UITheme.button(("Roll  %s %d" if compact else "Refresh  %s %d")
+		% [UITheme.COIN, GameState.REROLL_COST])
 	_reroll_button.pressed.connect(func(): reroll_pressed.emit())
 	_reroll_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(_reroll_button)
 
 	_lock_button = UITheme.button("🔒")
 	_lock_button.toggle_mode = true
+	# Same reason as the speed buttons in TopBar: a rebuild throws this panel away
+	# and the lock lives in GameState, so it has to be read back rather than
+	# assumed off.
+	_lock_button.button_pressed = GameState.shop_locked
 	_lock_button.tooltip_text = "Keep this shop for the next round"
 	_lock_button.toggled.connect(func(on): lock_toggled.emit(on))
 	buttons.add_child(_lock_button)
@@ -206,8 +209,9 @@ func _make_buttons() -> Control:
 func _make_cards() -> Control:
 	var holder: Container
 	if Layout.compact():
-		# Five cards across a phone leaves four characters of champion name. The
-		# JS build wraps to three per row and so does this.
+		# One row of five, not the JS build's three-per-row wrap. A second row of
+		# cards comes out of the board's height, and the board is the panel that
+		# cannot afford it — see Layout.shop_columns.
 		var grid := GridContainer.new()
 		grid.columns = Layout.shop_columns()
 		grid.add_theme_constant_override("h_separation", 4)
@@ -292,8 +296,8 @@ func refresh() -> void:
 		_xp_bar.set_value(float(state.player.xp) / maxf(1.0, state.player.xp_needed()),
 			"%d/%d" % [state.player.xp, state.player.xp_needed()])
 
-	_reroll_button.disabled = state.player.gold < REROLL_COST
-	_xp_button.disabled = state.player.gold < XP_COST or state.player.is_max_level()
+	_reroll_button.disabled = state.player.gold < GameState.REROLL_COST
+	_xp_button.disabled = state.player.gold < GameState.XP_COST or state.player.is_max_level()
 
 
 func _on_gold_changed(amount: int, _delta: int) -> void:
@@ -314,9 +318,18 @@ func _on_plan_timer(seconds_left: float, fraction: float) -> void:
 ## The last few seconds turn the clock and the button orange, because a round
 ## ending mid-purchase was the complaint.
 func _on_time_warning(_seconds_left: float) -> void:
-	_warning = true
-	_timer_bar.fill_color = UITheme.WARNING
-	_timer_label.add_theme_color_override("font_color", UITheme.WARNING)
+	_set_warning(true)
+
+
+## `plan_time_warning` fires once per round, so a panel built after it has already
+## gone by would sit in the wrong colour for the rest of the round. Reading the
+## clock instead of the signal means a rebuild — a phone rotating with eight
+## seconds left — comes back up still warning.
+func _set_warning(on: bool) -> void:
+	_warning = on
+	_timer_bar.fill_color = UITheme.WARNING if on else UITheme.FOAM
+	_timer_label.add_theme_color_override("font_color",
+		UITheme.WARNING if on else UITheme.MUTED)
 
 
 func _on_phase_changed(phase: int) -> void:
@@ -324,11 +337,8 @@ func _on_phase_changed(phase: int) -> void:
 	_ready_button.disabled = not planning
 	for card in _cards:
 		card.buyable = planning
-		card.queue_redraw()
 	if planning:
-		_warning = false
-		_timer_bar.fill_color = UITheme.FOAM
-		_timer_label.add_theme_color_override("font_color", UITheme.MUTED)
+		_set_warning(false)
 		refresh()
 
 
@@ -354,8 +364,20 @@ class ShopCard extends PanelContainer:
 
 	var index: int = 0
 	var champion: ChampionDef = null
-	var buyable: bool = true
-	var affordable: bool = true
+
+	## Whether the card can be bought at all — false outside the planning phase —
+	## and whether the player can currently pay for it. Both fade the card, so both
+	## repaint it on the way in: setting `buyable` and leaving the fade to the next
+	## refresh() meant the cards stayed at full brightness through a whole battle,
+	## looking exactly as buyable as they had a moment earlier.
+	var buyable: bool = true:
+		set(value):
+			buyable = value
+			_apply_fade()
+	var affordable: bool = true:
+		set(value):
+			affordable = value
+			_apply_fade()
 
 	## What the player's own fleet already holds of this pirate, and what buying
 	## the card would do about it. All of it drives the badge and the frame.
@@ -446,8 +468,7 @@ class ShopCard extends PanelContainer:
 		pressed.emit()
 
 	func show_champion(champion_id: StringName, info: Dictionary, gold: int) -> void:
-		var content: Node = Engine.get_main_loop().root.get_node(^"/root/Content")
-		champion = content.champion(champion_id) if champion_id != &"" else null
+		champion = Content.champion(champion_id) if champion_id != &"" else null
 		owned = info.get("owned", 0)
 		fleet_count = info.get("fleet_count", 0)
 		fleet_star = info.get("fleet_star", 0)
@@ -462,7 +483,6 @@ class ShopCard extends PanelContainer:
 			_cost.text = ""
 			_badge.text = ""
 			affordable = true
-			queue_redraw()
 			return
 
 		affordable = gold >= champion.cost
@@ -472,7 +492,7 @@ class ShopCard extends PanelContainer:
 
 		var trait_names := PackedStringArray()
 		for trait_id in champion.traits:
-			var def: TraitDef = content.trait_def(trait_id)
+			var def: TraitDef = Content.trait_def(trait_id)
 			if def != null:
 				trait_names.append("%s %s" % [def.icon, def.display_name])
 		_traits.text = "\n".join(trait_names)
@@ -505,8 +525,13 @@ class ShopCard extends PanelContainer:
 		else:
 			_badge.text = ""
 
-		var faded := not affordable or not buyable
-		var dim := 0.45 if faded else 1.0
+		_apply_fade()
+
+	## Dims an empty, unaffordable or unbuyable card, and repaints the frame.
+	func _apply_fade() -> void:
+		if _name == null:
+			return                        # a setter running before _init finished
+		var dim := 0.45 if (not affordable or not buyable) else 1.0
 		_name.modulate.a = dim
 		_traits.modulate.a = dim
 		_icon.modulate.a = dim

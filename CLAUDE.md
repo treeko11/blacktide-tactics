@@ -31,6 +31,13 @@ that needs no engine, and say plainly in the commit message that code is
 All extend `tools/tool_script.gd`. **Write new tools by extending it** — it
 carries the two headless traps below so no tool has to rediscover them.
 
+**Run `screenshot.gd`'s assertions at every layout, not just one.** The three
+that matter are `--size=390x844` (phone upright), `--size=844x390` (sideways) and
+`--size=1600x900` (desktop); they build genuinely different HUDs. The toast
+blocking input on the cargo hold was live in all three, and passed unnoticed
+because `--hold=item` had only ever been run upright, where the toast happens to
+cover nothing.
+
 ### Headless gotchas, each learned the hard way
 
 - A `--script` target must `extends SceneTree`. `await process_frame` waits a
@@ -210,6 +217,30 @@ Each of these cost a debugging session or settles a design argument.
   cheaper than being wrong on the platform the layout exists for. And **both**
   breakpoints trigger the rebuild: portrait and short-landscape are both
   "compact", and watching only WIDE/COMPACT missed the rotation entirely.
+- **A rebuild re-wires the panels, never the bus.** Freeing a node disconnects
+  its signals for you, which is what makes throwing the HUD away safe — but Main
+  itself is *not* freed, and neither is the `Events` autoload, so anything
+  connecting the two survives. Re-running that wiring stacked a second copy on
+  every rotation: Godot refused the method connections with an error, and
+  silently accepted the lambdas, which then ran once per rotation the player had
+  ever made. `Main._connect_panels` runs per build; `Main._connect_bus` runs once.
+  `screenshot.gd --rotate=` catches it, because the errors print.
+- **Anything the HUD shows but GameState owns has to be read back on a rebuild.**
+  The new panel starts at its own defaults, and those are a lie the moment the
+  run is not in its opening state: the speed buttons came back claiming 1× while
+  the fight ran at 4×, the shop lock came back open while the shop was locked,
+  and the round clock came back foam with six seconds left. State that is only
+  ever pushed by a signal is the trap — the signal already fired, at a panel that
+  no longer exists.
+- **`mouse_filter` is per node, so an overlay is only as transparent as its
+  children.** `Container` defaults to STOP where `Label` defaults to IGNORE, so
+  setting IGNORE on a toast's panel left the two boxes inside it hit-testable:
+  every toast became an invisible five-second blocker over whatever it covered.
+  On a sideways phone that was the cargo hold, and press-and-hold stopped opening
+  the inspector; on a desktop it was the right of the board, and a pirate could
+  not be dropped there for five seconds after any pickup. Both read as the game
+  ignoring you — the thing the toast exists to prevent. `test_hud.gd` walks the
+  layer and fails anything not IGNORE.
 - **Never change a Control's `mouse_filter` while a press is live.** A pinned
   inspector has to swallow taps on its own body, but press-and-hold opens it with
   the finger still down. Setting `mouse_filter` to STOP there left Godot's GUI
@@ -229,10 +260,12 @@ Each of these cost a debugging session or settles a design argument.
   tofu box in the browser. `UITheme.COIN` and `UITheme.STAR` are now the emoji
   that mean the same thing, `»` replaced the arrow in the forge lists, and
   `game_theme()` puts the emoji font behind the text font so they resolve in
-  ordinary labels and in BBCode. **Check any new symbol in the web export**, not
-  on Windows, where Segoe UI hides the problem. Confirmed to render: Latin-1,
-  `× · • ° « »`, en and em dashes, and anything Noto Color Emoji covers.
-  Confirmed missing: everything in Geometric Shapes and most of Dingbats.
+  ordinary labels and in BBCode. `test_glyphs.gd` now asks the two fonts about
+  every character in the scripts and the .tres, so a symbol Windows would have
+  hidden fails the suite instead of the export. Confirmed to render: Latin-1,
+  `× · • ° « »`, en and em dashes, and anything Noto Color Emoji covers —
+  including the Dingbats that are emoji, such as `✔`. Confirmed missing:
+  Geometric Shapes, and the arrows and dashes outside Latin-1.
 - **Press-and-hold is the touch inspector, and it lives in Main.** A finger has
   no hover. Main watches real `InputEventScreenTouch` — never the emulated mouse,
   which cannot be told from a real one, and a mouse held still for a third of a
@@ -302,6 +335,12 @@ generator only to add something new.
   the caster so no trait activates, everyone is stunned so nobody attacks — and
   fails any that changes nothing. That is the net under the riskiest thousand
   lines of the port.
+- `test_hud.gd` holds the invariants whose breakage looks like the game ignoring
+  the player rather than like a bug — currently that nothing in the toast layer
+  can take a click.
+- `test_glyphs.gd` fails any character the web export could not draw. The rule it
+  replaces was "check it in the browser", which means exporting, and which is why
+  the game shipped twice with tofu where its prices were.
 - `test_economy.gd` checks that **no champion copies are lost** over forty rounds
   of bot shopping. A card rolled and neither bought nor returned drains the
   shared pool silently, and the shop slowly stops offering that champion to

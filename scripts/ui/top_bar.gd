@@ -50,22 +50,22 @@ func _ready() -> void:
 
 	row.add_child(UITheme.spacer())
 
-	for spec in [
-		["❤", "100", Color("ff7d8a"), "hp"],
-		[UITheme.COIN, "0", UITheme.GOLD_BRIGHT, "gold"],
-		["⚔", "–", UITheme.FOAM, "streak"],
-	]:
-		var chip := _stat_chip(spec[0], spec[1], spec[2])
-		chip[0].visible = not (compact and spec[3] == "streak")
-		row.add_child(chip[0])
-		set("_%s" % spec[3], chip[1])
+	_hp = _add_stat_chip(row, "❤", "100", Color("ff7d8a"))
+	_gold = _add_stat_chip(row, UITheme.COIN, "0", UITheme.GOLD_BRIGHT)
+	# The streak is the one stat a phone can do without: it is a nicety rather
+	# than a number the player steers by, and the bar is already tight.
+	_streak = _add_stat_chip(row, "⚔", "–", UITheme.FOAM, not compact)
 
 	var speeds := HBoxContainer.new()
 	speeds.add_theme_constant_override("separation", 2)
 	for value in SPEEDS:
 		var button := UITheme.button("%d×" % value, UITheme.FONT_TINY)
 		button.toggle_mode = true
-		button.button_pressed = value == 1
+		# Read from the run, not hard-coded to 1×. The HUD is rebuilt whenever the
+		# window crosses a breakpoint, and the speed the player chose lives in
+		# GameState and survives that — so a bar built fresh at 1× is a bar
+		# claiming a speed the game is not running at.
+		button.button_pressed = value == GameState.speed
 		button.pressed.connect(func(): _select_speed(value))
 		speeds.add_child(button)
 		_speed_buttons.append(button)
@@ -90,30 +90,35 @@ func _ready() -> void:
 	refresh()
 
 
-## A little icon-and-number chip, returned as [chip, value label].
+## Adds a little icon-and-number chip to `row` and hands back the label to keep
+## updating.
 ##
-## Both are needed by the caller: the chip to add to the bar, the label to keep
-## updating. Returning only the label and walking back up to `get_parent()` finds
-## the inner row rather than the chip, which silently adds the wrong node.
-func _stat_chip(icon: String, value: String, color: Color) -> Array:
+## It adds the chip itself rather than returning it, because the caller needs two
+## different nodes out of one call — the chip to seat and the label to write to —
+## and the alternative that avoided a two-element Array was assigning the field by
+## name (`set("_%s" % ...)`), where a typo is silent.
+func _add_stat_chip(row: HBoxContainer, icon: String, value: String, color: Color,
+		shown: bool = true) -> Label:
 	var chip := PanelContainer.new()
+	chip.visible = shown
+	row.add_child(chip)
 	chip.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("0a1c27"), UITheme.LINE, 4))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 5)
-	chip.add_child(row)
+	var inner := HBoxContainer.new()
+	inner.add_theme_constant_override("separation", 5)
+	chip.add_child(inner)
 
 	var glyph := Label.new()
 	glyph.add_theme_font_override("font", UITheme.emoji_font())
 	glyph.add_theme_font_size_override("font_size", 10 if Layout.compact() else 12)
 	glyph.text = icon
 	glyph.add_theme_color_override("font_color", color)
-	row.add_child(glyph)
+	inner.add_child(glyph)
 
 	var label := UITheme.label(value,
 		UITheme.FONT_SMALL if Layout.compact() else UITheme.FONT_TITLE, color)
-	row.add_child(label)
-	return [chip, label]
+	inner.add_child(label)
+	return label
 
 
 func _select_speed(value: int) -> void:

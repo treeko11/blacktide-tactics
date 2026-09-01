@@ -25,8 +25,6 @@ var sim_unit: SimUnit = null
 
 ## Between fights there are no bars to draw and no mana to show.
 var show_bars: bool = false
-## Highlight ring, used for the unit under the cursor and the drag source.
-var highlighted: bool = false
 
 var _content: Node = null
 
@@ -94,8 +92,6 @@ func _draw_body(alpha: float) -> void:
 		draw_arc(Vector2.ZERO, BODY_RADIUS + 4.0, 0.0, TAU, 28, UITheme.FOAM, 3.0)
 		draw_arc(Vector2.ZERO, BODY_RADIUS + 8.0, 0.0, TAU, 28,
 			Color(UITheme.FOAM.r, UITheme.FOAM.g, UITheme.FOAM.b, 0.35), 2.0)
-	if highlighted:
-		draw_arc(Vector2.ZERO, BODY_RADIUS + 3.0, 0.0, TAU, 28, UITheme.GOLD_BRIGHT, 2.0)
 
 	draw_arc(Vector2.ZERO, BODY_RADIUS, 0.0, TAU, 32,
 		Color(border.r, border.g, border.b, alpha), 2.5)

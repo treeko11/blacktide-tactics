@@ -19,6 +19,16 @@ const FADE_SECONDS := 0.6
 const MAX_VISIBLE := 4
 
 
+## How wide a toast is allowed to be.
+##
+## One number, because the strip and the toasts inside it have to agree: the
+## strip was fitted to the screen and each toast asked for a flat 300, so on a
+## narrow phone the toasts were wider than the column holding them and hung off
+## the edge.
+static func width() -> float:
+	return minf(320.0, maxf(180.0, Layout.css_size.x - 24.0))
+
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	alignment = BoxContainer.ALIGNMENT_END
@@ -78,8 +88,7 @@ func _push(icon: String, body: String, heading: String, accent: Color) -> void:
 
 class Toast extends PanelContainer:
 	func build(icon: String, body: String, heading: String, accent: Color) -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		custom_minimum_size = Vector2(300, 0)
+		custom_minimum_size = Vector2(ToastLayer.width(), 0)
 		add_theme_stylebox_override("panel",
 			UITheme.panel_style(Color("0d2231"), accent, 7))
 
@@ -104,6 +113,28 @@ class Toast extends PanelContainer:
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		column.add_child(text)
 		row.add_child(column)
+
+		_make_transparent(self)
+
+	## A toast is decoration, and decoration must never take a click.
+	##
+	## `mouse_filter` is per node, so setting it on the panel says nothing about
+	## the containers inside it — and a bare `Container` defaults to STOP, unlike a
+	## `Label`. So every toast was an invisible five-second hit-test blocker over
+	## whatever it happened to cover: the cargo hold on a sideways phone, where
+	## holding an item stopped opening the inspector, and the right third of the
+	## board on a desktop, where a pirate could not be dropped for five seconds
+	## after any pickup. It reads as the game ignoring you, which is exactly what
+	## the toast was added to stop.
+	##
+	## Applied to the whole subtree once it is built, rather than to each container
+	## as it is made, so a row added here later cannot reintroduce the bug by being
+	## forgotten. `test_hud.gd` walks the layer and fails anything still STOP.
+	func _make_transparent(control: Control) -> void:
+		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for child in control.get_children():
+			if child is Control:
+				_make_transparent(child)
 
 	func start(hold: float, fade: float) -> void:
 		modulate.a = 0.0

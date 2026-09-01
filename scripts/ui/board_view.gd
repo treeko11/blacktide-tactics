@@ -11,7 +11,6 @@ extends Control
 ## not move anything — dragging is owned by Main, which is the only place allowed
 ## to ask GameState to change the roster.
 
-signal cell_clicked(cell: Vector2i)
 signal unit_dropped_on_cell(unit: RosterUnit, cell: Vector2i)
 signal item_dropped_on_unit(item_id: StringName, unit: RosterUnit)
 signal unit_sell_requested(unit: RosterUnit)
@@ -102,10 +101,7 @@ func _gui_input(event: InputEvent) -> void:
 			queue_redraw()
 		_report_hover(event.position)
 	elif event is InputEventMouseButton and event.pressed:
-		var cell := cell_at(event.position)
-		if event.button_index == MOUSE_BUTTON_LEFT and cell.x >= 0:
-			cell_clicked.emit(cell)
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
 			var unit := roster_unit_at(event.position)
 			if unit != null:
 				unit_sell_requested.emit(unit)
@@ -346,11 +342,3 @@ func set_drop_cell(cell: Vector2i) -> void:
 		return
 	drop_cell = cell
 	queue_redraw()
-
-
-func highlight_unit(uid: int, on: bool) -> void:
-	if not _views.has(uid):
-		return
-	var view: UnitView = _views[uid]
-	view.highlighted = on
-	view.queue_redraw()

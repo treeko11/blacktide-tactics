@@ -55,9 +55,3 @@ signal logged(text: String, style: StringName)
 ## A transient message to put in front of the player — "Not enough gold", "Deck
 ## is full". The old build computed these and dropped them on the floor.
 signal notice(text: String, style: StringName)
-
-## The window crossed the breakpoint between the wide layout and the compact one
-## — a phone rotating, or a desktop window dragged narrow. The HUD is rebuilt
-## rather than resized: the two layouts are different arrangements of the same
-## panels, not the same arrangement at two sizes. See scripts/ui/layout.gd.
-signal layout_changed(compact: bool)

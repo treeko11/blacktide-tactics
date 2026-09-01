@@ -171,11 +171,21 @@ func open_armoury(offers: Array[StringName]) -> void:
 		if item == null:
 			continue
 		var card := _item_card(item)
+		# Taken on release, and only if the finger is still on the card — the same
+		# rule a shop card follows, for the same reason. A press was enough before,
+		# which meant the armoury could not be scrolled on a phone: the flick that
+		# was meant to reach the third item took the first one instead. The choice
+		# is final and ends the round, so it must be something the player let go of
+		# on purpose.
 		card.gui_input.connect(func(event: InputEvent):
-			if event is InputEventMouseButton and event.pressed \
-					and event.button_index == MOUSE_BUTTON_LEFT:
-				close()
-				armoury_chosen.emit(item_id))
+			if not (event is InputEventMouseButton) or event.pressed:
+				return
+			if event.button_index != MOUSE_BUTTON_LEFT:
+				return
+			if not Rect2(Vector2.ZERO, card.size).has_point(event.position):
+				return
+			close()
+			armoury_chosen.emit(item_id))
 		row.add_child(card)
 
 

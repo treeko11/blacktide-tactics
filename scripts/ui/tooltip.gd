@@ -204,7 +204,6 @@ func _process(_delta: float) -> void:
 ## something else.
 static func champion_text(champion: ChampionDef, star: int,
 		items: Array = [], live: SimUnit = null) -> String:
-	var content: Node = Engine.get_main_loop().root.get_node(^"/root/Content")
 	var stats := champion.stats_at(star)
 	var lines := PackedStringArray()
 
@@ -215,7 +214,7 @@ static func champion_text(champion: ChampionDef, star: int,
 
 	var trait_names := PackedStringArray()
 	for trait_id in champion.traits:
-		var def: TraitDef = content.trait_def(trait_id)
+		var def: TraitDef = Content.trait_def(trait_id)
 		if def != null:
 			trait_names.append("%s %s" % [def.icon, def.display_name])
 	if not trait_names.is_empty():
@@ -253,7 +252,7 @@ static func champion_text(champion: ChampionDef, star: int,
 		lines.append("")
 		lines.append("[color=#7c93a4]CARRYING[/color]")
 		for item_id in items:
-			var item: ItemDef = content.item_def(item_id)
+			var item: ItemDef = Content.item_def(item_id)
 			if item == null:
 				continue
 			lines.append("%s [b]%s[/b]" % [item.icon, item.display_name])
@@ -263,8 +262,7 @@ static func champion_text(champion: ChampionDef, star: int,
 
 
 static func trait_text(trait_id: StringName, count: int, tier: int) -> String:
-	var content: Node = Engine.get_main_loop().root.get_node(^"/root/Content")
-	var def: TraitDef = content.trait_def(trait_id)
+	var def: TraitDef = Content.trait_def(trait_id)
 	if def == null:
 		return ""
 
@@ -298,8 +296,7 @@ static func trait_text(trait_id: StringName, count: int, tier: int) -> String:
 ## components had no way to find out what they made short of trying it, and
 ## equipping cannot be undone.
 static func item_text(item_id: StringName) -> String:
-	var content: Node = Engine.get_main_loop().root.get_node(^"/root/Content")
-	var item: ItemDef = content.item_def(item_id)
+	var item: ItemDef = Content.item_def(item_id)
 	if item == null:
 		return ""
 
@@ -314,9 +311,9 @@ static func item_text(item_id: StringName) -> String:
 		var held: Dictionary = {}
 		for other in GameState.player.items:
 			held[other] = int(held.get(other, 0)) + 1
-		for pairing in content.forges_using(item.id):
-			var other: ItemDef = content.item_def(pairing["with"])
-			var result: ItemDef = content.item_def(pairing["makes"])
+		for pairing in Content.forges_using(item.id):
+			var other: ItemDef = Content.item_def(pairing["with"])
+			var result: ItemDef = Content.item_def(pairing["makes"])
 			# Mark the ones the player could make right now.
 			var have: bool = held.has(other.id) and (other.id != item.id or int(held[other.id]) >= 2)
 			var marker := "[color=#4bd08a]✔[/color] " if have else "[color=#3d4d59]·[/color] "
@@ -325,7 +322,7 @@ static func item_text(item_id: StringName) -> String:
 	else:
 		var parts := PackedStringArray()
 		for component_id in item.recipe:
-			var component: ItemDef = content.item_def(component_id)
+			var component: ItemDef = Content.item_def(component_id)
 			parts.append("%s %s" % [component.icon, component.display_name])
 		lines.append("[color=#7c93a4]Forged from %s[/color]" % " + ".join(parts))
 
@@ -337,7 +334,6 @@ static func item_text(item_id: StringName) -> String:
 ## The items are listed because "I don't think I saw the AI use items" was a
 ## visibility problem as much as a behaviour one.
 static func captain_text(captain: Captain) -> String:
-	var content: Node = Engine.get_main_loop().root.get_node(^"/root/Content")
 	var lines := PackedStringArray()
 	lines.append("[font_size=17][b]%s %s[/b][/font_size]" % [captain.icon, captain.display_name])
 	lines.append("[color=#7c93a4]Level %d · %d hull · %s[/color]"
@@ -347,12 +343,12 @@ static func captain_text(captain: Captain) -> String:
 		return "\n".join(lines)
 
 	var bot: Bot = captain
-	var summary := bot.trait_summary(content)
+	var summary := bot.trait_summary(Content)
 	if not summary.is_empty():
 		lines.append("")
 		var trait_names := PackedStringArray()
 		for entry in summary.slice(0, 5):
-			var def: TraitDef = content.trait_def(entry["id"])
+			var def: TraitDef = Content.trait_def(entry["id"])
 			trait_names.append("%s %s %d" % [def.icon, def.display_name, entry["count"]])
 		lines.append("[color=#a9c4d4]%s[/color]" % "   ".join(trait_names))
 
@@ -366,7 +362,7 @@ static func captain_text(captain: Captain) -> String:
 		if not unit.items.is_empty():
 			var icons := PackedStringArray()
 			for item_id in unit.items:
-				icons.append(content.item_def(item_id).icon)
+				icons.append(Content.item_def(item_id).icon)
 			carried = "   [color=#ffd98a]%s[/color]" % "".join(icons)
 		lines.append("%s %s%s%s"
 			% [unit.champion.icon, unit.champion.display_name, stars, carried])

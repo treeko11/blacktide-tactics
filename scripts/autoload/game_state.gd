@@ -46,7 +46,9 @@ const SHOP_ODDS := {
 ## Hull lost for losing a round, by stage. Rises steeply — a bad stage 6 ends runs.
 const STAGE_DAMAGE := [0, 0, 2, 3, 5, 7, 9, 11, 14]
 
-const REROLL_COST := 4 - 2   # kept explicit: 2 gold
+## What the two shop buttons cost. The HUD reads these rather than carrying its
+## own copies — a price shown on a button and charged somewhere else drifts.
+const REROLL_COST := 2
 const XP_COST := 4
 const XP_PER_PURCHASE := 4
 const XP_PER_ROUND := 2
@@ -253,11 +255,11 @@ func _weighted_champion(candidates: Array[StringName]) -> StringName:
 
 ## Rolls a new shop, handing the old cards back first.
 func refresh_shop(free: bool = false) -> void:
-	if not free and player.gold < 2:
+	if not free and player.gold < REROLL_COST:
 		notify("Not enough gold to refresh")
 		return
 	if not free:
-		spend_gold(2)
+		spend_gold(REROLL_COST)
 	return_to_pool_many(shop)
 	shop = roll_shop(player.level)
 	Events.shop_rolled.emit(shop.duplicate())
@@ -266,7 +268,7 @@ func refresh_shop(free: bool = false) -> void:
 func reroll() -> bool:
 	if phase != Phase.PLAN:
 		return false
-	if player.gold < 2:
+	if player.gold < REROLL_COST:
 		notify("Not enough gold to refresh")
 		return false
 	refresh_shop()
@@ -527,6 +529,12 @@ func move_to_board(unit: RosterUnit, cell: Vector2i) -> bool:
 
 	if from_bench:
 		var slot := bench.find(unit)
+		# A unit that is neither on the board nor on the bench is not a unit the
+		# player can be dragging. Godot indexes an Array from the end for a
+		# negative index, so a missed find() would blank bench slot 9 and lose
+		# whoever was standing in it — silently, and nowhere near here.
+		if slot < 0:
+			return false
 		bench[slot] = null
 		if occupant != null:
 			board.erase(occupant)
@@ -560,6 +568,8 @@ func move_to_bench(unit: RosterUnit, slot: int) -> bool:
 		bench[slot] = unit
 	else:
 		var from := bench.find(unit)
+		if from < 0:
+			return false        # see move_to_board: a negative index writes to the end
 		bench[from] = occupant
 		bench[slot] = unit
 

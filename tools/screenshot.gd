@@ -205,6 +205,15 @@ func _sequence(game: Node, which: String) -> void:
 	print("  after closing: tooltip pinned=%s visible=%s"
 		% [str(_scene.tooltip.pinned), str(_scene.tooltip.visible)])
 
+	# Fund the rest of the run. What is under test here is whether a tap reaches
+	# the control, and a player who cannot afford the thing they tapped answers a
+	# different question: the opening tap on a card leaves 1 gold, which disables
+	# the Roll button, and a disabled button not responding is correct behaviour
+	# reported as a lock-up.
+	game.player.gold = 50
+	events().gold_changed.emit(game.player.gold, 0)
+	await _frames(2)
+
 	# Now the thing that was reported broken: buying from the shop. A card that
 	# has already been bought is empty and buys nothing, so pick a full one.
 	var gold_before: int = game.player.gold

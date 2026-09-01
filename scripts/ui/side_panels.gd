@@ -194,6 +194,7 @@ class HoldPanel extends VBoxContainer:
 		refresh()
 
 	func refresh() -> void:
+		_forget_stale()
 		for child in _grid.get_children():
 			child.queue_free()
 
@@ -210,6 +211,17 @@ class HoldPanel extends VBoxContainer:
 			chip.hovered.connect(func(at): item_hovered.emit(item_id, at))
 			chip.unhovered.connect(func(): item_unhovered.emit())
 			_grid.add_child(chip)
+
+	## Drops timestamps the flash has outlived.
+	##
+	## Without this the dictionary keeps an entry for every kind of item the player
+	## has ever held, and each rebuilt chip inherits a long-expired timestamp — one
+	## wasted repaint per chip per refresh, forever.
+	func _forget_stale() -> void:
+		var now := Time.get_ticks_msec()
+		for item_id in _fresh.keys():
+			if now - int(_fresh[item_id]) >= ItemChip.FRESH_MS:
+				_fresh.erase(item_id)
 
 
 ## One draggable item in the hold.
@@ -234,9 +246,18 @@ class ItemChip extends Control:
 		item = GameState.content.item_def(item_id)
 		queue_redraw()
 
+	## Only while the highlight is actually animating.
+	##
+	## `fresh_since > 0` on its own never becomes false, so every item the player
+	## had ever picked up went on requesting a repaint every frame for the rest of
+	## the run — a hold of a dozen items redrawing forever for a six-second flash.
 	func _process(_delta: float) -> void:
-		if fresh_since > 0:
-			queue_redraw()
+		if fresh_since == 0:
+			return
+		queue_redraw()
+		if Time.get_ticks_msec() - fresh_since >= FRESH_MS:
+			# This repaint is the one that clears the pulse. Stop asking for more.
+			fresh_since = 0
 
 	func _get_drag_data(_at: Vector2) -> Variant:
 		if item == null or GameState.phase != GameState.Phase.PLAN:

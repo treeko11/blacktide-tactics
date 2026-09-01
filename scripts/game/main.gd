@@ -70,7 +70,8 @@ func _ready() -> void:
 	theme = UITheme.game_theme()
 	Layout.apply(get_window())
 	_build()
-	_connect_state()
+	_connect_panels()
+	_connect_bus()
 	board.show_roster(GameState.board)
 	modals.open_help()
 
@@ -92,7 +93,6 @@ func _check_window_size() -> void:
 	if not Layout.apply(get_window()):
 		return
 	_rebuild()
-	Events.layout_changed.emit(Layout.compact())
 
 
 func _rebuild() -> void:
@@ -102,11 +102,13 @@ func _rebuild() -> void:
 
 	_sheet = null
 	_sheet_scrim = null
-	_hover_kind = &""
-	_hover_unit = null
+	_forget_hover()
 	_holding = false
+	# The banner that was fading belonged to the label just thrown away; the new
+	# one starts blank and must not inherit a countdown that fades nothing.
+	_banner_timer = 0.0
 	_build()
-	_connect_state()
+	_connect_panels()
 
 	# The board is the one panel holding state the rebuild threw away, so it is
 	# told again what it was showing.
@@ -351,7 +353,7 @@ func _build_overlays() -> void:
 	# Clear of the fleet panel on a desktop; there is no fleet panel to clear on a
 	# phone, so it tucks against the edge instead of hanging off a missing column.
 	toasts.offset_right = -12.0 if Layout.compact() else -(SIDE_WIDTH + 20.0)
-	toasts.offset_left = toasts.offset_right - minf(320.0, Layout.css_size.x - 24.0)
+	toasts.offset_left = toasts.offset_right - ToastLayer.width()
 	toasts.offset_top = 44 if Layout.compact() else 62
 	add_child(toasts)
 
@@ -368,7 +370,9 @@ func _build_overlays() -> void:
 #  Wiring
 # =============================================================================
 
-func _connect_state() -> void:
+## Wires the panels this build produced. Re-run by every rebuild, which is safe
+## because every connection here is on a node the rebuild is about to replace.
+func _connect_panels() -> void:
 	# --- the shop
 	shop.card_pressed.connect(func(index): GameState.buy(index))
 	shop.reroll_pressed.connect(func(): GameState.reroll())
@@ -420,7 +424,20 @@ func _connect_state() -> void:
 		GameState.start_game()
 		board.show_roster(GameState.board))
 
-	# --- the run
+
+## The run's own signals, connected once and never again.
+##
+## **These must not be re-connected by a rebuild.** `Events` is an autoload and
+## Main outlives its own children, so a rebuild that re-ran this stacked a second
+## copy of every connection: Godot refused the two method connections with an
+## error, and silently accepted the lambdas, which then ran once per rotation the
+## player had ever made. Every panel connection above is on a node the rebuild
+## throws away, so those are disconnected for us when it is freed — these are the
+## only ones with nothing to free them.
+##
+## The lambdas reach through `self` for the panel they need rather than capturing
+## it, so they keep working after a rebuild has replaced it.
+func _connect_bus() -> void:
 	Events.phase_changed.connect(_on_phase_changed)
 	Events.board_changed.connect(func():
 		if GameState.phase == GameState.Phase.PLAN:
@@ -572,9 +589,7 @@ func _note_hover(kind: StringName, text: String, unit: RosterUnit = null) -> voi
 ## chart's own inspector stayed pinned and armed over the shop, and ate the next
 ## tap on a card.
 func _dismiss_inspector() -> void:
-	_hover_kind = &""
-	_hover_text = ""
-	_hover_unit = null
+	_forget_hover()
 	tooltip.hide_now()
 
 
@@ -583,10 +598,15 @@ func _dismiss_inspector() -> void:
 func _unhover() -> void:
 	if tooltip.pinned:
 		return
+	_forget_hover()
+	tooltip.hide_now()
+
+
+## Drops the record of what was under the cursor, without touching the inspector.
+func _forget_hover() -> void:
 	_hover_kind = &""
 	_hover_text = ""
 	_hover_unit = null
-	tooltip.hide_now()
 
 
 # =============================================================================
