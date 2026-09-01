@@ -575,6 +575,7 @@ func damage(src: SimUnit, target: SimUnit, amount: float, type: StringName,
 
 	if src != null:
 		src.damage_dealt += amt
+	target.damage_taken += amt
 
 	var style := &"damage"
 	if type == &"magic":
@@ -608,6 +609,12 @@ func damage(src: SimUnit, target: SimUnit, amount: float, type: StringName,
 func execute(src: SimUnit, target: SimUnit) -> void:
 	if not target.alive:
 		return
+	# Counted for the meter as the effective health it removed. Without this the
+	# one ability that deletes a full-health tank reads as having done nothing.
+	var removed := maxf(0.0, target.hp) + target.shield
+	if src != null:
+		src.damage_dealt += removed
+	target.damage_taken += removed
 	target.hp = 0.0
 	target.shields.clear()
 	target.shield = 0.0
@@ -911,14 +918,14 @@ func _tick_statuses(u: SimUnit, dt: float) -> void:
 			u.regen_queue.remove_at(i)
 			continue
 		var give: float = r["amount"] * (dt / r["time"])
-		heal(null, u, minf(r["amount"], give))
+		heal(u, u, minf(r["amount"], give))
 		r["amount"] -= give
 		r["time"] -= dt
 		if r["time"] <= 0.0 or r["amount"] <= 0.0:
 			u.regen_queue.remove_at(i)
 
 	if u.item_regen > 0.0:
-		heal(null, u, u.max_hp * u.item_regen * dt)
+		heal(u, u, u.max_hp * u.item_regen * dt)
 
 	_tick_tide_regen(u, dt)
 
@@ -933,7 +940,7 @@ func _tick_tide_regen(u: SimUnit, dt: float) -> void:
 		return
 	var amount: float = u.max_hp * u.regen["pct"] * dt
 	var missing: float = u.max_hp - u.hp
-	var healed := heal(null, u, minf(amount, missing))
+	var healed := heal(u, u, minf(amount, missing))
 	var overflow := amount - healed
 	if overflow <= 0.0:
 		return
@@ -1039,6 +1046,31 @@ func run_to_end() -> int:
 
 func survivors(team_id: int) -> Array[SimUnit]:
 	return living_allies(team_id)
+
+
+## What every combatant did with the fight, for the DPS meter.
+##
+## Plain values rather than the SimUnits themselves, on purpose. The meter has to
+## keep reading after the round advances, and `dispose()` nulls every `def` and
+## clears every reference the moment it does — a snapshot holding units would
+## either read back blanks or pin a finished battle in memory, which is the leak
+## `dispose()` exists to prevent.
+func stats() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for u in units:
+		rows.append({
+			"uid": u.uid,
+			"name": u.display_name(),
+			"icon": u.def.icon if u.def != null else "",
+			"cost": u.def.cost if u.def != null else 0,
+			"team": u.team,
+			"star": u.star,
+			"alive": u.alive,
+			"dealt": u.damage_dealt,
+			"taken": u.damage_taken,
+			"healed": u.healing_done,
+		})
+	return rows
 
 
 ## Breaks the reference cycles a finished fight is holding, so it can be freed.

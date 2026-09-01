@@ -98,7 +98,11 @@ var hooks_on_cast: Array[Callable] = []
 var hooks_on_kill: Array[Callable] = []
 var hooks_on_death: Array[Callable] = []
 
+## What this unit did with the fight, for the DPS meter. Damage is counted
+## post-mitigation and includes whatever a shield soaked, so one side's `dealt`
+## and the other's `taken` agree.
 var damage_dealt: float = 0.0
+var damage_taken: float = 0.0
 var healing_done: float = 0.0
 
 
