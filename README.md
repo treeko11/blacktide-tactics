@@ -25,11 +25,14 @@ duplicates and star-ups, gold and the round clock sit beside the shop instead of
 every archetype has its own directional attack effect rather than one shared line and ring, items
 announce themselves when acquired and explain what they do, a forge chart shows every component
 pairing, the AI actually collects and forges items, and tooltips close when you stop hovering them.
+It also carries an almanac of every pirate, trait, item and wave behind the ALMANAC button, and a
+DPS meter behind DPS — damage dealt, damage taken and healing done, for both fleets, updating while
+the fight runs.
 
 **On a phone** it reflows the way the browser build does: below 900 points the side columns collapse
 into a trait strip and a cargo strip above the bench, the bench splits into two rows of five, the
-shop wraps to three cards a row, and the fleet standings and log move into a sheet behind the FLEET
-button. Press and hold anything to inspect it; the inspector for a pirate you own carries a SELL
+shop keeps all five cards on one row so the board does not pay for a second one, and the fleet
+standings and log move into a sheet behind the FLEET button. Press and hold anything to inspect it; the inspector for a pirate you own carries a SELL
 button, since a phone has no right mouse button. Turning the phone sideways rebuilds the layout.
 
 Development notes for the Godot build are in [CLAUDE.md](CLAUDE.md).
