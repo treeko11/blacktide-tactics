@@ -14,6 +14,7 @@ extends PanelContainer
 signal speed_changed(speed: int)
 signal help_pressed()
 signal fleet_pressed()
+signal dps_pressed()
 
 const SPEEDS := [1, 2, 4]
 
@@ -77,6 +78,13 @@ func _ready() -> void:
 		var sheet := UITheme.button("FLEET", UITheme.FONT_TINY)
 		sheet.pressed.connect(func(): fleet_pressed.emit())
 		row.add_child(sheet)
+
+	# Kept to three letters at every width. The dialog behind it is themed —
+	# "The Butcher's Bill" — but the handle is not the place to be clever: a
+	# player looking for a damage meter is looking for these three letters.
+	var meter := UITheme.button("DPS", UITheme.FONT_TINY if compact else UITheme.FONT_SMALL)
+	meter.pressed.connect(func(): dps_pressed.emit())
+	row.add_child(meter)
 
 	# Labelled where there is room for a label. The almanac holds every pirate,
 	# trait, item and wave in the game as well as the rules, and a lone "?" says

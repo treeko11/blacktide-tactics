@@ -77,6 +77,14 @@ var shop_locked: bool = false
 var pool: Dictionary = {}
 
 var sim: Sim = null
+
+## The last fight's meter rows and how long it ran, kept after the sim is thrown
+## away. The player reads the DPS meter in the aftermath and through the planning
+## phase that follows, and by then `_advance_round` has disposed the battle those
+## numbers came from. See `battle_stats()`.
+var _battle_stats: Array[Dictionary] = []
+var _battle_time: float = 0.0
+
 var opponent_name: String = ""
 var opponent_icon: String = ""
 var opponent_bot: Bot = null
@@ -128,6 +136,8 @@ func start_game() -> void:
 	bots = Bot.make_lobby(7, content, rng)
 
 	shop.clear()
+	_battle_stats.clear()
+	_battle_time = 0.0
 	refresh_shop(true)
 	log_line("The fleet sets out. Eight captains, one horizon.", &"")
 	_begin_planning()
@@ -811,6 +821,12 @@ func _dispose_sim() -> void:
 # --- resolving it ------------------------------------------------------------
 
 func _resolve_combat() -> void:
+	# Read off the fight before anything else, because this is the last moment it
+	# is guaranteed to exist: `_advance_round` disposes it, and the meter is still
+	# on screen after that.
+	_battle_stats = sim.stats()
+	_battle_time = sim.time
+
 	var won := sim.winner == Sim.Result.PLAYER_WIN
 	var drawn := sim.winner == Sim.Result.DRAW
 	var kind := round_type()
@@ -854,6 +870,20 @@ func _resolve_combat() -> void:
 	Events.round_resolved.emit(won, damage, opponent_name)
 	_set_phase(Phase.RESULT)
 	_result_timer = 0.0 if instant else RESULT_SECONDS
+
+
+## Per-combatant damage and healing for the fight on screen, or the last one
+## fought. What the DPS meter reads.
+##
+## The live sim wins while there is one, so the meter follows a fight as it
+## happens; the snapshot answers once the round has moved on.
+func battle_stats() -> Array[Dictionary]:
+	return sim.stats() if sim != null else _battle_stats
+
+
+## How long that fight has been running, for the per-second figures.
+func battle_duration() -> float:
+	return sim.time if sim != null else _battle_time
 
 
 func stage_damage() -> int:

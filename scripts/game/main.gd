@@ -431,6 +431,7 @@ func _connect_panels() -> void:
 	top_bar.speed_changed.connect(func(value): GameState.speed = value)
 	top_bar.help_pressed.connect(func(): wiki.open())
 	top_bar.fleet_pressed.connect(func(): _toggle_sheet(_sheet != null and not _sheet.visible))
+	top_bar.dps_pressed.connect(func(): modals.open_dps())
 	tooltip.sell_requested.connect(func(unit): GameState.sell(unit))
 	modals.armoury_chosen.connect(func(item_id): GameState.take_armoury_item(item_id))
 	modals.restart_requested.connect(func():

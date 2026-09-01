@@ -1,8 +1,8 @@
 class_name Modals
 extends Control
 
-## The full-screen dialogs the *run* raises: the armoury, the forge chart, and
-## the end of the run.
+## The full-screen dialogs the *run* raises: the armoury, the forge chart, the
+## butcher's bill, and the end of the run.
 ##
 ## The reference dialogs are not here. How to Sail used to be, and it moved into
 ## `Wiki` when the almanac absorbed it — a rules page that only ever opened once,
@@ -347,6 +347,34 @@ func _chart_cell(result: ItemDef, makeable: bool) -> Control:
 		column.add_child(name_label)
 
 	return cell
+
+
+# =============================================================================
+#  The butcher's bill
+# =============================================================================
+
+## The DPS meter: what each pirate on both sides dealt, took and healed.
+##
+## A dialog rather than a standing panel, and that is a space decision more than
+## a design one. On a phone the board is the panel that takes what is left over
+## and it already loses that fight — a permanent meter would come straight out of
+## the hex size. Behind a button it costs the board nothing and reads identically
+## at all three layouts.
+##
+## `DpsPanel` re-reads the fight itself on a timer, so this opens during a battle
+## and follows it. The dialog is dismissable, so the player can close it and
+## watch the rest.
+func open_dps() -> void:
+	_open("The Butcher's Bill",
+		"What your crew dealt, took and mended — this fight.")
+
+	var meter := DpsPanel.new()
+	meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(meter)
+
+	var close_button := UITheme.button("CLOSE", UITheme.FONT_BODY)
+	close_button.pressed.connect(close)
+	_add_action(close_button)
 
 
 # =============================================================================

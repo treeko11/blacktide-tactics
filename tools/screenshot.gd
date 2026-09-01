@@ -25,6 +25,11 @@ extends "res://tools/tool_script.gd"
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
 ##                    with it without the cursor moving again
 ##   --shop=<ids>     comma-separated champion ids to seat in the shop
+##   --modal=dps      fight a real round, open the DPS meter, and assert all
+##                    three tabs have numbers in them rather than empty frames
+##   --tab=<which>    which DPS tab to photograph: dealt, taken or healed
+##   --fight=no       open the DPS meter before a shot has been fired, to prove
+##                    it says so and can still be closed
 
 var _out := "user://shot.png"
 var _scene: Node = null
@@ -550,6 +555,92 @@ func _run_a_fight(game: Node) -> void:
 	_capture()
 
 
+## The meter with no fight behind it. It has to say so in words and stay
+## dismissable; an empty panel and a live CLOSE are the difference between "no
+## data yet" and "the game has stopped responding".
+func _check_empty_dps_meter() -> void:
+	var meter: Node = null
+	for node in _scene.modals._content.get_children():
+		if node.has_method("row_count"):
+			meter = node
+	if meter == null:
+		fail("the dialog opened without a meter in it")
+		return
+	if meter.row_count() != 0:
+		fail("the meter invented %d rows with no fight to read" % meter.row_count())
+	if not _scene.modals.is_open():
+		fail("the meter closed itself instead of reporting an empty fight")
+
+	var closable := false
+	for node in _scene.modals._actions.get_children():
+		if node is Button:
+			closable = true
+	if not closable:
+		fail("the empty meter has no way out of it")
+	else:
+		print("  empty meter: 0 rows, dismissable")
+
+
+## A DPS meter that renders perfectly and reports zero is the failure a
+## screenshot cannot see. Both halves are checked: that the fight produced
+## numbers, and that the panel actually built a row per combatant to show them
+## in — a meter reading the right data into no widgets looks like an empty frame.
+func _check_dps_meter(game: Node) -> void:
+	var stats: Array = game.battle_stats()
+	if stats.is_empty():
+		fail("the meter opened with no fight to report")
+		return
+
+	var dealt := 0.0
+	for row in stats:
+		dealt += row["dealt"]
+	if dealt <= 0.0:
+		fail("a fight ran and the meter reports no damage dealt by anyone")
+
+	# Found by the method it answers to, not by its class. Naming `DpsPanel` here
+	# pulls it into this tool's compile graph, where the `GameState` global does
+	# not resolve — which failed the class to compile for the whole run and left
+	# the dialog genuinely empty. One of the headless traps in CLAUDE.md, arriving
+	# through the assertion written to catch an empty meter.
+	var meter: Node = null
+	for node in _scene.modals._content.get_children():
+		if node.has_method("row_count"):
+			meter = node
+	if meter == null:
+		fail("the dialog opened without a meter in it")
+		return
+
+	var rows: int = meter.row_count()
+	if rows != stats.size():
+		fail("the meter shows %d rows for %d combatants" % [rows, stats.size()])
+
+	print("  meter: %d rows, %d damage dealt over %.1fs"
+		% [rows, roundi(dealt), game.battle_duration()])
+
+	# Every tab, not just the one that happens to open first. Two of the three are
+	# a click away and would otherwise never be rendered by anything.
+	for key in [&"dealt", &"taken", &"healed"]:
+		var total := 0.0
+		for row in stats:
+			total += row[key]
+		meter.show_tab(key)
+		await _frames(2)
+		print("  tab %-7s total %d" % [key, roundi(total)])
+
+	var taken := 0.0
+	for row in stats:
+		taken += row[&"taken"]
+	# Damage that was dealt was taken by somebody. A taken tab reading zero after
+	# a fight means the counter is not wired, not that nobody got hit.
+	if dealt > 0.0 and taken <= 0.0:
+		fail("%d damage was dealt and the taken tab reports none of it"
+			% roundi(dealt))
+
+	# Left on whichever tab was asked for, so the shot is of that one.
+	meter.show_tab(StringName(arg("tab", "dealt")))
+	await _frames(2)
+
+
 ## The almanac opens on the first run and would otherwise be in every shot.
 func _close_modals() -> void:
 	if _scene == null:
@@ -609,6 +700,34 @@ func _open_modal(which: String, game: Node) -> void:
 			# pages in one dialog and a shot of the first one proves the least.
 			var section := arg("wiki", "guide")
 			_scene.wiki.open(StringName(section), StringName(arg("entry", "")))
+		"dps":
+			if arg("fight", "yes") == "no":
+				# Opened before the first fight of a run. The armoury shipped in
+				# exactly this shape once — a dialog with a title, nothing in it,
+				# and no way past it — and the run stopped there every time.
+				_scene.modals.open_dps()
+				await _frames(3)
+				_check_empty_dps_meter()
+				return
+
+			# Measured off a real fight rather than an injected one. A meter is
+			# exactly the kind of panel that photographs beautifully while
+			# reporting nothing, so this plays a round and then asserts.
+			if game.board.is_empty():
+				_field(game, PackedStringArray(["barnaby", "lyra", "coral"]))
+			# Regeneration on the front-liner, so the healing tab has real numbers
+			# in it. A healer's *ability* needs mana and the opening wave dies in
+			# two seconds, so relying on one left that tab a column of zeroes —
+			# indistinguishable from the tab being broken.
+			for unit in game.board:
+				if unit.can_take_item():
+					unit.items.append(&"hull_of_the_deep")
+					break
+			game.start_combat_now()
+			await _frames(int(arg("combat_frames", "150")))
+			_scene.modals.open_dps()
+			await _frames(3)
+			await _check_dps_meter(game)
 		"fleet":
 			# The compact layout's bottom sheet. Nothing on a desktop.
 			_scene._toggle_sheet(true)

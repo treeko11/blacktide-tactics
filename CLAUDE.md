@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item\|almanac`, `--live`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item\|almanac`, `--live`, `--modal=dps`, all of which assert |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
@@ -49,6 +49,14 @@ cover nothing.
   fails the whole script to compile. `tool_script.gd` and `tests/test_case.gd`
   fetch them by node path at runtime and **must never name one directly**; test
   *files* are loaded later and can name them normally.
+  **"Anything it depends on" includes a UI class named for a type check.** Every
+  panel in `scripts/ui/` names an autoload, which is fine because they load at
+  runtime with the scene — but `var x: DpsPanel` or `node is DpsPanel` in a tool
+  drags that file into the tool's compile graph and fails it there, which then
+  fails *the class itself* for the whole run. `screenshot.gd` finds the meter by
+  `has_method("row_count")` for exactly this reason. The symptom is a dialog that
+  opens genuinely empty, so an assertion written to catch an empty panel is what
+  catches it.
 - **GDScript lambdas capture by value.** Assigning to a captured local from
   inside a handler silently does nothing. Use `TestCase.probe()` for signals, and
   `unit.scratch` (a Dictionary, a reference) for anything an item or trait hook
@@ -114,7 +122,8 @@ scripts/core/traits/               one file per trait (13)
 scripts/core/items/                one file per item (20)
 scripts/ui/                        UITheme, Layout, BoardView, UnitView,
                                    FxLayer, ShopBar, BenchBar, SidePanels,
-                                   TopBar, Tooltip, ToastLayer, Modals, Wiki
+                                   TopBar, Tooltip, ToastLayer, Modals, Wiki,
+                                   DpsPanel
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 scripts/dev/                       DEV BUILD ONLY - the log and the dev menu
 scenes/main.tscn                   a bare Control; the HUD is built in code
@@ -461,6 +470,12 @@ generator only to add something new.
   follows every cross-link in every one of them. Both ways a reference rots are
   silent: a champion added to `data/` and never listed, and a link to an id that
   was renamed. Neither throws and neither shows up in a screenshot.
+- `test_dps.gd` checks that the meter's counters are actually fed. A DPS meter
+  is the panel that renders perfectly while reporting nothing, and neither the
+  suite nor a screenshot can tell that from an honest zero — so the assertions
+  are on the numbers: that one side's *dealt* equals the other's *taken*, that a
+  shield absorbing a hit still counts as taking it, and that the snapshot the
+  meter reads survives `Sim.dispose()`.
 - `test_economy.gd` checks that **no champion copies are lost** over forty rounds
   of bot shopping. A card rolled and neither bought nor returned drains the
   shared pool silently, and the shop slowly stops offering that champion to
