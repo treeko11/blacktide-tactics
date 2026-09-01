@@ -24,6 +24,10 @@ Events="*res://scripts/autoload/events.gd"
 Content="*res://scripts/autoload/content.gd"
 GameState="*res://scripts/autoload/game_state.gd"
 
+; DEV BUILD ONLY. Delete this line and scripts/dev/ before release; nothing in
+; the game references either, so there is nothing else to unpick.
+Dev="*res://scripts/dev/dev.gd"
+
 [display]
 
 window/size/viewport_width=1600

@@ -116,6 +116,7 @@ scripts/ui/                        UITheme, Layout, BoardView, UnitView,
                                    FxLayer, ShopBar, BenchBar, SidePanels,
                                    TopBar, Tooltip, ToastLayer, Modals
 scripts/game/main.gd               assembles the HUD and wires it to GameState
+scripts/dev/                       DEV BUILD ONLY - the log and the dev menu
 scenes/main.tscn                   a bare Control; the HUD is built in code
 tests/                             test_*.gd, discovered automatically
 tools/                             entry points, all extending tool_script.gd
@@ -326,6 +327,78 @@ these; they are the reason several things are where they are.
   bots with almost nothing on the board.
 - **Losing pays the same streak bonus as winning.** A captain being beaten every
   round has to be able to fund the rebuild that gets them back in.
+
+## The dev build
+
+**All of this comes out before release.** It is playtest scaffolding, not part of
+the game.
+
+| Piece | What it is |
+|---|---|
+| `scripts/dev/dev.gd` | The `Dev` autoload. Writes a playtest log |
+| `scripts/dev/dev_menu.gd` | The cheat panel, opened by the DEV chip |
+| `tests/test_dev.gd` | The invariants below |
+
+**Removing it is three deletions and nothing else**: `scripts/dev/`,
+`tests/test_dev.gd`, and the `Dev=` line under `[autoload]` in `project.godot`.
+
+That is the whole design constraint. **No game code references any of it** — the
+menu adds itself to the scene tree *root* rather than being built by `Main`, and
+the log listens on the `Events` bus rather than being called from anywhere. So
+the deletion cannot break a compile and cannot leave half a hook behind, which is
+what happens to a dev menu wired into `main.gd`, and is why those ship by
+accident. Do not "tidy" it by giving `Main` a reference to it.
+
+Being a root sibling has a second payoff: a phone rotation rebuilds all of
+`Main`'s children and never touches this, so the menu survives a rotation free.
+
+### The log
+
+Every signal on the `Events` bus, one line each, plus the fleet and the active
+traits at the moment each fight starts — the decision the player actually made,
+which is what the result afterwards is a consequence of. `Events.plan_timer` is
+the one signal skipped; it fires thirty times a second and says nothing.
+
+On the desktop it is written to `user://playtests/playtest_<stamp>.log`, flushed
+every line, because the part of a playtest log worth having is the last few lines
+before whatever went wrong. On the **web there is no reachable filesystem**, so it
+is kept in memory and leaves through the menu's COPY LOG and DOWNLOAD LOG
+buttons. MARK drops a divider in it, for pointing at a moment.
+
+It stands down in two situations, both deliberate. Headless is the test suite and
+the balance tools, and none of those is a playtest. And the **menu** hides under
+any `--script` target, because every tool in `tools/` is one and `screenshot.gd`
+asserts against panel heights and taps at measured coordinates. Pass
+`-- --dev-ui` to opt back in, which is how the menu gets rendered at the three
+layouts.
+
+### Rules the menu already broke once each
+
+- **It is the one place allowed to mutate `GameState` outside `Main`.** A cheat
+  panel is by definition a second path from a click to a change. Routing it
+  through `Main` would spread code that has to be deleted across a file that
+  stays.
+- **Spawning takes the real cost out of the shared pool** — three copies for a
+  two-star, nine for a three-star, exactly as merging bought copies would.
+  Anything looser silently drains a champion out of every captain's shop for the
+  rest of the run: the failure `test_economy` guards the shop against, arriving
+  through a door it does not watch.
+- **The overlay is full-screen, so every node in it must be IGNORE** except the
+  chip and the open panel. This is the toast bug with a bigger blast radius — a
+  full-rect Control left on STOP looks exactly like the game having frozen.
+- **A long `Label` sets the panel's width.** A `Label` reports its unwrapped line
+  as its minimum width and the panel sizes to its contents, so one unwrapped
+  sentence dragged the menu out to 772 points on a 390-point phone, off both
+  edges. Explanatory lines go through `_note_line`, which wraps.
+- **Everything is positioned from `Layout.css_size`, so a rotation has to re-fit
+  it.** A chip in the bottom-right of a landscape phone sits at x=800, which is
+  off the right edge of the portrait one — the dev menu unreachable on the only
+  device it exists for, and only after a rotation.
+
+**Jump to stage is a scenario jump, not a simulation.** It pays the income and
+gives the bots the shopping turns for every round it passes, so the opponents are
+not still fielding a stage-1 board, but nobody fights. Good for looking at a late
+board and its economy, no use for judging a matchup.
 
 ## The port
 
