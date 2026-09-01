@@ -40,6 +40,7 @@ var fleet: SidePanels.FleetPanel = null
 var tooltip: Tooltip = null
 var toasts: ToastLayer = null
 var modals: Modals = null
+var wiki: Wiki = null
 var top_bar: TopBar = null
 
 var _banner: Label = null
@@ -78,7 +79,7 @@ func _ready() -> void:
 	_connect_panels()
 	_connect_bus()
 	board.show_roster(GameState.board)
-	modals.open_help()
+	wiki.open(&"guide", &"loop")
 
 	_window_size = get_window().size
 
@@ -367,6 +368,12 @@ func _build_overlays() -> void:
 	modals = Modals.new()
 	add_child(modals)
 
+	# Above the modals, because the almanac is opened *from* nothing else and
+	# nothing else should ever be drawn over it; below the tooltip, which is the
+	# one thing that has to sit over everything.
+	wiki = Wiki.new()
+	add_child(wiki)
+
 	tooltip = Tooltip.new()
 	add_child(tooltip)
 
@@ -416,12 +423,13 @@ func _connect_panels() -> void:
 	# alone, resting a finger on the forge chart pinned the inspector for the shop
 	# card that happened to be hovered before the chart opened.
 	modals.visibility_changed.connect(_dismiss_inspector)
+	wiki.visibility_changed.connect(_dismiss_inspector)
 	fleet.captain_hovered.connect(_on_captain_hovered)
 	fleet.captain_unhovered.connect(_unhover)
 
 	# --- the top bar and modals
 	top_bar.speed_changed.connect(func(value): GameState.speed = value)
-	top_bar.help_pressed.connect(func(): modals.open_help())
+	top_bar.help_pressed.connect(func(): wiki.open())
 	top_bar.fleet_pressed.connect(func(): _toggle_sheet(_sheet != null and not _sheet.visible))
 	tooltip.sell_requested.connect(func(unit): GameState.sell(unit))
 	modals.armoury_chosen.connect(func(item_id): GameState.take_armoury_item(item_id))
@@ -741,7 +749,7 @@ func _complete_hold() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
-	if modals.is_open():
+	if modals.is_open() or wiki.is_open():
 		return
 
 	match event.keycode:

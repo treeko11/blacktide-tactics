@@ -1,12 +1,16 @@
 class_name Modals
 extends Control
 
-## The full-screen dialogs: the armoury, the forge chart, how to play, and the
-## end of the run.
+## The full-screen dialogs the *run* raises: the armoury, the forge chart, and
+## the end of the run.
+##
+## The reference dialogs are not here. How to Sail used to be, and it moved into
+## `Wiki` when the almanac absorbed it — a rules page that only ever opened once,
+## at the start of a run, was a rules page nobody could get back to.
 ##
 ## The box sizes itself to the screen and scrolls when it runs out of room, which
 ## is what makes these usable on a phone: the forge chart is a six-by-six grid and
-## the help is eight paragraphs, and neither shrinks usefully.
+## does not shrink usefully.
 
 signal armoury_chosen(item_id: StringName)
 signal restart_requested()
@@ -67,9 +71,9 @@ func _ready() -> void:
 	scroll.add_child(_content)
 	_scroll = scroll
 
-	# Buttons live below the scroll, never inside it. The help is eight
-	# paragraphs on a phone, and WEIGH ANCHOR scrolled off the bottom of its own
-	# dialog — a dismiss button you have to find is a dialog that looks stuck.
+	# Buttons live below the scroll, never inside it. A tall dialog on a phone
+	# scrolled its own dismiss button off the bottom — a way out you have to go
+	# looking for is a dialog that looks stuck.
 	_actions = VBoxContainer.new()
 	_actions.add_theme_constant_override("separation", 6)
 	stack.add_child(_actions)
@@ -343,59 +347,6 @@ func _chart_cell(result: ItemDef, makeable: bool) -> Control:
 		column.add_child(name_label)
 
 	return cell
-
-
-# =============================================================================
-#  How to sail
-# =============================================================================
-
-func open_help() -> void:
-	_open("How to Sail", "")
-
-	var body := RichTextLabel.new()
-	body.bbcode_enabled = true
-	body.fit_content = true
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(minf(560.0, Layout.css_size.x - 48.0), 0)
-	body.add_theme_font_size_override("normal_font_size", UITheme.FONT_SMALL)
-	body.text = _help_text()
-	_content.add_child(body)
-
-	var button := UITheme.button("WEIGH ANCHOR", UITheme.FONT_BODY)
-	button.pressed.connect(close)
-	_add_action(button)
-
-
-func _help_text() -> String:
-	# Two different sets of controls, because a phone has neither a right mouse
-	# button nor a keyboard, and telling a player to right-click on one is worse
-	# than saying nothing.
-	var controls := "[b]Drag[/b] pirates between bench and board · [b]Right-click[/b] to sell" \
-		+ " · [b]D[/b] refresh · [b]F[/b] buy XP · [b]Space[/b] start the battle early" \
-		+ " · [b]1 / 2 / 4[/b] battle speed"
-	if Layout.touch():
-		controls = "[b]Drag[/b] pirates between bench and board · [b]Press and hold[/b]" \
-			+ " anything to inspect it · the inspector for a pirate you own has a" \
-			+ " [b]SELL[/b] button · [b]FLEET[/b] up top opens the standings and the log."
-	var two := UITheme.STAR.repeat(2)
-	var three := UITheme.STAR.repeat(3)
-	return """[color=#7fe3ff][b]THE LOOP[/b][/color]
-Buy pirates from the shop, drag them onto your half of the board, and your crew fights on its own. Lose and your [b]hull[/b] takes damage. Last captain afloat wins.
-
-[color=#7fe3ff][b]UPGRADING[/b][/color]
-Three copies of the same pirate merge into a %s version; three of those make %s. Copies on the bench count. The shop marks a card [color=#ffd98a]BUY THIS[/color] when it completes an upgrade.
-
-[color=#7fe3ff][b]TRAITS[/b][/color]
-Every pirate has an [b]Origin[/b] and a [b]Class[/b]. Fielding enough [i]different[/i] pirates sharing a trait activates a fleet-wide bonus — three copies of one pirate is a star-up, not a trait. Hover the manifest to read them.
-
-[color=#7fe3ff][b]GOLD[/b][/color]
-A wage each round — 2 at the start of the run, rising to 5 by stage 2 — plus 1 interest per 10 banked (max 5), plus a bonus at 3, 5 and 6 rounds in a row, for consecutive wins [i]or[/i] losses. Beating another captain pays 1 more; monster waves pay salvage instead. Refreshing costs 2, XP costs 4.
-
-[color=#7fe3ff][b]ITEMS[/b][/color]
-Monster rounds drop components. Drag two onto the same pirate to [b]forge[/b] a full item — three per pirate. The [b]Forge chart[/b] button over the cargo hold shows every pairing, and every square in it can be inspected for what that item does. The armoury at the end of a stage offers a finished item.
-
-[color=#7fe3ff][b]CONTROLS[/b][/color]
-%s""" % [two, three, controls]
 
 
 # =============================================================================

@@ -78,7 +78,11 @@ func _ready() -> void:
 		sheet.pressed.connect(func(): fleet_pressed.emit())
 		row.add_child(sheet)
 
-	var help := UITheme.button("?", UITheme.FONT_BODY if not compact else UITheme.FONT_SMALL)
+	# Labelled where there is room for a label. The almanac holds every pirate,
+	# trait, item and wave in the game as well as the rules, and a lone "?" says
+	# none of that — but a phone's top bar has no width to spend saying it.
+	var help := UITheme.button("?" if compact else "ALMANAC",
+		UITheme.FONT_SMALL if compact else UITheme.FONT_BODY)
 	help.pressed.connect(func(): help_pressed.emit())
 	row.add_child(help)
 

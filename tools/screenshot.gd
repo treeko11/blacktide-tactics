@@ -205,6 +205,8 @@ func _sequence(game: Node, which: String) -> void:
 			print("  after holding an item: tooltip pinned=%s" % str(_scene.tooltip.pinned))
 			_scene.tooltip.hide_now()
 			await _frames(4)
+		"almanac":
+			await _browse_the_almanac()
 		_:
 			fail("unknown sequence '%s'" % which)
 			return
@@ -260,6 +262,58 @@ func _sequence(game: Node, which: String) -> void:
 		fail("the shop swallowed %d tap(s) after %s before responding" % [bought - 1, which])
 	else:
 		print("  the first tap after %s bought a pirate" % which)
+
+
+## Taps its way through the almanac and leaves by the scrim.
+##
+## Everything here is a real touch at a measured coordinate rather than a call
+## into the dialog, because what the sequence around it is checking is whether a
+## full-screen overlay hands input back cleanly — the failure this project has
+## had twice, where a panel left Godot's press/release bookkeeping one event
+## behind and the shop looked dead afterwards.
+func _browse_the_almanac() -> void:
+	var wiki: Node = _scene.wiki
+	wiki.open(&"pirates")
+	await _frames(8)
+
+	# The tabs are in SECTIONS order; index 2 is TRAITS.
+	await _touch(_centre_of(wiki._tabs.get_child(2)), 0.05)
+	if wiki._section != &"traits":
+		fail("tapping the TRAITS tab left the almanac on '%s'" % wiki._section)
+	print("  after tapping a tab: section=%s" % wiki._section)
+
+	var row: Control = null
+	for child in wiki._list.get_children():
+		if child is Button:
+			row = child
+			break
+	if row == null:
+		fail("the almanac's list has no rows to tap")
+		return
+	await _touch(_centre_of(row), 0.05)
+	if wiki._entry == &"":
+		fail("tapping a list row opened nothing")
+	print("  after tapping a row: entry=%s, page is %d characters"
+		% [wiki._entry, wiki._page.text.length()])
+
+	# On a narrow screen the list is replaced by the page rather than sitting
+	# beside it, and BACK is then the only way out of an entry.
+	if not wiki._two_pane():
+		if wiki._list_pane.visible:
+			fail("drilled into an entry and the list is still showing")
+		if not wiki._back.visible:
+			fail("drilled into an entry with no BACK button")
+		await _touch(_centre_of(wiki._back), 0.05)
+		if not wiki._list_pane.visible:
+			fail("BACK did not return to the list")
+		print("  BACK returned to the list")
+
+	# Out by the scrim, which is the corner of the screen the box never covers.
+	await _touch(Vector2(4.0, Layout.css_size.y - 4.0), 0.05)
+	if wiki.is_open():
+		fail("tapping outside the almanac did not close it")
+	else:
+		print("  tapping outside closed it")
 
 
 ## Prints the height of every block of the HUD.
@@ -496,10 +550,14 @@ func _run_a_fight(game: Node) -> void:
 	_capture()
 
 
-## The help dialog opens on the first run and would otherwise be in every shot.
+## The almanac opens on the first run and would otherwise be in every shot.
 func _close_modals() -> void:
-	if _scene != null and _scene.get("modals") != null:
+	if _scene == null:
+		return
+	if _scene.get("modals") != null:
 		_scene.modals.close()
+	if _scene.get("wiki") != null:
+		_scene.wiki.close()
 
 
 ## Fast-forwards the real round loop until the armoury opens itself.
@@ -546,8 +604,11 @@ func _open_modal(which: String, game: Node) -> void:
 			# screenshot of a working armoury coexisted with an armoury that
 			# opened empty in the actual game for a whole stage.
 			await _play_to_the_armoury(game)
-		"help":
-			_scene.modals.open_help()
+		"help", "wiki":
+			# --wiki= names the section, because the almanac is five different
+			# pages in one dialog and a shot of the first one proves the least.
+			var section := arg("wiki", "guide")
+			_scene.wiki.open(StringName(section), StringName(arg("entry", "")))
 		"fleet":
 			# The compact layout's bottom sheet. Nothing on a desktop.
 			_scene._toggle_sheet(true)

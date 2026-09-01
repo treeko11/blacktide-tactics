@@ -1063,20 +1063,27 @@ const CREEP_SEATS := [
 ]
 
 
-func creep_wave() -> Array:
+## The wave for a stage and round. Defaults to the one being played.
+##
+## It takes them as arguments rather than reading the run because the almanac
+## lists every wave in the game, and the alternative — winding `stage` forward
+## and back to ask — is a mutation of the run to answer a question about it.
+func creep_wave(at_stage: int = -1, at_round: int = -1) -> Array:
+	var for_stage: int = stage if at_stage < 0 else at_stage
+	var for_round: int = round_number if at_round < 0 else at_round
 	var wave: Array = []
 	var add := func(champion_id: StringName, star: int, count: int) -> void:
 		for i in count:
 			wave.append({ "id": champion_id, "star": star })
 
-	match stage:
+	match for_stage:
 		1:
 			# Round one is fought with a single pirate, because level 1 seats one.
 			# Anything the lone unit cannot chew through on its own is a scripted
 			# loss on the opening round of the game.
-			if round_number == 1:
+			if for_round == 1:
 				add.call(&"rat", 1, 2)
-			elif round_number == 2:
+			elif for_round == 2:
 				add.call(&"rat", 1, 3)
 			else:
 				add.call(&"crab", 1, 1)
@@ -1113,8 +1120,9 @@ func creep_wave() -> Array:
 	return out
 
 
-func creep_wave_name() -> String:
-	match stage:
+func creep_wave_name(at_stage: int = -1) -> String:
+	var for_stage: int = stage if at_stage < 0 else at_stage
+	match for_stage:
 		1: return "Bilge Vermin"
 		2: return "Gull Flock"
 		3: return "Reef Ambush"

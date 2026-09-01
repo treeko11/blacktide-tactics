@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item`, `--live`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item\|almanac`, `--live`, all of which assert |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
@@ -114,7 +114,7 @@ scripts/core/traits/               one file per trait (13)
 scripts/core/items/                one file per item (20)
 scripts/ui/                        UITheme, Layout, BoardView, UnitView,
                                    FxLayer, ShopBar, BenchBar, SidePanels,
-                                   TopBar, Tooltip, ToastLayer, Modals
+                                   TopBar, Tooltip, ToastLayer, Modals, Wiki
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 scripts/dev/                       DEV BUILD ONLY - the log and the dev menu
 scenes/main.tscn                   a bare Control; the HUD is built in code
@@ -267,6 +267,34 @@ Each of these cost a debugging session or settles a design argument.
   `× · • ° « »`, en and em dashes, and anything Noto Color Emoji covers —
   including the Dingbats that are emoji, such as `✔`. Confirmed missing:
   Geometric Shapes, and the arrows and dashes outside Latin-1.
+- **The almanac is the reference, and it is not the tooltip.** `Wiki` answers
+  "what exists and what would it do" — all three stars of a pirate at once, every
+  breakpoint of a trait, every wave of the run — where the floating inspector
+  answers "what is this thing in front of me, right now". They are different
+  pages, so `Wiki` builds its own rather than borrowing `Tooltip`'s; what they
+  share is the Defs, which stay the only copy of the numbers. **How to Sail
+  lives in it**, as seven topic pages rather than one dialog: a rules screen
+  that only ever opened at the start of a run was a rules screen nobody could
+  get back to, so the almanac is one button and `Modals` no longer has a help
+  dialog at all.
+- **The almanac picks its shape from the width, not from `Layout.compact()`.**
+  Given room the list sits beside the page; a portrait phone has none, so it
+  drills down and BACK is the way out of an entry. A landscape phone is 844
+  points wide and gets two panes — "compact" says the HUD reflowed, it does not
+  say the screen is narrow, and that is the one place in this project where the
+  two come apart. `screenshot.gd --sequence=almanac` taps a tab, a row, BACK and
+  the scrim at every layout, and then falls through the shared tail that checks
+  the shop still buys on the *first* tap afterwards.
+- **`[table]` is not the way to line up a stat block.** Godot sizes each BBCode
+  column to its own widest cell, so the star headings sat off the numbers they
+  labelled, and four columns inside the 330 points a portrait phone gives the
+  page is not a table at all. A row of numbers separated by `»` carries the
+  same meaning at any width, and is already the game's mark for "becomes".
+- **GDScript's `\U` escape takes six hex digits, not eight.** `"\U0001f30a"`
+  compiles happily and yields `ǳ` followed by a literal `0a` — a wave emoji
+  that reads as "dz0a" on screen, and one `test_glyphs` passes because U+01F3
+  *is* drawable. Write the emoji itself, the way every `.tres` icon does.
+
 - **Press-and-hold is the touch inspector, and it lives in Main.** A finger has
   no hover. Main watches real `InputEventScreenTouch` — never the emulated mouse,
   which cannot be told from a real one, and a mouse held still for a third of a
@@ -429,6 +457,10 @@ generator only to add something new.
 - `test_glyphs.gd` fails any character the web export could not draw. The rule it
   replaces was "check it in the browser", which means exporting, and which is why
   the game shipped twice with tofu where its prices were.
+- `test_wiki.gd` walks every section of the almanac, renders every page, and
+  follows every cross-link in every one of them. Both ways a reference rots are
+  silent: a champion added to `data/` and never listed, and a link to an id that
+  was renamed. Neither throws and neither shows up in a screenshot.
 - `test_economy.gd` checks that **no champion copies are lost** over forty rounds
   of bot shopping. A card rolled and neither bought nor returned drains the
   shared pool silently, and the shop slowly stops offering that champion to
