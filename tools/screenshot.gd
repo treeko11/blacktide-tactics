@@ -60,6 +60,13 @@ func run() -> void:
 	manual_quit = true
 	_close_modals()
 
+	# Closing the opening almanac is what starts a new run's clock. The wiring
+	# that does it is in Main, where no unit test can see it, and a run still
+	# holding here is a game that never begins — a frozen clock and a shop that
+	# never closes, which reads as the round loop having stopped.
+	if game.awaiting_start:
+		fail("closing the almanac left the run holding at the line")
+
 	if arg("speed") != "":
 		game.speed = int(arg("speed"))
 	if arg("gold") != "":

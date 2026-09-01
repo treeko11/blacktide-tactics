@@ -194,6 +194,16 @@ Each of these cost a debugging session or settles a design argument.
   armoury on the array the previous stage's pickup had cleared: a modal with a
   title, no items, and no way to dismiss it. The run stopped there every time.
   `_start_combat` had it right — build the sim, announce COMBAT last.
+- **A run holds at the line until the player says go.** The opening planning
+  phase used to start its 32-second clock behind the almanac Main opens over it,
+  so a new player's first round was spent reading the rules while the shop closed
+  on them. `GameState.awaiting_start` freezes `_tick_planning` until the almanac
+  is closed (`Main._on_wiki_visibility`) or SET SAIL is pressed — `start_combat_now`
+  releases it too, or the button would zero a clock that is not running. Only the
+  *first* planning phase waits: the almanac opened mid-round is a reference, not a
+  timeout. `instant` runs are never held, which is the whole reason `playthrough.gd`
+  and `creep_balance.gd` do not stall on 1-1, and the shop clock reads `HOLD`
+  rather than a frozen `32`, which reads as broken.
 - **The phone layout is measured in CSS pixels, and the wide one is not.** The
   project ships a 1600x900 design stretched with `canvas_items` + `expand`. On a
   375-point phone that resolves to a 0.23x scale and a 1600x3466 viewport: a

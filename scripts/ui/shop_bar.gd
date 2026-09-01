@@ -63,6 +63,7 @@ func _ready() -> void:
 	Events.board_changed.connect(refresh)
 	Events.plan_timer.connect(_on_plan_timer)
 	Events.plan_time_warning.connect(_on_time_warning)
+	Events.run_hold_changed.connect(_show_hold)
 	Events.phase_changed.connect(_on_phase_changed)
 	Events.shop_locked_changed.connect(func(locked): _lock_button.button_pressed = locked)
 
@@ -262,6 +263,11 @@ func _make_timer_row() -> Control:
 	timer_row.add_child(_timer_bar)
 	_timer_label = UITheme.label("32", UITheme.FONT_SMALL, UITheme.MUTED)
 	timer_row.add_child(_timer_label)
+	# Read from the run, not from the constant. A bar built while the opening
+	# almanac is up — the first build of every run, and every rotation until the
+	# player closes it — would otherwise come back claiming a clock that is not
+	# running, which is the same trap the speed buttons and the shop lock fell in.
+	_show_hold(GameState.awaiting_start)
 	return timer_row
 
 
@@ -308,6 +314,14 @@ func _on_gold_changed(amount: int, _delta: int) -> void:
 
 func _on_level_changed(_level: int, _xp: int, _needed: int) -> void:
 	refresh()
+
+
+## The run is holding at the line: the clock does not start until the player has
+## closed the opening almanac or pressed SET SAIL. A full bar frozen at "32"
+## reads as a broken clock, so it says what it is waiting on instead.
+func _show_hold(waiting: bool) -> void:
+	_timer_bar.set_value(1.0, "")
+	_timer_label.text = "HOLD" if waiting else str(ceili(GameState.plan_timer))
 
 
 func _on_plan_timer(seconds_left: float, fraction: float) -> void:

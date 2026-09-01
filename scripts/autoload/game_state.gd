@@ -100,6 +100,18 @@ var log_lines: Array[Dictionary] = []
 ## round. Nothing else should touch it.
 var instant: bool = false
 
+## True while the opening planning phase is holding at the line.
+##
+## A run used to begin with its 32-second clock already running, behind the
+## almanac that opens over it — so the first round of a new player's first game
+## was spent reading the rules and the shop closed on them. The clock now starts
+## when they say so: closing the almanac, or pressing SET SAIL. Only the *first*
+## planning phase of a run waits; the almanac opened mid-round is a reference,
+## not a timeout, and the clock keeps running behind it.
+##
+## `instant` runs are the tools, which have nobody to wait for.
+var awaiting_start: bool = false
+
 var _warned_this_round: bool = false
 var _sim_accumulator: float = 0.0
 var _post_combat: float = 0.0
@@ -140,6 +152,8 @@ func start_game() -> void:
 	_battle_time = 0.0
 	refresh_shop(true)
 	log_line("The fleet sets out. Eight captains, one horizon.", &"")
+	awaiting_start = not instant
+	Events.run_hold_changed.emit(awaiting_start)
 	_begin_planning()
 
 
@@ -716,8 +730,21 @@ func _begin_planning() -> void:
 	Events.round_began.emit(stage, round_number)
 
 
+## Starts the run's clock, if it is still holding at the line.
+##
+## Called by whatever the player did to say they are ready — closing the opening
+## almanac, or pressing SET SAIL, which starts the fight through the call below
+## and would otherwise set a clock that was not running.
+func begin_run() -> void:
+	if not awaiting_start:
+		return
+	awaiting_start = false
+	Events.run_hold_changed.emit(false)
+
+
 ## Ends the planning phase early.
 func start_combat_now() -> void:
+	begin_run()
 	if phase == Phase.PLAN:
 		plan_timer = 0.0
 
@@ -737,6 +764,8 @@ func _process(delta: float) -> void:
 
 
 func _tick_planning(delta: float) -> void:
+	if awaiting_start:
+		return
 	plan_timer -= delta
 	Events.plan_timer.emit(maxf(0.0, plan_timer), clampf(plan_timer / PLAN_SECONDS, 0.0, 1.0))
 

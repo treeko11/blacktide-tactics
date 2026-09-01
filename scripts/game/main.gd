@@ -79,9 +79,22 @@ func _ready() -> void:
 	_connect_panels()
 	_connect_bus()
 	board.show_roster(GameState.board)
-	wiki.open(&"guide", &"loop")
+	_open_briefing()
 
 	_window_size = get_window().size
+
+
+## The almanac a new run opens behind, at the page describing the round loop.
+##
+## The run is holding its clock while this is up (`GameState.awaiting_start`), so
+## it is also what a rebuild has to put back: a phone rotated on the opening
+## screen would otherwise throw the briefing away and leave a game that looks
+## stopped. Reading the flag rather than a local is the same rule as the speed
+## buttons and the shop lock — the state belongs to GameState, and the HUD is
+## rebuilt around it.
+func _open_briefing() -> void:
+	if GameState.awaiting_start:
+		wiki.open(&"guide", &"loop")
 
 
 ## The window size is polled rather than watched.
@@ -122,6 +135,7 @@ func _rebuild() -> void:
 		board.show_battle(GameState.sim)
 	else:
 		board.show_roster(GameState.board)
+	_open_briefing()
 
 
 # =============================================================================
@@ -423,7 +437,7 @@ func _connect_panels() -> void:
 	# alone, resting a finger on the forge chart pinned the inspector for the shop
 	# card that happened to be hovered before the chart opened.
 	modals.visibility_changed.connect(_dismiss_inspector)
-	wiki.visibility_changed.connect(_dismiss_inspector)
+	wiki.visibility_changed.connect(_on_wiki_visibility)
 	fleet.captain_hovered.connect(_on_captain_hovered)
 	fleet.captain_unhovered.connect(_unhover)
 
@@ -648,6 +662,16 @@ func _note_hover(kind: StringName, text: String, unit: RosterUnit = null,
 ## cursor wandering off and wrong for a dialog closing underneath it: the forge
 ## chart's own inspector stayed pinned and armed over the shop, and ate the next
 ## tap on a card.
+## The almanac opened or closed. Closing it is how the player says they have read
+## enough to start, so it releases a run that is still holding its clock — but
+## only a run that is: the almanac opened mid-round is a reference, and the round
+## it was opened during keeps running behind it.
+func _on_wiki_visibility() -> void:
+	_dismiss_inspector()
+	if not wiki.is_open():
+		GameState.begin_run()
+
+
 func _dismiss_inspector() -> void:
 	_forget_hover()
 	tooltip.hide_now()

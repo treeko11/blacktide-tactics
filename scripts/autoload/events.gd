@@ -25,6 +25,12 @@ signal game_over(place: int)
 signal plan_time_warning(seconds_left: float)
 signal plan_timer(seconds_left: float, fraction: float)
 
+## The run is holding at the line. The opening planning phase does not start its
+## clock until the player closes the almanac it opens behind or presses SET SAIL,
+## so the first thing a new player sees is not a countdown they did not ask for.
+## True the moment a run begins, false the moment it is released.
+signal run_hold_changed(waiting: bool)
+
 # --- Economy -----------------------------------------------------------------
 
 signal gold_changed(gold: int, delta: int)
