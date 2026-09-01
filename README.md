@@ -63,9 +63,10 @@ captain each round. Lose and your **hull** (100 HP) takes damage.
 Monster rounds drop item components and gold. The Armoury at the end of each stage lets you pick
 one finished item out of three.
 
-**Economy** — 5 gold per round, plus interest (1 per 10 banked, capped at 5), plus win/loss streak
-bonuses, plus 1 for a win. Refresh the shop for 2, buy 4 XP for 4. Your level is your board capacity
-(max 9).
+**Economy** — a wage each round that ramps in (2 from 1-2, 3 at 1-4, 4 at 2-1, 5 from 2-2 on),
+plus interest (1 per 10 banked, capped at 5), plus win/loss streak bonuses at 3, 5 and 6 rounds in a
+row, plus 1 for beating another captain. Refresh the shop for 2, buy 4 XP for 4. Your level is your
+board capacity (max 9).
 
 **Upgrading** — three copies of a pirate merge into ★★; three ★★ merge into ★★★. Bench and board
 copies both count, and items carry across the merge.

@@ -818,10 +818,13 @@ func _resolve_combat() -> void:
 
 	if won:
 		player.record_result(true)
-		gain_gold(1)
-		log_line("Victory over %s." % opponent_name, &"good")
+		# A win over another captain pays a coin. A monster wave pays salvage
+		# instead, which is worth more, so it does not also pay the coin.
 		if kind == &"pve":
 			_player_loot()
+		else:
+			gain_gold(Captain.PVP_WIN_GOLD)
+		log_line("Victory over %s." % opponent_name, &"good")
 	elif drawn:
 		player.record_result(false, true)
 		damage = maxi(1, stage_damage() / 2)
@@ -980,7 +983,7 @@ func _advance_round() -> void:
 		round_number = 1
 		stage += 1
 
-	var income := player.round_income()
+	var income := player.round_income(stage, round_number)
 	gain_gold(income)
 	player.add_xp(XP_PER_ROUND)
 	Events.level_changed.emit(player.level, player.xp, player.xp_needed())
@@ -989,7 +992,7 @@ func _advance_round() -> void:
 		if not b.alive:
 			continue
 		b.grant_loot(finished, self, rng)
-		b.take_turn(self)
+		b.take_turn(self, finished)
 
 	if not shop_locked:
 		return_to_pool_many(shop)

@@ -11,19 +11,45 @@ func before_each() -> void:
 func test_base_income_is_five() -> void:
 	var captain := Captain.new("Test", "x")
 	captain.gold = 0
-	assert_eq(captain.round_income(), 5)
+	assert_eq(captain.round_income(3, 1), 5)
+
+
+## The wage ramps. An opening round that already pays a full wage is one where
+## every shop is affordable and no early decision costs anything.
+func test_the_opening_rounds_pay_a_reduced_wage() -> void:
+	var captain := Captain.new("Test", "x")
+	captain.gold = 0
+	assert_eq(captain.round_income(1, 2), 2, "1-2")
+	assert_eq(captain.round_income(1, 3), 2, "1-3")
+	assert_eq(captain.round_income(1, 4), 3, "1-4")
+	assert_eq(captain.round_income(2, 1), 4, "2-1")
+	assert_eq(captain.round_income(2, 2), 5, "2-2, the full wage")
 
 
 func test_interest_pays_one_per_ten_banked() -> void:
 	var captain := Captain.new("Test", "x")
 	captain.gold = 30
-	assert_eq(captain.round_income(), 8, "5 base + 3 interest")
+	assert_eq(captain.round_income(3, 1), 8, "5 base + 3 interest")
 
 
 func test_interest_is_capped_at_five() -> void:
 	var captain := Captain.new("Test", "x")
 	captain.gold = 200
-	assert_eq(captain.round_income(), 10, "5 base + 5 interest, no more")
+	assert_eq(captain.round_income(3, 1), 10, "5 base + 5 interest, no more")
+
+
+## Two wins pay nothing extra; the bonus starts at three and steps twice more.
+func test_the_streak_bonus_starts_at_three_in_a_row() -> void:
+	var captain := Captain.new("Test", "x")
+	var bonus_after := func(wins: int) -> int:
+		captain.streak = wins
+		return captain.streak_bonus()
+	assert_eq(bonus_after.call(2), 0)
+	assert_eq(bonus_after.call(3), 1)
+	assert_eq(bonus_after.call(4), 1)
+	assert_eq(bonus_after.call(5), 2)
+	assert_eq(bonus_after.call(6), 3)
+	assert_eq(bonus_after.call(9), 3, "6+ is the last step")
 
 
 ## Losing pays the same streak bonus as winning: a captain being beaten every
@@ -36,7 +62,7 @@ func test_a_losing_streak_pays_the_same_as_a_winning_one() -> void:
 		loser.record_result(false)
 	assert_eq(winner.streak, 5)
 	assert_eq(loser.streak, -5)
-	assert_eq(winner.round_income(), loser.round_income())
+	assert_eq(winner.round_income(3, 1), loser.round_income(3, 1))
 
 
 func test_a_loss_breaks_a_winning_streak_immediately() -> void:

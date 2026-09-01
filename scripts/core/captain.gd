@@ -12,10 +12,13 @@ extends RefCounted
 const XP_TABLE := { 1: 2, 2: 2, 3: 6, 4: 10, 5: 20, 6: 36, 7: 56, 8: 80, 9: 1 << 30 }
 const MAX_LEVEL := 9
 
-## Gold per round before interest and streaks.
+## The full wage, paid from round 2-2 onwards. Earlier rounds pay less — see
+## passive_income().
 const BASE_INCOME := 5
 ## One gold per ten banked, to this ceiling. The whole reason to save.
 const MAX_INTEREST := 5
+## Paid on top for beating another captain. Monster rounds pay salvage instead.
+const PVP_WIN_GOLD := 1
 
 var display_name: String = ""
 var icon: String = ""
@@ -64,12 +67,30 @@ func board_capacity() -> int:
 	return level
 
 
-## Round income: a flat wage, interest on savings, and a streak bonus.
+## The wage for the round being entered, before interest and streaks.
+##
+## It ramps: 2 across the opening rounds, 3 for the last round of stage 1, 4 for
+## 2-1, and the full 5 from 2-2 on. A run that pays 5 a round from the start can
+## afford every shop it sees, so none of the early decisions cost anything —
+## whether to reroll, to level, or to save is only a question while gold is
+## scarce. Stage 1 round 1 never draws income; the run opens there.
+func passive_income(stage: int, round_number: int) -> int:
+	if stage == 1:
+		return 3 if round_number >= 4 else 2
+	if stage == 2 and round_number == 1:
+		return 4
+	return BASE_INCOME
+
+
+## Round income: the wage, interest on savings, and a streak bonus.
+##
+## Interest is worked out on what is banked now, before the wage lands, so a
+## captain cannot bank 95 and be paid interest on the 100 the same payment makes.
 ##
 ## Losing pays the same streak bonus as winning. A captain being beaten every
 ## round is meant to be able to fund the rebuild that gets them back in.
-func round_income() -> int:
-	var income := BASE_INCOME
+func round_income(stage: int, round_number: int) -> int:
+	var income := passive_income(stage, round_number)
 	income += mini(MAX_INTEREST, gold / 10)
 	income += streak_bonus()
 	return income
@@ -77,11 +98,11 @@ func round_income() -> int:
 
 func streak_bonus() -> int:
 	var run := absi(streak)
-	if run >= 5:
+	if run >= 6:
 		return 3
-	if run >= 4:
+	if run >= 5:
 		return 2
-	if run >= 2:
+	if run >= 3:
 		return 1
 	return 0
 

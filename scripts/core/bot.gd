@@ -82,14 +82,17 @@ func reserve(stage: int) -> int:
 # --- The round's turn --------------------------------------------------------
 
 ## Income, levelling, shopping, merging, and itemising, in that order.
-func take_turn(state: Node) -> void:
+##
+## `finished_round` is the round just fought, not the one being entered: the
+## coin for a win is only paid for beating another captain.
+func take_turn(state: Node, finished_round: StringName = &"pvp") -> void:
 	if not alive:
 		return
 	var stage: int = state.stage
 
-	var income := round_income()
-	if last_result > 0:
-		income += 1
+	var income := round_income(stage, state.round_number)
+	if last_result > 0 and finished_round == &"pvp":
+		income += PVP_WIN_GOLD
 	# Handicap. Bots cannot read a shop or plan two rounds ahead, so they are paid
 	# to keep pace. Worth re-measuring now they also use items.
 	income += maxi(0, stage - 2)

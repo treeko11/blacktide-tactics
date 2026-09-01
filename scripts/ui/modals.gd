@@ -389,7 +389,7 @@ Three copies of the same pirate merge into a %s version; three of those make %s.
 Every pirate has an [b]Origin[/b] and a [b]Class[/b]. Fielding enough [i]different[/i] pirates sharing a trait activates a fleet-wide bonus — three copies of one pirate is a star-up, not a trait. Hover the manifest to read them.
 
 [color=#7fe3ff][b]GOLD[/b][/color]
-5 a round, plus 1 interest per 10 banked (max 5), plus a streak bonus for consecutive wins [i]or[/i] losses. Refreshing costs 2, XP costs 4.
+A wage each round — 2 at the start of the run, rising to 5 by stage 2 — plus 1 interest per 10 banked (max 5), plus a bonus at 3, 5 and 6 rounds in a row, for consecutive wins [i]or[/i] losses. Beating another captain pays 1 more; monster waves pay salvage instead. Refreshing costs 2, XP costs 4.
 
 [color=#7fe3ff][b]ITEMS[/b][/color]
 Monster rounds drop components. Drag two onto the same pirate to [b]forge[/b] a full item — three per pirate. The [b]Forge chart[/b] button over the cargo hold shows every pairing, and every square in it can be inspected for what that item does. The armoury at the end of a stage offers a finished item.
