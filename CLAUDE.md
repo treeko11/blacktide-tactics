@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and press-and-hold: `--size=390x844`, `--rotate=`, `--hold=card`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout and of touch: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item`, all of which assert |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
@@ -210,14 +210,29 @@ Each of these cost a debugging session or settles a design argument.
   cheaper than being wrong on the platform the layout exists for. And **both**
   breakpoints trigger the rebuild: portrait and short-landscape are both
   "compact", and watching only WIDE/COMPACT missed the rotation entirely.
-- **The web export cannot draw `●`, `★` or a non-breaking hyphen.** There are no
+- **Never change a Control's `mouse_filter` while a press is live.** A pinned
+  inspector has to swallow taps on its own body, but press-and-hold opens it with
+  the finger still down. Setting `mouse_filter` to STOP there left Godot's GUI
+  press/release bookkeeping unbalanced: the release went elsewhere, and from then
+  on every tap arrived one event behind — a press with no release, then a release
+  with no press. Buying happens on release, so **the shop looked completely
+  dead** after inspecting anything. `Tooltip.arm_input()` waits a frame first,
+  because `_input` still runs *before* the viewport hands the emulated mouse
+  release to the GUI. And `hide_now()` resets **both** filters: leaving the inner
+  column on PASS meant the next hover put an invisible-looking but very
+  hit-testable panel over the shop, and the card underneath never saw the tap.
+  `screenshot.gd --sequence=forge` and `--sequence=item` replay both.
+- **The web export cannot draw `●`, `★`, `→` or a non-breaking hyphen.** There are no
   system fonts in a WASM sandbox, Godot's bundled fallback covers little beyond
   Latin-1, and the only font this project ships is Noto Color Emoji — which has
   neither, because neither is an emoji. Every price and star rating rendered as a
   tofu box in the browser. `UITheme.COIN` and `UITheme.STAR` are now the emoji
-  that mean the same thing, and `game_theme()` puts the emoji font behind the
-  text font so they resolve in ordinary labels and in BBCode. **Check any new
-  symbol in the web export**, not on Windows, where Segoe UI hides the problem.
+  that mean the same thing, `»` replaced the arrow in the forge lists, and
+  `game_theme()` puts the emoji font behind the text font so they resolve in
+  ordinary labels and in BBCode. **Check any new symbol in the web export**, not
+  on Windows, where Segoe UI hides the problem. Confirmed to render: Latin-1,
+  `× · • ° « »`, en and em dashes, and anything Noto Color Emoji covers.
+  Confirmed missing: everything in Geometric Shapes and most of Dingbats.
 - **Press-and-hold is the touch inspector, and it lives in Main.** A finger has
   no hover. Main watches real `InputEventScreenTouch` — never the emulated mouse,
   which cannot be told from a real one, and a mouse held still for a third of a
@@ -242,7 +257,7 @@ these; they are the reason several things are where they are.
 | Attacks need variation and direction | `Sim.ATTACK_STYLES` + `FxLayer` |
 | Feedback when an item is acquired | `ToastLayer`, plus a pulsing highlight on the new item in the hold |
 | Item effects need to be visible | Full item text in the champion tooltip; hovering a unit **mid-fight** shows live stats |
-| Item combinations need explaining | Forge chart modal, forge preview on the drag, and every pairing listed in a component's tooltip |
+| Item combinations need explaining | Forge chart modal, forge preview on the drag, and every pairing listed in a component's tooltip. Every square of the chart opens the full item inspector — it used to carry Godot's own one-line `tooltip_text`, which a phone never sees at all |
 | The AI never seemed to use items | Bots now draw the same loot on the same rounds and forge it by the same rules. They previously got one random finished item per stage and never combined anything |
 | Round timer near the shop, warn before it ends | `ShopBar` clock, and `Events.plan_time_warning` turns it orange with 8s left |
 | Tooltips felt sticky | `Tooltip` watches its own owner — see above |

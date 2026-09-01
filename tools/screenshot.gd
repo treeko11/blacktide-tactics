@@ -16,10 +16,12 @@ extends "res://tools/tool_script.gd"
 ##   --bench=<ids>    comma-separated champion ids to sit on the bench
 ##   --stars=<n>      what star the fielded crew is (default 2)
 ##   --size=<WxH>     resize the window first, e.g. --size=390x844 for a phone
-##   --hold=<what>    press and hold a "card" or a "bench" slot, then photograph
-##                    the inspector it opens
+##   --hold=<what>    press and hold a "card", a "bench" slot or a forge "chart"
+##                    square, then photograph the inspector it opens
 ##   --rotate=<WxH>   resize again once the HUD is up, to prove it rebuilds
 ##   --measure        print how tall each block of the HUD ended up
+##   --sequence=forge replay the reported lock-up: read the forge chart, close
+##                    it, then try to buy from the shop
 ##   --shop=<ids>     comma-separated champion ids to seat in the shop
 
 var _out := "user://shot.png"
@@ -71,6 +73,12 @@ func run() -> void:
 	if arg("modal") != "":
 		await _open_modal(arg("modal"), game)
 		await _frames(3)
+		_capture()
+		finish()
+		return
+
+	if arg("sequence") != "":
+		await _sequence(game, arg("sequence"))
 		_capture()
 		finish()
 		return
@@ -138,6 +146,106 @@ func _stock_shop(game: Node, ids: PackedStringArray) -> void:
 	events().shop_rolled.emit(game.shop.duplicate())
 
 
+# --- scripted touch ----------------------------------------------------------
+
+## One finger down at a point, held for `seconds`, then lifted.
+func _touch(at: Vector2, seconds: float = 0.05) -> void:
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = at
+	Input.parse_input_event(down)
+	await _frames(maxi(2, roundi(seconds * 60.0)))
+
+	var up := InputEventScreenTouch.new()
+	up.index = 0
+	up.pressed = false
+	up.position = at
+	Input.parse_input_event(up)
+	await _frames(4)
+
+
+func _centre_of(control: Control) -> Vector2:
+	return control.global_position + control.size * 0.5
+
+
+## Replays the sequence that left the shop unresponsive on a phone.
+##
+## The report was "I could not interact with the store after a round — I think it
+## was after I opened the forge guide or looked at an item tooltip". Both of those
+## leave state behind that the shop does not know about, so this walks the whole
+## path with real touch events and then checks that a tap still buys a pirate.
+func _sequence(game: Node, which: String) -> void:
+	# Look at a card first, so the hover state the inspector reads is populated.
+	await _touch(_centre_of(_scene.shop._cards[0]), 0.05)
+	print("  after a plain tap on a card: gold %d" % game.player.gold)
+
+	match which:
+		"forge":
+			_scene.modals.open_forge_chart()
+			await _frames(8)
+			# Rest a finger on the chart, the way anyone reading it would.
+			await _touch(Vector2(Layout.css_size.x * 0.5, Layout.css_size.y * 0.4), 0.6)
+			print("  while the chart is open: tooltip pinned=%s"
+				% str(_scene.tooltip.pinned))
+			_scene.modals.close()
+			await _frames(8)
+		"item":
+			game.give_item(&"blade", &"salvage")
+			await _frames(8)
+			var chip: Control = _scene.hold._grid.get_child(0)
+			await _touch(_centre_of(chip), 0.6)
+			print("  after holding an item: tooltip pinned=%s" % str(_scene.tooltip.pinned))
+			_scene.tooltip.hide_now()
+			await _frames(4)
+		_:
+			fail("unknown sequence '%s'" % which)
+			return
+
+	print("  after closing: tooltip pinned=%s visible=%s"
+		% [str(_scene.tooltip.pinned), str(_scene.tooltip.visible)])
+
+	# Now the thing that was reported broken: buying from the shop. A card that
+	# has already been bought is empty and buys nothing, so pick a full one.
+	var gold_before: int = game.player.gold
+	var bought := -1
+	for attempt in 3:
+		var target: Control = null
+		for c in _scene.shop._cards:
+			if c.champion != null:
+				target = c
+				break
+		if target == null:
+			fail("the shop is empty; nothing left to tap")
+			return
+		await _touch(_centre_of(target), 0.05)
+		if game.player.gold != gold_before:
+			bought = attempt + 1
+			break
+
+	# The same question for an ordinary Button, which is most of the HUD.
+	var before_roll: int = game.player.gold
+	var rolled := -1
+	for attempt in 3:
+		await _touch(_centre_of(_scene.shop._reroll_button), 0.05)
+		if game.player.gold != before_roll:
+			rolled = attempt + 1
+			break
+	if rolled < 0:
+		fail("the Roll button never responded")
+	elif rolled > 1:
+		fail("the Roll button swallowed %d tap(s)" % (rolled - 1))
+	else:
+		print("  the first tap on Roll worked")
+
+	if bought < 0:
+		fail("the shop never responded: three taps after %s bought nothing" % which)
+	elif bought > 1:
+		fail("the shop swallowed %d tap(s) after %s before responding" % [bought - 1, which])
+	else:
+		print("  the first tap after %s bought a pirate" % which)
+
+
 ## Prints the height of every block of the HUD.
 ##
 ## The phone layout is a fight over vertical space and the board loses it by
@@ -203,6 +311,20 @@ func _press_and_hold(game: Node, what: String) -> void:
 			target = _scene.shop._cards[0]
 		"bench":
 			target = _scene.bench._slots[0]
+		"item":
+			for id in [&"blade", &"plate"]:
+				game.give_item(id, &"salvage")
+			await _frames(6)
+			target = _scene.hold._grid.get_child(0)
+		"chart":
+			_scene.modals.open_forge_chart()
+			await _frames(10)
+			# The grid is the first child of the dialog's content after the
+			# heading and the subtitle; a forged cell is past the header row.
+			for node in _scene.modals._content.get_children():
+				if node is GridContainer:
+					target = node.get_child(node.columns + 2)
+					break
 		_:
 			fail("unknown hold target '%s'" % what)
 			return

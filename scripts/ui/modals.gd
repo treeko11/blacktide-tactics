@@ -11,6 +11,12 @@ extends Control
 signal armoury_chosen(item_id: StringName)
 signal restart_requested()
 
+## A cell of the forge chart is being looked at. Main turns it into the same
+## inspector the cargo hold uses, so the chart answers "what does this make" and
+## "what does the thing it makes actually do" in one place.
+signal chart_item_hovered(item_id: StringName, at: Vector2, source: Control)
+signal chart_item_unhovered()
+
 var _scrim: ColorRect = null
 var _box: PanelContainer = null
 var _scroll: ScrollContainer = null
@@ -255,6 +261,19 @@ func open_forge_chart() -> void:
 	_add_action(close_button)
 
 
+## Makes a chart cell report what it is, so the real inspector can open on it.
+##
+## It used to carry Godot's own `tooltip_text`, which is a hover feature: a phone
+## never saw it, and even on a desktop it gave one line where the item's own
+## panel gives the full effect and what it is forged from.
+func _inspectable(cell: Control, item_id: StringName) -> void:
+	cell.mouse_filter = Control.MOUSE_FILTER_STOP
+	cell.mouse_entered.connect(func():
+		chart_item_hovered.emit(item_id,
+			cell.global_position + Vector2(cell.size.x * 0.5, cell.size.y), cell))
+	cell.mouse_exited.connect(func(): chart_item_unhovered.emit())
+
+
 func _can_make(held: Dictionary, a: StringName, b: StringName) -> bool:
 	if a == b:
 		return int(held.get(a, 0)) >= 2
@@ -271,7 +290,7 @@ func _chart_header(component: ItemDef) -> Control:
 	cell.custom_minimum_size = _chart_size()
 	cell.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("11283a"), Color("2f5a72"), 5))
-	cell.tooltip_text = component.display_name
+	_inspectable(cell, component.id)
 
 	var glyph := Label.new()
 	glyph.add_theme_font_override("font", UITheme.emoji_font())
@@ -292,7 +311,7 @@ func _chart_cell(result: ItemDef, makeable: bool) -> Control:
 	if result == null:
 		return cell
 
-	cell.tooltip_text = "%s — %s" % [result.display_name, result.description]
+	_inspectable(cell, result.id)
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 0)
@@ -363,7 +382,7 @@ Every pirate has an [b]Origin[/b] and a [b]Class[/b]. Fielding enough [i]differe
 5 a round, plus 1 interest per 10 banked (max 5), plus a streak bonus for consecutive wins [i]or[/i] losses. Refreshing costs 2, XP costs 4.
 
 [color=#7fe3ff][b]ITEMS[/b][/color]
-Monster rounds drop components. Drag two onto the same pirate to [b]forge[/b] a full item — three per pirate. The [b]Forge chart[/b] button over the cargo hold shows every pairing. The armoury at the end of a stage offers a finished item.
+Monster rounds drop components. Drag two onto the same pirate to [b]forge[/b] a full item — three per pirate. The [b]Forge chart[/b] button over the cargo hold shows every pairing, and every square in it can be inspected for what that item does. The armoury at the end of a stage offers a finished item.
 
 [color=#7fe3ff][b]CONTROLS[/b][/color]
 %s""" % [two, three, controls]

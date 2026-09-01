@@ -115,9 +115,8 @@ func pin(text: String, at: Vector2, sell_unit: RosterUnit = null) -> void:
 	pinned = true
 	_sell_unit = sell_unit
 	_owner = null                       # nothing to watch; it is held open now
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	_column.mouse_filter = Control.MOUSE_FILTER_PASS
 	_footer.visible = true
+	# Note what it does *not* do: change mouse_filter. See arm_input.
 	_sell_button.visible = sell_unit != null and GameState.phase == GameState.Phase.PLAN
 	if _sell_button.visible:
 		_sell_button.text = "SELL  %s %d" % [UITheme.COIN, sell_unit.sell_value()]
@@ -126,12 +125,42 @@ func pin(text: String, at: Vector2, sell_unit: RosterUnit = null) -> void:
 		_place(at)
 
 
+## Starts blocking taps that land on the panel, once the finger that opened it
+## has lifted.
+##
+## **Never do this while a press is live.** A pinned tooltip has to swallow taps
+## on its own body, but it is opened by a press-and-hold, which means the finger
+## is still down when it appears. Turning mouse_filter to STOP under a live press
+## left Godot's press/release bookkeeping unbalanced: the release went somewhere
+## else, and from then on every tap was delivered one event behind — a press with
+## no release, then a release with no press. The shop looked completely dead
+## after inspecting an item, because the first tap on a card only ever arrived as
+## a press, and buying happens on release.
+func arm_input() -> void:
+	if not pinned:
+		return
+	# A frame, not just "after the touch": `_input` runs *before* the viewport
+	# hands the emulated mouse release to the GUI, so arming there is still
+	# arming mid-press. Waiting a frame puts it after both.
+	await get_tree().process_frame
+	if not pinned:
+		return
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	_column.mouse_filter = Control.MOUSE_FILTER_PASS
+
+
 func hide_now() -> void:
 	visible = false
 	pinned = false
 	_owner = null
 	_sell_unit = null
+	# Both filters, not just this node's. Leaving the inner column on PASS meant
+	# that the next hover — which makes the tooltip visible again — put an
+	# invisible-to-the-eye but very much hit-testable panel over the shop, and the
+	# card underneath never saw the tap.
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _column != null:
+		_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _footer != null:
 		_footer.visible = false
 
@@ -291,7 +320,7 @@ static func item_text(item_id: StringName) -> String:
 			# Mark the ones the player could make right now.
 			var have: bool = held.has(other.id) and (other.id != item.id or int(held[other.id]) >= 2)
 			var marker := "[color=#4bd08a]✔[/color] " if have else "[color=#3d4d59]·[/color] "
-			lines.append("%s+ %s %s  →  [b]%s %s[/b]"
+			lines.append("%s+ %s %s  »  [b]%s %s[/b]"
 				% [marker, other.icon, other.display_name, result.icon, result.display_name])
 	else:
 		var parts := PackedStringArray()

@@ -355,11 +355,13 @@ func _build_overlays() -> void:
 	toasts.offset_top = 44 if Layout.compact() else 62
 	add_child(toasts)
 
-	tooltip = Tooltip.new()
-	add_child(tooltip)
-
+	# Modals first, so the inspector draws *over* a dialog: the forge chart opens
+	# it on its own squares, and an inspector behind the chart is no inspector.
 	modals = Modals.new()
 	add_child(modals)
+
+	tooltip = Tooltip.new()
+	add_child(tooltip)
 
 
 # =============================================================================
@@ -399,6 +401,12 @@ func _connect_state() -> void:
 	hold.item_hovered.connect(_on_item_hovered)
 	hold.item_unhovered.connect(_unhover)
 	hold.forge_chart_requested.connect(func(): modals.open_forge_chart())
+	modals.chart_item_hovered.connect(_on_chart_item_hovered)
+	modals.chart_item_unhovered.connect(_unhover)
+	# A dialog opening or closing invalidates whatever was under the cursor. Left
+	# alone, resting a finger on the forge chart pinned the inspector for the shop
+	# card that happened to be hovered before the chart opened.
+	modals.visibility_changed.connect(_dismiss_inspector)
 	fleet.captain_hovered.connect(_on_captain_hovered)
 	fleet.captain_unhovered.connect(_unhover)
 
@@ -525,6 +533,16 @@ func _on_trait_hovered(trait_id: StringName, at: Vector2) -> void:
 	tooltip.show_text(text, at, traits)
 
 
+## A square of the forge chart. Same inspector as everywhere else, so press and
+## hold pins it on a phone exactly as it does in the cargo hold.
+func _on_chart_item_hovered(item_id: StringName, at: Vector2, source: Control) -> void:
+	if tooltip.pinned:
+		return
+	var text := Tooltip.item_text(item_id)
+	_note_hover(&"item", text)
+	tooltip.show_text(text, at, source)
+
+
 func _on_item_hovered(item_id: StringName, at: Vector2) -> void:
 	if tooltip.pinned:
 		return
@@ -545,6 +563,19 @@ func _note_hover(kind: StringName, text: String, unit: RosterUnit = null) -> voi
 	_hover_kind = kind
 	_hover_text = text
 	_hover_unit = unit
+
+
+## Closes the inspector whatever state it is in, pinned included.
+##
+## `_unhover` deliberately leaves a pinned inspector alone, which is right for a
+## cursor wandering off and wrong for a dialog closing underneath it: the forge
+## chart's own inspector stayed pinned and armed over the shop, and ate the next
+## tap on a card.
+func _dismiss_inspector() -> void:
+	_hover_kind = &""
+	_hover_text = ""
+	_hover_unit = null
+	tooltip.hide_now()
 
 
 ## A hover ended. A pinned inspector ignores it — it is being held open on
@@ -576,6 +607,9 @@ func _input(event: InputEvent) -> void:
 			_begin_hold(event.position)
 		else:
 			_holding = false
+			# The inspector only starts swallowing taps now, with the finger off
+			# the glass. Doing it the moment it opened broke every later tap.
+			tooltip.arm_input()
 	elif event is InputEventScreenDrag and _holding:
 		# Past the slop this is a drag, and dragging a pirate somewhere is not a
 		# request to read about it.
@@ -584,6 +618,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _begin_hold(at: Vector2) -> void:
+	# A stale flag must never outlive the press that set it, or it eats an
+	# unrelated tap later on.
+	ShopBar.swallow_click = false
+
 	if tooltip.pinned:
 		# A tap anywhere but on the inspector dismisses it, and that tap does
 		# nothing else — closing a panel should not also spend gold.
