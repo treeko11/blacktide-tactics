@@ -345,7 +345,24 @@ func copies_owned(champion_id: StringName) -> int:
 	return n
 
 
-## What the shop card for a slot should say about duplicates.
+## Every copy of a champion on the board or the bench, at any star, and the
+## highest star among them.
+##
+## Distinct from `copies_owned`, which counts only the star-1 copies a purchase
+## could merge with. A two-star pirate does not bring a shop card closer to a
+## star-up, but it is still the answer to "is this one mine?" — and that question
+## is the one the player is actually asking of a shop.
+func fleet_copies(champion_id: StringName) -> Dictionary:
+	var count := 0
+	var best := 0
+	for u in owned_units():
+		if u.id() == champion_id:
+			count += 1
+			best = maxi(best, u.star)
+	return { "count": count, "best_star": best }
+
+
+## What the shop card for a slot should say about the player's own fleet.
 ##
 ## Spotting that a card completes an upgrade was previously a matter of counting
 ## your own bench mid-timer, which is exactly the thing a player misses and then
@@ -357,16 +374,23 @@ func shop_slot_info(index: int) -> Dictionary:
 	if champion_id == &"":
 		return {}
 	var owned := copies_owned(champion_id)
-	var duplicate_in_shop := false
+	var fleet := fleet_copies(champion_id)
+	var copies_in_shop := 0
 	for i in shop.size():
-		if i != index and shop[i] == champion_id:
-			duplicate_in_shop = true
-			break
+		if shop[i] == champion_id:
+			copies_in_shop += 1
 	return {
 		"champion_id": champion_id,
 		"owned": owned,
+		"fleet_count": fleet["count"],
+		"fleet_star": fleet["best_star"],
 		"completes_upgrade": owned >= 2,
-		"duplicate_in_shop": duplicate_in_shop,
+		# Two in the shop and one already yours is the same star-up as owning
+		# two, it just costs twice — worth shouting about while both cards are
+		# still on the counter.
+		"pair_completes_upgrade": owned == 1 and copies_in_shop >= 2,
+		"copies_in_shop": copies_in_shop,
+		"duplicate_in_shop": copies_in_shop >= 2,
 	}
 
 
@@ -977,7 +1001,6 @@ func _end_game() -> void:
 # =============================================================================
 
 func _open_armoury() -> void:
-	_set_phase(Phase.ARMOURY)
 	var forged: Array = content.forged_items()
 	var indices: Array[int] = []
 	for i in forged.size():
@@ -992,7 +1015,20 @@ func _open_armoury() -> void:
 	for i in mini(3, indices.size()):
 		armoury_offer.append(forged[indices[i]].id)
 
+	if armoury_offer.is_empty():
+		# Nothing to offer means a modal with no buttons, and it is the modal the
+		# player cannot dismiss. Skip the stop entirely rather than stand on it.
+		_advance_round()
+		return
+
 	gain_gold(2)
+
+	# The offer is built before the phase is announced, exactly as _start_combat
+	# builds the sim before announcing COMBAT. Announcing first handed Main an
+	# armoury_offer that take_armoury_item had emptied on the previous stage, so
+	# the modal opened with a title, a subtitle and no items to take — and it is
+	# not dismissable, so the run stopped there.
+	_set_phase(Phase.ARMOURY)
 
 
 func take_armoury_item(item_id: StringName) -> void:
@@ -1022,20 +1058,22 @@ func creep_wave() -> Array:
 
 	match stage:
 		1:
+			# Round one is fought with a single pirate, because level 1 seats one.
+			# Anything the lone unit cannot chew through on its own is a scripted
+			# loss on the opening round of the game.
 			if round_number == 1:
-				add.call(&"rat", 1, 3)
+				add.call(&"rat", 1, 2)
 			elif round_number == 2:
 				add.call(&"rat", 1, 3)
-				add.call(&"gull", 1, 1)
 			else:
-				add.call(&"crab", 1, 2)
+				add.call(&"crab", 1, 1)
 				add.call(&"rat", 1, 3)
 		2:
 			add.call(&"crab", 2, 2)
-			add.call(&"gull", 2, 3)
+			add.call(&"gull", 2, 2)
 		3:
 			add.call(&"serpent", 2, 2)
-			add.call(&"skiff", 2, 2)
+			add.call(&"skiff", 2, 1)
 			add.call(&"crab", 2, 2)
 		4:
 			add.call(&"golem", 1, 1)

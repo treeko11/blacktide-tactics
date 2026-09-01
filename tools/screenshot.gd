@@ -13,6 +13,8 @@ extends "res://tools/tool_script.gd"
 ##   --frames=<n>     how many frames to let pass first
 ##   --gold=<n>       start the player with this much gold
 ##   --units=<ids>    comma-separated champion ids to field, e.g. lyra,kraken
+##   --stars=<n>      what star the fielded crew is (default 2)
+##   --shop=<ids>     comma-separated champion ids to seat in the shop
 
 var _out := "user://shot.png"
 var _scene: Node = null
@@ -44,8 +46,12 @@ func run() -> void:
 	if units != "":
 		_field(game, units.split(","))
 
+	var counter := arg("shop")
+	if counter != "":
+		_stock_shop(game, counter.split(","))
+
 	if arg("modal") != "":
-		_open_modal(arg("modal"), game)
+		await _open_modal(arg("modal"), game)
 		await _frames(3)
 		_capture()
 		finish()
@@ -67,14 +73,23 @@ func _field(game: Node, ids: PackedStringArray) -> void:
 		Vector2i(3, 5), Vector2i(2, 5), Vector2i(4, 5), Vector2i(1, 5),
 		Vector2i(5, 5), Vector2i(3, 7), Vector2i(2, 7), Vector2i(4, 7),
 	]
+	var star := int(arg("stars", "2"))
 	for i in mini(ids.size(), seats.size()):
 		var champion = content().champion(StringName(ids[i].strip_edges()))
 		if champion == null:
 			continue
-		var unit := RosterUnit.new(champion, 2)
+		var unit := RosterUnit.new(champion, star)
 		unit.cell = seats[i]
 		game.board.append(unit)
 	events().board_changed.emit()
+
+
+## Seats named champions in the shop, so a shot can show a card against a known
+## fleet rather than whatever the roll happened to offer.
+func _stock_shop(game: Node, ids: PackedStringArray) -> void:
+	for i in game.shop.size():
+		game.shop[i] = &"" if i >= ids.size() else StringName(ids[i].strip_edges())
+	events().shop_rolled.emit(game.shop.duplicate())
 
 
 ## Starts a battle and photographs it a couple of seconds in, when the effects
@@ -89,6 +104,21 @@ func _run_a_fight(game: Node) -> void:
 func _close_modals() -> void:
 	if _scene != null and _scene.get("modals") != null:
 		_scene.modals.close()
+
+
+## Fast-forwards the real round loop until the armoury opens itself.
+func _play_to_the_armoury(game: Node) -> void:
+	game.instant = true
+	game.speed = 64
+	for i in 3000:
+		if game.phase == game.Phase.ARMOURY:
+			return
+		if game.phase == game.Phase.PLAN:
+			game.start_combat_now()
+		elif game.phase == game.Phase.OVER:
+			break
+		await process_frame
+	fail("the run never reached an armoury")
 
 
 func _frames(count: int) -> void:
@@ -116,10 +146,10 @@ func _open_modal(which: String, game: Node) -> void:
 				game.give_item(id, &"salvage")
 			_scene.modals.open_forge_chart()
 		"armoury":
-			var offers: Array[StringName] = []
-			for item in content().forged_items().slice(0, 3):
-				offers.append(item.id)
-			_scene.modals.open_armoury(offers)
+			# Played to, not injected. Handing the modal a made-up offer is how a
+			# screenshot of a working armoury coexisted with an armoury that
+			# opened empty in the actual game for a whole stage.
+			await _play_to_the_armoury(game)
 		"help":
 			_scene.modals.open_help()
 		_:

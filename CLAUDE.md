@@ -25,6 +25,7 @@ that needs no engine, and say plainly in the commit message that code is
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
 | `screenshot.gd` | Renders a PNG. Must run **without** `--headless` |
+| `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
 All extend `tools/tool_script.gd`. **Write new tools by extending it** — it
@@ -164,6 +165,11 @@ Each of these cost a debugging session or settles a design argument.
   to be standing reads as a miss that somehow still hurt.
 - **`FxLayer` is one node that draws every effect.** A node per hit meant
   hundreds of allocations a second at 4x for things living a fifth of a second.
+- **A phase is announced after the state it needs exists.** `_open_armoury`
+  emitted `phase_changed` and *then* filled `armoury_offer`, so Main opened the
+  armoury on the array the previous stage's pickup had cleared: a modal with a
+  title, no items, and no way to dismiss it. The run stopped there every time.
+  `_start_combat` had it right — build the sim, announce COMBAT last.
 - **The tooltip closes itself.** A tooltip opened by a hover and closed only by
   the matching un-hover stays up forever when the panel underneath rebuilds —
   which the shop does on every purchase. It watches its owner every frame.
@@ -175,7 +181,7 @@ these; they are the reason several things are where they are.
 
 | Note | Where |
 |---|---|
-| Highlight duplicates in the shop | `ShopBar.ShopCard` — a gold frame and `★★ BUY THIS` when a card completes a star-up, `n/3 owned` otherwise |
+| Highlight duplicates in the shop | `ShopBar.ShopCard`. Read wrongly first time as "two copies are in the shop"; the ask was **"I already own one of these"**. Ownership is a green frame, a three-pip row and `IN FLEET n/3`; a star-up is a gold frame and `★★ BUY THIS` (or `★★ BUY BOTH` when one is owned and two are on the counter); a pair in the shop you own none of is grey text and no frame |
 | Gold visible near the shop | `ShopBar` right column — a large gold panel beside the cards, not only in the top bar |
 | Attacks need variation and direction | `Sim.ATTACK_STYLES` + `FxLayer` |
 | Feedback when an item is acquired | `ToastLayer`, plus a pulsing highlight on the new item in the hold |
@@ -191,6 +197,14 @@ these; they are the reason several things are where they are.
   cannot read a shop or plan ahead. **Worth re-measuring now that they also use
   items** — that was added after the handicap was tuned, and nothing has
   confirmed it is still the right number.
+- **Monster rounds are a floor, not a wall.** A player who fields anything at
+  all should win them; only an empty board should lose. Round 1-1 is the one
+  that has to be checked by hand — level 1 seats **one** pirate, so the opening
+  wave has to be beatable by a single 1-cost or it is a scripted loss on the
+  first round of the game. It was three Deck Rats, and it was. Run
+  `creep_balance.gd` after touching a wave or a monster's stats; the naive
+  player it drives should win every wave, and the only fleets losing should be
+  bots with almost nothing on the board.
 - **Losing pays the same streak bonus as winning.** A captain being beaten every
   round has to be able to fund the rebuild that gets them back in.
 

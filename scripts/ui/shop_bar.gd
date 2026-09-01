@@ -8,9 +8,13 @@ extends PanelContainer
 ## same problem — during the planning phase the player is looking at the shop and
 ## nowhere else, so anything they need must be *in* the shop.
 ##
-##   - **Duplicates are called out on the card.** A card you already hold two of
-##     is the single most valuable thing in a shop, and previously you had to
-##     count your own bench to notice.
+##   - **A card the player already owns says so.** The first pass read the note
+##     as "two of these are in the shop" and highlighted that, which is not what
+##     was asked and drowned the signal that was: a pirate already on the bench
+##     or the board is the one worth buying, and counting your own bench on a
+##     timer is exactly what nobody does. Ownership now gets a green frame, a
+##     pip row and an IN FLEET badge; a mere pair on the counter gets grey text
+##     and no frame at all.
 ##   - **Gold sits beside the cards**, not diagonally opposite in the top bar.
 ##   - **So does the round clock**, and it warns before it runs out instead of
 ##     simply ending the round mid-purchase.
@@ -254,10 +258,13 @@ class ShopCard extends PanelContainer:
 	var buyable: bool = true
 	var affordable: bool = true
 
-	## How many copies the player already owns, and whether this one completes a
-	## star-up. Both drive the badge.
-	var owned: int = 0
+	## What the player's own fleet already holds of this pirate, and what buying
+	## the card would do about it. All of it drives the badge and the frame.
+	var owned: int = 0            # star-1 copies, the ones a purchase merges with
+	var fleet_count: int = 0      # every copy, at any star
+	var fleet_star: int = 0       # the best star among them
 	var completes_upgrade: bool = false
+	var pair_completes_upgrade: bool = false
 	var duplicate_in_shop: bool = false
 
 	var _icon: Label = null
@@ -270,9 +277,16 @@ class ShopCard extends PanelContainer:
 		custom_minimum_size = Vector2(126, 92)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 
+		# The bottom four pixels are the cost bar, drawn over everything. Without
+		# the margin the badge sits under it and reads as struck through.
+		var pad := MarginContainer.new()
+		pad.add_theme_constant_override("margin_bottom", 6)
+		pad.add_theme_constant_override("margin_right", 4)
+		add_child(pad)
+
 		var column := VBoxContainer.new()
 		column.add_theme_constant_override("separation", 2)
-		add_child(column)
+		pad.add_child(column)
 
 		var header := HBoxContainer.new()
 		header.add_theme_constant_override("separation", 5)
@@ -309,7 +323,10 @@ class ShopCard extends PanelContainer:
 		var content: Node = Engine.get_main_loop().root.get_node(^"/root/Content")
 		champion = content.champion(champion_id) if champion_id != &"" else null
 		owned = info.get("owned", 0)
+		fleet_count = info.get("fleet_count", 0)
+		fleet_star = info.get("fleet_star", 0)
 		completes_upgrade = info.get("completes_upgrade", false)
+		pair_completes_upgrade = info.get("pair_completes_upgrade", false)
 		duplicate_in_shop = info.get("duplicate_in_shop", false)
 
 		if champion == null:
@@ -334,17 +351,27 @@ class ShopCard extends PanelContainer:
 				trait_names.append("%s %s" % [def.icon, def.display_name])
 		_traits.text = "\n".join(trait_names)
 
-		# The badge is the whole point of the duplicate work: it says how close
-		# this card gets you, not just that you own one.
+		# The badge answers "is this one mine?" before it answers anything else.
+		# Two copies of a card the player owns nothing of used to look exactly
+		# like a card they already had one of — same wording weight, same frame —
+		# so the one signal worth acting on was buried in the one that is not.
 		if completes_upgrade:
 			_badge.text = "★★  BUY THIS"
 			_badge.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
+		elif pair_completes_upgrade:
+			_badge.text = "★★  BUY BOTH"
+			_badge.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
 		elif owned > 0:
-			_badge.text = "%d/3 owned" % owned
-			_badge.add_theme_color_override("font_color", UITheme.FOAM)
+			_badge.text = "IN FLEET  %d/3" % owned
+			_badge.add_theme_color_override("font_color", UITheme.GOOD)
+		elif fleet_count > 0:
+			# Owned, but every copy is already starred up, so buying does not
+			# merge. Still worth knowing the pirate is one of yours.
+			_badge.text = "IN FLEET  %s" % "★".repeat(fleet_star)
+			_badge.add_theme_color_override("font_color", UITheme.GOOD)
 		elif duplicate_in_shop:
 			_badge.text = "pair in shop"
-			_badge.add_theme_color_override("font_color", UITheme.FOAM)
+			_badge.add_theme_color_override("font_color", UITheme.MUTED)
 		else:
 			_badge.text = ""
 
@@ -372,15 +399,43 @@ class ShopCard extends PanelContainer:
 
 		# A card that completes a star-up gets a gold frame and a glow. This is
 		# the one card in a shop that is worth interrupting anything for.
-		if completes_upgrade:
+		if completes_upgrade or pair_completes_upgrade:
 			draw_rect(Rect2(Vector2.ZERO, size), UITheme.GOLD_BRIGHT, false, 2.5)
 			var pulse := 0.35 + 0.25 * sin(Time.get_ticks_msec() * 0.006)
 			draw_rect(Rect2(Vector2(-3, -3), size + Vector2(6, 6)),
 				Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, pulse), false, 2.0)
-		elif owned > 0 or duplicate_in_shop:
-			draw_rect(Rect2(Vector2.ZERO, size), UITheme.FOAM, false, 1.5)
+		elif fleet_count > 0:
+			# Green means "already yours". A pair sitting in the shop gets no
+			# frame at all, so the two never read as the same thing again.
+			draw_rect(Rect2(Vector2.ZERO, size), UITheme.GOOD, false, 2.0)
 		else:
 			draw_rect(Rect2(Vector2.ZERO, size), UITheme.LINE, false, 1.0)
+
+		_draw_owned_pips()
+
+	## Three dots along the bottom-left: how many of this pirate are in the fleet
+	## and how many more the star-up wants. Readable without reading the badge,
+	## which is what a player scanning five cards on a timer is actually doing.
+	##
+	## Drawn rather than laid out, and lined up with the badge by asking the badge
+	## where it ended up — the card has no fixed height, so a constant would drift
+	## the moment the shop bar is resized.
+	func _draw_owned_pips() -> void:
+		if fleet_count <= 0:
+			return
+		# No star-1 copies but something in the fleet means every copy is already
+		# starred up: the line is finished, so all three pips are filled.
+		var filled := owned if owned > 0 else 3
+		# Gold is reserved for a purchase that actually stars something up. A
+		# line already complete at two stars is green like any other holding.
+		var color := UITheme.GOLD_BRIGHT if owned >= 2 else UITheme.GOOD
+		var y: float = _badge.global_position.y + _badge.size.y * 0.5 - global_position.y
+		for i in 3:
+			var centre := Vector2(9.0 + i * 8.0, y)
+			if i < filled:
+				draw_circle(centre, 2.6, color)
+			else:
+				draw_arc(centre, 2.6, 0.0, TAU, 10, Color(color.r, color.g, color.b, 0.35), 1.0)
 
 
 # =============================================================================

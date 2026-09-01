@@ -160,6 +160,119 @@ func test_a_two_star_returns_three_copies() -> void:
 	assert_eq(s.copies_left(&"barnaby"), before + 3)
 
 
+# --- what a shop card says about your own fleet -------------------------------
+
+## The playtest note was misread the first time round: the ask is not "two of
+## these are in the shop", it is "you already have one of these". A card the
+## player owns a copy of has to say so, at any star, whether or not a purchase
+## would merge.
+func test_a_card_reports_a_copy_already_in_the_fleet() -> void:
+	var s := state()
+	_clear_shop()
+	s.shop[0] = &"barnaby"
+	s.board.append(RosterUnit.new(content().champion(&"barnaby"), 1))
+
+	var info: Dictionary = s.shop_slot_info(0)
+	assert_eq(info["owned"], 1)
+	assert_eq(info["fleet_count"], 1)
+	assert_false(info["completes_upgrade"], "one copy is not a star-up yet")
+
+
+## A two-star copy will not merge with a fresh purchase, so `owned` is zero — but
+## the pirate is still one of the player's, and the card has to say so.
+func test_a_starred_up_copy_still_counts_as_in_the_fleet() -> void:
+	var s := state()
+	_clear_shop()
+	s.shop[0] = &"barnaby"
+	s.board.append(RosterUnit.new(content().champion(&"barnaby"), 2))
+
+	var info: Dictionary = s.shop_slot_info(0)
+	assert_eq(info["owned"], 0, "a two-star has nothing to merge with")
+	assert_eq(info["fleet_count"], 1)
+	assert_eq(info["fleet_star"], 2)
+
+
+func test_a_benched_copy_counts_the_same_as_a_fielded_one() -> void:
+	var s := state()
+	_clear_shop()
+	s.shop[0] = &"barnaby"
+	s.bench[0] = RosterUnit.new(content().champion(&"barnaby"), 1)
+
+	assert_eq(s.shop_slot_info(0)["fleet_count"], 1)
+
+
+## One in the fleet and two on the counter is the same star-up as two in the
+## fleet, it just costs twice.
+func test_one_owned_plus_a_pair_in_the_shop_is_flagged_as_a_star_up() -> void:
+	var s := state()
+	_clear_shop()
+	s.shop[0] = &"barnaby"
+	s.shop[1] = &"barnaby"
+	s.board.append(RosterUnit.new(content().champion(&"barnaby"), 1))
+
+	var info: Dictionary = s.shop_slot_info(0)
+	assert_eq(info["copies_in_shop"], 2)
+	assert_true(info["pair_completes_upgrade"])
+	assert_false(info["completes_upgrade"])
+
+
+func test_a_pair_in_the_shop_alone_is_not_ownership() -> void:
+	var s := state()
+	_clear_shop()
+	s.shop[0] = &"barnaby"
+	s.shop[1] = &"barnaby"
+
+	var info: Dictionary = s.shop_slot_info(0)
+	assert_true(info["duplicate_in_shop"])
+	assert_eq(info["fleet_count"], 0, "nothing is owned yet")
+	assert_false(info["pair_completes_upgrade"])
+
+
+# --- the armoury --------------------------------------------------------------
+
+## The armoury modal cannot be dismissed, so an empty offer stops the run dead —
+## which is what happened: _open_armoury announced the phase before it filled
+## armoury_offer, handing Main the array the previous stage's pickup had cleared.
+func test_the_armoury_offer_is_ready_before_the_phase_is_announced() -> void:
+	var s := state()
+	s.instant = true
+	s.speed = 64
+
+	# A Dictionary, not a local: a lambda captures by value, so assigning to a
+	# captured int from inside the handler would silently do nothing.
+	var seen := { "opened": 0, "empty": 0 }
+	var watch := func(next_phase: int) -> void:
+		if next_phase == s.Phase.ARMOURY:
+			seen["opened"] += 1
+			if s.armoury_offer.is_empty():
+				seen["empty"] += 1
+	Events.phase_changed.connect(watch)
+
+	for i in 3000:
+		if seen["opened"] >= 2:
+			break
+		if s.phase == s.Phase.PLAN:
+			s.start_combat_now()
+		elif s.phase == s.Phase.ARMOURY:
+			s.take_armoury_item(s.armoury_offer[0])
+		elif s.phase == s.Phase.OVER:
+			break
+		s._process(0.5)
+
+	Events.phase_changed.disconnect(watch)
+
+	assert_gt(float(seen["opened"]), 1.0, "the run should have reached two armouries")
+	assert_eq(seen["empty"], 0, "an armoury opened with nothing to take")
+
+
+## The shop is rolled at random, so a test naming a champion has to start from an
+## empty counter or a stray roll of the same pirate skews the count.
+func _clear_shop() -> void:
+	var s := state()
+	for i in s.shop.size():
+		s.shop[i] = &""
+
+
 func _total_copies_at_start() -> int:
 	var total := 0
 	for champion in content().shop_champions():
