@@ -146,6 +146,7 @@ static func palette(tint: Color, pose: Pose) -> Dictionary:
 static func draw_unit(ci: CanvasItem, body: StringName, tint: Color,
 		marks: Array, pose: Pose, team_color: Color,
 		rim_color: Color = Color.TRANSPARENT) -> void:
+	_detail = pose.detail
 	_draw_ground(ci, pose, team_color,
 		team_color if rim_color.a == 0.0 else rim_color)
 
@@ -244,6 +245,24 @@ static func _draw_cast_glow(ci: CanvasItem, pose: Pose) -> void:
 
 # --- shape helpers -----------------------------------------------------------
 
+## How small the current figure is, from the pose `draw_unit` was handed.
+##
+## A static rather than an argument on fifty call sites. It is written once at
+## the top of every `draw_unit` and read only by `_shape` below, and drawing is
+## single-threaded, so the value is always the one belonging to the figure being
+## drawn. The alternative was threading `detail` through every body and every
+## mark, which is a parameter nobody would read and everybody would forget.
+static var _detail: float = 1.0
+
+## Below this, outlines stop being drawn.
+##
+## The outline is what keeps a flat polygon from losing its silhouette on a dark
+## board, so it is the last thing to go — but it is a second draw call for every
+## shape in every figure, and at a 21-point hex on a phone it lands under a pixel
+## wide and changes nothing anybody can see.
+const OUTLINE_FLOOR := 0.45
+
+
 ## Fill plus a darker edge. Everything is drawn this way: a flat polygon on a
 ## dark board loses its silhouette, and one outline is what gives it back.
 static func _shape(ci: CanvasItem, points: PackedVector2Array, fill: Color,
@@ -251,6 +270,8 @@ static func _shape(ci: CanvasItem, points: PackedVector2Array, fill: Color,
 	if points.size() < 3:
 		return
 	ci.draw_colored_polygon(points, fill)
+	if _detail < OUTLINE_FLOOR:
+		return
 	var edge := fill.darkened(0.55)
 	edge.a = fill.a
 	ci.draw_polyline(_closed(points), edge, line_width)
@@ -272,13 +293,6 @@ static func _ellipse(centre: Vector2, rx: float, ry: float,
 	return out
 
 
-static func _poly(points: Array) -> PackedVector2Array:
-	var out := PackedVector2Array()
-	for p in points:
-		out.append(p)
-	return out
-
-
 ## A tapering limb: a quad from `a` to `b`, `w0` wide at one end and `w1` at the
 ## other. Arms, legs, tails and tentacle segments are all this.
 static func _limb(ci: CanvasItem, a: Vector2, b: Vector2, w0: float, w1: float,
@@ -287,7 +301,7 @@ static func _limb(ci: CanvasItem, a: Vector2, b: Vector2, w0: float, w1: float,
 	if dir.length() < 0.001:
 		return
 	var n := dir.normalized().orthogonal()
-	_shape(ci, _poly([a + n * w0, b + n * w1, b - n * w1, a - n * w0]), fill)
+	_shape(ci, PackedVector2Array([a + n * w0, b + n * w1, b - n * w1, a - n * w0]), fill)
 
 
 ## A limb that curls: `bend` pushes the midpoint sideways, which is what turns a
@@ -396,9 +410,9 @@ static func _human(ci: CanvasItem, pal: Dictionary, pose: Pose, aim: Vector2,
 	# Legs and boots.
 	_limb(ci, Vector2(-4.0, 3.0), Vector2(-5.0 - stride, 14.0), 3.0, 2.4, pal["deep"])
 	_limb(ci, Vector2(4.0, 3.0), Vector2(5.0 + stride, 14.0), 3.0, 2.4, pal["deep"])
-	_shape(ci, _poly([Vector2(-8.0 - stride, 13.0), Vector2(-2.5 - stride, 13.0),
+	_shape(ci, PackedVector2Array([Vector2(-8.0 - stride, 13.0), Vector2(-2.5 - stride, 13.0),
 		Vector2(-2.5 - stride, 17.0), Vector2(-8.5 - stride, 17.0)]), pal["wood_dark"])
-	_shape(ci, _poly([Vector2(2.5 + stride, 13.0), Vector2(8.0 + stride, 13.0),
+	_shape(ci, PackedVector2Array([Vector2(2.5 + stride, 13.0), Vector2(8.0 + stride, 13.0),
 		Vector2(8.5 + stride, 17.0), Vector2(2.5 + stride, 17.0)]), pal["wood_dark"])
 
 	# The back arm, behind the coat.
@@ -411,17 +425,17 @@ static func _human(ci: CanvasItem, pal: Dictionary, pose: Pose, aim: Vector2,
 		_mark_keg(ci, pal, Vector2(-13.0, 6.0))
 
 	# Coat.
-	_shape(ci, _poly([Vector2(-8.5, -9.0), Vector2(8.5, -9.0), Vector2(10.5, 4.0),
+	_shape(ci, PackedVector2Array([Vector2(-8.5, -9.0), Vector2(8.5, -9.0), Vector2(10.5, 4.0),
 		Vector2(8.0, 7.0), Vector2(-8.0, 7.0), Vector2(-10.5, 4.0)]), pal["main"])
 	if pose.detail > 0.45:
-		_shape(ci, _poly([Vector2(-2.6, -9.0), Vector2(2.6, -9.0), Vector2(2.0, 6.0),
+		_shape(ci, PackedVector2Array([Vector2(-2.6, -9.0), Vector2(2.6, -9.0), Vector2(2.0, 6.0),
 			Vector2(-2.0, 6.0)]), pal["light"])
-		_shape(ci, _poly([Vector2(-10.0, 1.5), Vector2(10.0, 1.5), Vector2(10.4, 4.5),
+		_shape(ci, PackedVector2Array([Vector2(-10.0, 1.5), Vector2(10.0, 1.5), Vector2(10.4, 4.5),
 			Vector2(-10.4, 4.5)]), pal["wood_dark"])
 		ci.draw_rect(Rect2(-2.0, 1.8, 4.0, 2.8), pal["metal"])
 
 	# Head and neck.
-	_shape(ci, _poly([Vector2(-2.5, -12.0), Vector2(2.5, -12.0), Vector2(2.5, -8.5),
+	_shape(ci, PackedVector2Array([Vector2(-2.5, -12.0), Vector2(2.5, -12.0), Vector2(2.5, -8.5),
 		Vector2(-2.5, -8.5)]), skin)
 	_shape(ci, _ellipse(HEAD, HEAD_R, HEAD_R + 0.4, 14), skin)
 	if pose.detail > 0.5 and not marks.has(&"eyepatch"):
@@ -440,7 +454,7 @@ static func _human(ci: CanvasItem, pal: Dictionary, pose: Pose, aim: Vector2,
 static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		marks: Array) -> void:
 	if marks.has(&"beard"):
-		_shape(ci, _poly([Vector2(-5.0, -15.0), Vector2(5.0, -15.0), Vector2(4.0, -8.0),
+		_shape(ci, PackedVector2Array([Vector2(-5.0, -15.0), Vector2(5.0, -15.0), Vector2(4.0, -8.0),
 			Vector2(0.0, -5.0), Vector2(-4.0, -8.0)]), pal["deep"])
 	if marks.has(&"eyepatch") and pose.detail > 0.4:
 		ci.draw_line(HEAD + Vector2(-6.0, -3.5), HEAD + Vector2(5.0, -1.0),
@@ -448,7 +462,7 @@ static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		ci.draw_rect(Rect2(HEAD.x - 4.2, HEAD.y - 2.6, 3.6, 3.2), pal["ink"])
 	if marks.has(&"epaulette") and pose.detail > 0.45:
 		for side in [-1.0, 1.0]:
-			_shape(ci, _poly([Vector2(6.5 * side, -9.5), Vector2(11.5 * side, -8.5),
+			_shape(ci, PackedVector2Array([Vector2(6.5 * side, -9.5), Vector2(11.5 * side, -8.5),
 				Vector2(11.0 * side, -5.5), Vector2(6.5 * side, -6.5)]),
 				Color("e8b44a", pal["main"].a))
 	if marks.has(&"parrot") and pose.detail > 0.55:
@@ -457,13 +471,13 @@ static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
 	if marks.has(&"crown"):
 		_mark_crown(ci, pal)
 	elif marks.has(&"bicorn"):
-		_shape(ci, _poly([Vector2(-12.0, -20.0), Vector2(-4.0, -27.5), Vector2(4.0, -27.5),
+		_shape(ci, PackedVector2Array([Vector2(-12.0, -20.0), Vector2(-4.0, -27.5), Vector2(4.0, -27.5),
 			Vector2(12.0, -20.0), Vector2(0.0, -18.0)]), pal["deep"])
 		if pose.detail > 0.45:
 			ci.draw_line(Vector2(-6.0, -22.0), Vector2(6.0, -22.0),
 				Color("e8b44a", pal["main"].a), 1.2)
 	elif marks.has(&"bandana"):
-		_shape(ci, _poly([Vector2(-6.2, -21.5), Vector2(6.2, -21.5), Vector2(6.4, -17.5),
+		_shape(ci, PackedVector2Array([Vector2(-6.2, -21.5), Vector2(6.2, -21.5), Vector2(6.4, -17.5),
 			Vector2(-6.4, -17.5)]), pal["main"])
 		_limb(ci, Vector2(-6.0, -19.0), Vector2(-12.0, -14.0 + sin(pose.clock * 4.0) * 1.5),
 			2.4, 1.0, pal["main"])
@@ -474,9 +488,9 @@ static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
 	elif not marks.has(&"tattered"):
 		# A tricorn is the default headwear: a pirate without a hat reads as a
 		# civilian, and every body here is in somebody's fleet.
-		_shape(ci, _poly([Vector2(-11.0, -20.0), Vector2(-4.5, -22.5), Vector2(0.0, -23.5),
+		_shape(ci, PackedVector2Array([Vector2(-11.0, -20.0), Vector2(-4.5, -22.5), Vector2(0.0, -23.5),
 			Vector2(4.5, -22.5), Vector2(11.0, -20.0), Vector2(0.0, -17.5)]), pal["deep"])
-		_shape(ci, _poly([Vector2(-5.0, -21.0), Vector2(-3.5, -26.0), Vector2(3.5, -26.0),
+		_shape(ci, PackedVector2Array([Vector2(-5.0, -21.0), Vector2(-3.5, -26.0), Vector2(3.5, -26.0),
 			Vector2(5.0, -21.0)]), pal["deep"])
 
 	if marks.has(&"plume"):
@@ -494,7 +508,7 @@ static func _body_siren(ci: CanvasItem, pal: Dictionary, pose: Pose,
 	# Tail, curling away and finishing in a fluke.
 	var tail_end := Vector2(sway, 12.0)
 	_curl(ci, Vector2(0.0, 0.0), tail_end, sway * 0.6, 6.0, 2.5, pal["main"])
-	_shape(ci, _poly([tail_end, tail_end + Vector2(-9.0 + sway * 0.3, 7.0),
+	_shape(ci, PackedVector2Array([tail_end, tail_end + Vector2(-9.0 + sway * 0.3, 7.0),
 		tail_end + Vector2(-3.0, 9.0), tail_end + Vector2(0.0, 5.0),
 		tail_end + Vector2(3.0, 9.0), tail_end + Vector2(9.0 + sway * 0.3, 7.0)]),
 		pal["light"])
@@ -506,9 +520,9 @@ static func _body_siren(ci: CanvasItem, pal: Dictionary, pose: Pose,
 
 	var skin: Color = pal["skin"].lerp(pal["light"], 0.35)
 	skin.a = pal["skin"].a
-	_shape(ci, _poly([Vector2(-5.5, -11.0), Vector2(5.5, -11.0), Vector2(5.0, 1.0),
+	_shape(ci, PackedVector2Array([Vector2(-5.5, -11.0), Vector2(5.5, -11.0), Vector2(5.0, 1.0),
 		Vector2(-5.0, 1.0)]), skin)
-	_shape(ci, _poly([Vector2(-5.5, -11.0), Vector2(5.5, -11.0), Vector2(5.0, -6.0),
+	_shape(ci, PackedVector2Array([Vector2(-5.5, -11.0), Vector2(5.5, -11.0), Vector2(5.0, -6.0),
 		Vector2(-5.0, -6.0)]), pal["main"])
 
 	# Arms raised: a siren's whole ability is that she is singing.
@@ -525,7 +539,7 @@ static func _body_siren(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		ci.draw_circle(HEAD + Vector2(-2.2, -0.8), 0.9, pal["ink"])
 		ci.draw_circle(HEAD + Vector2(2.2, -0.8), 0.9, pal["ink"])
 	# A fringe, so the head is not a bare disc above all that hair.
-	_shape(ci, _poly([Vector2(-6.0, -18.0), Vector2(6.0, -18.0), Vector2(5.0, -20.0),
+	_shape(ci, PackedVector2Array([Vector2(-6.0, -18.0), Vector2(6.0, -18.0), Vector2(5.0, -20.0),
 		Vector2(-5.0, -20.0)]), pal["dark"])
 	if marks.has(&"crown"):
 		_mark_crown(ci, pal)
@@ -545,10 +559,10 @@ static func _body_ship(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		ci.draw_line(Vector2(roll * 0.5, -25.0), Vector2(11.0, 2.0), pal["wood_dark"], 0.8)
 
 	# Sail, bellying away from the mast.
-	var sail := _poly([Vector2(roll * 0.5, -24.0), Vector2(7.0 * billow, -19.0),
+	var sail := PackedVector2Array([Vector2(roll * 0.5, -24.0), Vector2(7.0 * billow, -19.0),
 		Vector2(13.0 * billow, -12.0), Vector2(7.0 * billow, -6.0), Vector2(0.0, -4.0)])
 	if ragged:
-		sail = _poly([Vector2(roll * 0.5, -24.0), Vector2(7.0 * billow, -19.0),
+		sail = PackedVector2Array([Vector2(roll * 0.5, -24.0), Vector2(7.0 * billow, -19.0),
 			Vector2(9.0 * billow, -14.0), Vector2(12.0 * billow, -12.0),
 			Vector2(8.0 * billow, -10.0), Vector2(10.0 * billow, -6.0),
 			Vector2(5.0 * billow, -7.0), Vector2(0.0, -4.0)])
@@ -559,13 +573,13 @@ static func _body_ship(ci: CanvasItem, pal: Dictionary, pose: Pose,
 
 	# Flag.
 	var flag_wave: float = sin(pose.clock * 5.0) * 2.0
-	_shape(ci, _poly([Vector2(roll * 0.5, -27.0), Vector2(9.0, -25.0 + flag_wave),
+	_shape(ci, PackedVector2Array([Vector2(roll * 0.5, -27.0), Vector2(9.0, -25.0 + flag_wave),
 		Vector2(roll * 0.5, -22.5)]), pal["main"])
 
 	# Hull.
-	_shape(ci, _poly([Vector2(-16.0, 3.0), Vector2(16.0, 3.0), Vector2(12.0, 14.0),
+	_shape(ci, PackedVector2Array([Vector2(-16.0, 3.0), Vector2(16.0, 3.0), Vector2(12.0, 14.0),
 		Vector2(-12.0, 14.0)]), pal["wood"])
-	_shape(ci, _poly([Vector2(-15.0, 5.0), Vector2(15.0, 5.0), Vector2(14.4, 8.5),
+	_shape(ci, PackedVector2Array([Vector2(-15.0, 5.0), Vector2(15.0, 5.0), Vector2(14.4, 8.5),
 		Vector2(-14.4, 8.5)]), pal["main"])
 	if pose.detail > 0.45:
 		for i in 3:
@@ -588,28 +602,28 @@ static func _body_shark(ci: CanvasItem, pal: Dictionary, pose: Pose,
 	# Caudal fin, in two triangles rather than one arrowhead: a concave quad
 	# built from an animated number is how a polygon folds over itself.
 	var root := Vector2(-13.0, 0.0)
-	_shape(ci, _poly([root, Vector2(-25.0, -10.0 + thrash), Vector2(-19.0, 1.0)]),
+	_shape(ci, PackedVector2Array([root, Vector2(-25.0, -10.0 + thrash), Vector2(-19.0, 1.0)]),
 		pal["dark"])
-	_shape(ci, _poly([root, Vector2(-19.0, 1.0), Vector2(-24.0, 11.0 + thrash)]),
+	_shape(ci, PackedVector2Array([root, Vector2(-19.0, 1.0), Vector2(-24.0, 11.0 + thrash)]),
 		pal["dark"])
 	# Far pectoral, behind the body.
-	_shape(ci, _poly([Vector2(2.0, 3.0), Vector2(-4.0, 12.0), Vector2(6.0, 5.0)]),
+	_shape(ci, PackedVector2Array([Vector2(2.0, 3.0), Vector2(-4.0, 12.0), Vector2(6.0, 5.0)]),
 		pal["deep"])
 
-	_shape(ci, _poly([Vector2(-15.0, -2.0), Vector2(-6.0, -8.0), Vector2(4.0, -9.0),
+	_shape(ci, PackedVector2Array([Vector2(-15.0, -2.0), Vector2(-6.0, -8.0), Vector2(4.0, -9.0),
 		Vector2(13.0, -6.0), Vector2(19.0, -1.0), Vector2(13.0, 4.0),
 		Vector2(2.0, 7.0), Vector2(-8.0, 6.0), Vector2(-15.0, 2.0)]), pal["main"])
 	# Pale underside, which is half of what says shark. A band, so its upper edge
 	# is walked left to right and its lower edge right to left and the two can
 	# never cross — written the other way round it crossed itself under the jaw
 	# and Godot refused to triangulate it, once per frame.
-	_shape(ci, _poly([Vector2(-13.0, 1.0), Vector2(-5.0, 4.0), Vector2(5.0, 4.6),
+	_shape(ci, PackedVector2Array([Vector2(-13.0, 1.0), Vector2(-5.0, 4.0), Vector2(5.0, 4.6),
 		Vector2(14.0, 1.8), Vector2(13.0, 4.0), Vector2(2.0, 7.0),
 		Vector2(-8.0, 6.0), Vector2(-14.0, 2.5)]), pal["light"])
 
-	_shape(ci, _poly([Vector2(-1.0, -8.5), Vector2(4.0, -19.0), Vector2(7.0, -7.5)]),
+	_shape(ci, PackedVector2Array([Vector2(-1.0, -8.5), Vector2(4.0, -19.0), Vector2(7.0, -7.5)]),
 		pal["dark"])
-	_shape(ci, _poly([Vector2(7.0, 4.0), Vector2(4.0, 14.0), Vector2(13.0, 5.5)]),
+	_shape(ci, PackedVector2Array([Vector2(7.0, 4.0), Vector2(4.0, 14.0), Vector2(13.0, 5.5)]),
 		pal["dark"])
 
 	if pose.detail > 0.45:
@@ -619,7 +633,7 @@ static func _body_shark(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		ci.draw_circle(Vector2(14.0, -3.0), 1.2, pal["ink"])
 		# The jaw, hinged open as it strikes.
 		var gape: float = 1.5 + pose.swing * 4.0
-		_shape(ci, _poly([Vector2(19.0, -1.0), Vector2(9.0, 1.0),
+		_shape(ci, PackedVector2Array([Vector2(19.0, -1.0), Vector2(9.0, 1.0),
 			Vector2(9.5, 1.0 + gape), Vector2(18.0, 0.5 + gape * 0.4)]), pal["ink"])
 		for i in 4:
 			ci.draw_circle(Vector2(11.0 + i * 2.2, 1.4), 0.7, pal["bone"])
@@ -671,7 +685,7 @@ static func _body_kraken(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		_curl(ci, Vector2(x0 * 0.7, -1.0), end, bend, 3.4, 0.9,
 			pal["dark"] if i % 2 == 0 else pal["main"])
 
-	_shape(ci, _poly([Vector2(-13.0, -1.0), Vector2(-10.0, -13.0), Vector2(0.0, -19.0),
+	_shape(ci, PackedVector2Array([Vector2(-13.0, -1.0), Vector2(-10.0, -13.0), Vector2(0.0, -19.0),
 		Vector2(10.0, -13.0), Vector2(13.0, -1.0), Vector2(0.0, 3.0)]), pal["main"])
 	if pose.detail > 0.4:
 		for side in [-1.0, 1.0]:
@@ -679,7 +693,7 @@ static func _body_kraken(ci: CanvasItem, pal: Dictionary, pose: Pose,
 			ci.draw_circle(Vector2(5.0 * side + aim.x * 1.0, -8.0 + aim.y * 0.8), 1.6,
 				pal["ink"])
 	if pose.detail > 0.55:
-		_shape(ci, _poly([Vector2(-2.5, 1.0), Vector2(2.5, 1.0), Vector2(0.0, 5.0)]),
+		_shape(ci, PackedVector2Array([Vector2(-2.5, 1.0), Vector2(2.5, 1.0), Vector2(0.0, 5.0)]),
 			pal["ink"])
 	if marks.has(&"crown"):
 		_mark_crown(ci, pal)
@@ -700,12 +714,12 @@ static func _body_crab(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		var root := Vector2(12.0 * side, -1.0)
 		var tip: Vector2 = root + Vector2(7.0 * side, -5.0) + aim * pose.swing * 4.0
 		_limb(ci, root, tip, 3.2, 2.6, pal["main"])
-		_shape(ci, _poly([tip, tip + Vector2(6.0 * side, -open), tip + Vector2(9.0 * side, 0.0)]),
+		_shape(ci, PackedVector2Array([tip, tip + Vector2(6.0 * side, -open), tip + Vector2(9.0 * side, 0.0)]),
 			pal["light"])
-		_shape(ci, _poly([tip, tip + Vector2(6.0 * side, open), tip + Vector2(9.0 * side, 0.5)]),
+		_shape(ci, PackedVector2Array([tip, tip + Vector2(6.0 * side, open), tip + Vector2(9.0 * side, 0.5)]),
 			pal["light"])
 
-	_shape(ci, _poly([Vector2(-15.0, 4.0), Vector2(-12.0, -5.0), Vector2(-6.0, -9.5),
+	_shape(ci, PackedVector2Array([Vector2(-15.0, 4.0), Vector2(-12.0, -5.0), Vector2(-6.0, -9.5),
 		Vector2(6.0, -9.5), Vector2(12.0, -5.0), Vector2(15.0, 4.0), Vector2(10.0, 10.0),
 		Vector2(-10.0, 10.0)]), pal["main"])
 	if pose.detail > 0.45:
@@ -748,7 +762,7 @@ static func _body_ghost(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		var hem: float = 15.0 + drift + sin(pose.clock * 4.0 + float(i) * 1.9) * 2.0
 		robe.append(Vector2(x, hem + (5.5 if i % 2 == 0 else -3.5)))
 	robe.append(Vector2(-13.0, 7.0 + drift))
-	_shape(ci, _poly(robe), sheet)
+	_shape(ci, PackedVector2Array(robe), sheet)
 
 	var hollow: Color = pal["ink"]
 	hollow.a = pal["main"].a * 0.9
@@ -762,7 +776,7 @@ static func _body_ghost(ci: CanvasItem, pal: Dictionary, pose: Pose,
 				Color(glow.r, glow.g, glow.b, 0.22 * pal["main"].a))
 
 	if marks.has(&"beard"):
-		_shape(ci, _poly([Vector2(-4.5, -8.0 + drift), Vector2(4.5, -8.0 + drift),
+		_shape(ci, PackedVector2Array([Vector2(-4.5, -8.0 + drift), Vector2(4.5, -8.0 + drift),
 			Vector2(2.5, 1.0 + drift), Vector2(0.0, 4.0 + drift),
 			Vector2(-2.5, 1.0 + drift)]), sheet)
 	if marks.has(&"crown"):
@@ -785,11 +799,11 @@ static func _body_bird(ci: CanvasItem, pal: Dictionary, pose: Pose,
 			_curl(ci, Vector2(3.0 * side, -4.0), Vector2(15.0 * side * flap, 5.0),
 				-4.0 * side, 2.0, 0.6, pal["light"])
 
-	_shape(ci, _poly([Vector2(-6.0, 12.0), Vector2(0.0, 16.0), Vector2(6.0, 12.0),
+	_shape(ci, PackedVector2Array([Vector2(-6.0, 12.0), Vector2(0.0, 16.0), Vector2(6.0, 12.0),
 		Vector2(0.0, 8.0)]), pal["dark"])
 	_shape(ci, _ellipse(Vector2(0.0, 0.0), 5.5, 11.0, 14), pal["light"])
 	_shape(ci, _ellipse(Vector2(0.0, -11.0), 4.2, 4.6, 12), pal["main"])
-	_shape(ci, _poly([Vector2(-1.8, -14.0), Vector2(1.8, -14.0),
+	_shape(ci, PackedVector2Array([Vector2(-1.8, -14.0), Vector2(1.8, -14.0),
 		Vector2(0.0, -20.0 - pose.swing * 3.0)]), Color("e8b44a", pal["main"].a))
 	if pose.detail > 0.5:
 		ci.draw_circle(Vector2(-2.0, -12.5), 0.9, pal["ink"])
@@ -799,9 +813,9 @@ static func _body_bird(ci: CanvasItem, pal: Dictionary, pose: Pose,
 static func _body_golem(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		aim: Vector2, marks: Array) -> void:
 	var stride: float = sin(pose.clock * 8.0) * 2.0 * pose.moving
-	_shape(ci, _poly([Vector2(-9.0 - stride, 8.0), Vector2(-2.0 - stride, 8.0),
+	_shape(ci, PackedVector2Array([Vector2(-9.0 - stride, 8.0), Vector2(-2.0 - stride, 8.0),
 		Vector2(-2.5 - stride, 17.0), Vector2(-9.5 - stride, 17.0)]), pal["deep"])
-	_shape(ci, _poly([Vector2(2.0 + stride, 8.0), Vector2(9.0 + stride, 8.0),
+	_shape(ci, PackedVector2Array([Vector2(2.0 + stride, 8.0), Vector2(9.0 + stride, 8.0),
 		Vector2(9.5 + stride, 17.0), Vector2(2.5 + stride, 17.0)]), pal["deep"])
 
 	_limb(ci, Vector2(-12.0, -6.0), Vector2(-15.0, 6.0), 4.2, 3.6, pal["dark"])
@@ -809,9 +823,9 @@ static func _body_golem(ci: CanvasItem, pal: Dictionary, pose: Pose,
 	_limb(ci, Vector2(12.0, -6.0), fist, 4.2, 3.6, pal["dark"])
 	ci.draw_circle(fist, 4.6, pal["dark"])
 
-	_shape(ci, _poly([Vector2(-12.0, -9.0), Vector2(12.0, -9.0), Vector2(10.0, 11.0),
+	_shape(ci, PackedVector2Array([Vector2(-12.0, -9.0), Vector2(12.0, -9.0), Vector2(10.0, 11.0),
 		Vector2(-10.0, 11.0)]), pal["main"])
-	_shape(ci, _poly([Vector2(-7.0, -22.0), Vector2(7.0, -22.0), Vector2(6.0, -10.0),
+	_shape(ci, PackedVector2Array([Vector2(-7.0, -22.0), Vector2(7.0, -22.0), Vector2(6.0, -10.0),
 		Vector2(-6.0, -10.0)]), pal["main"])
 	if pose.detail > 0.45:
 		ci.draw_line(Vector2(-6.0, -4.0), Vector2(-1.0, 2.0), pal["deep"], 1.2)
@@ -836,15 +850,15 @@ static func _body_brute(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		var swing: float = stride if i % 2 == 0 else -stride
 		_limb(ci, Vector2(x, 5.0), Vector2(x + swing, 16.0), 2.0, 1.4, pal["deep"])
 
-	_shape(ci, _poly([Vector2(-11.0, 1.0), Vector2(-5.0, -7.0), Vector2(6.0, -7.0),
+	_shape(ci, PackedVector2Array([Vector2(-11.0, 1.0), Vector2(-5.0, -7.0), Vector2(6.0, -7.0),
 		Vector2(12.0, 0.0), Vector2(10.0, 9.0), Vector2(-9.0, 9.0)]), pal["main"])
 	_shape(ci, _ellipse(Vector2(12.0, -2.0), 6.0, 5.5, 12), pal["light"])
-	_shape(ci, _poly([Vector2(15.0, -4.0), Vector2(22.0 + pose.swing * 3.0, 0.0),
+	_shape(ci, PackedVector2Array([Vector2(15.0, -4.0), Vector2(22.0 + pose.swing * 3.0, 0.0),
 		Vector2(15.0, 2.5)]), pal["light"])
 	_shape(ci, _ellipse(Vector2(8.0, -8.0), 3.2, 3.2, 10), pal["dark"])
 	if pose.detail > 0.45:
 		ci.draw_circle(Vector2(13.0, -3.5), 1.1, pal["ink"])
-		_shape(ci, _poly([Vector2(18.0, 1.0), Vector2(20.0, 1.0), Vector2(19.0, 4.5)]),
+		_shape(ci, PackedVector2Array([Vector2(18.0, 1.0), Vector2(20.0, 1.0), Vector2(19.0, 4.5)]),
 			pal["bone"])
 
 
@@ -860,7 +874,7 @@ static func _weapon_harpoon(ci: CanvasItem, pal: Dictionary, hand: Vector2,
 		aim: Vector2) -> void:
 	_limb(ci, hand - aim * 5.0, hand + aim * 14.0, 1.3, 1.0, pal["wood"])
 	var tip: Vector2 = hand + aim * 20.0
-	_shape(ci, _poly([tip, tip - aim * 6.0 + aim.orthogonal() * 3.0,
+	_shape(ci, PackedVector2Array([tip, tip - aim * 6.0 + aim.orthogonal() * 3.0,
 		tip - aim * 6.0 - aim.orthogonal() * 3.0]), pal["metal"])
 
 
@@ -878,7 +892,7 @@ static func _weapon_anchor(ci: CanvasItem, pal: Dictionary, hand: Vector2,
 	# fold over itself, and Godot answers a self-intersecting polygon with
 	# "triangulation failed" every frame rather than with a wrong shape.
 	for side in [-1.0, 1.0]:
-		_shape(ci, _poly([head + aim * 1.0, head + across * 6.5 * side,
+		_shape(ci, PackedVector2Array([head + aim * 1.0, head + across * 6.5 * side,
 			head + across * 3.0 * side - aim * 5.0]), pal["metal"])
 	ci.draw_arc(hand - aim * 4.0, 2.2, 0.0, TAU, 8, pal["metal"], 1.2)
 
@@ -888,7 +902,7 @@ static func _weapon_gun(ci: CanvasItem, pal: Dictionary, pose: Pose, hand: Vecto
 	# A stock as long as the barrel, and a lock between them. A bare pale line is
 	# a sword; what says firearm at this size is the wooden half.
 	var across := aim.orthogonal()
-	_shape(ci, _poly([hand - aim * 8.0 - across * 1.4, hand + aim * 4.0 - across * 2.2,
+	_shape(ci, PackedVector2Array([hand - aim * 8.0 - across * 1.4, hand + aim * 4.0 - across * 2.2,
 		hand + aim * 4.0 + across * 2.2, hand - aim * 6.0 + across * 3.2]), pal["wood"])
 	ci.draw_circle(hand + aim * 3.0, 1.8, pal["metal"])
 	_limb(ci, hand + aim * 2.0, hand + aim * length, 1.5, 1.2, pal["metal"])
@@ -912,7 +926,7 @@ static func _mark_hook(ci: CanvasItem, pal: Dictionary, at: Vector2) -> void:
 
 static func _mark_crown(ci: CanvasItem, pal: Dictionary) -> void:
 	var gold := Color("f0c85c", pal["main"].a)
-	_shape(ci, _poly([Vector2(-7.0, -20.0), Vector2(-7.0, -27.0), Vector2(-3.5, -23.5),
+	_shape(ci, PackedVector2Array([Vector2(-7.0, -20.0), Vector2(-7.0, -27.0), Vector2(-3.5, -23.5),
 		Vector2(0.0, -28.5), Vector2(3.5, -23.5), Vector2(7.0, -27.0),
 		Vector2(7.0, -20.0)]), gold)
 
@@ -922,7 +936,7 @@ static func _mark_parrot(ci: CanvasItem, pal: Dictionary, pose: Pose) -> void:
 	var body := Color("3fbf6a", pal["main"].a)
 	_shape(ci, _ellipse(perch, 3.0, 4.0, 10), body)
 	_shape(ci, _ellipse(perch + Vector2(-0.5, -4.5), 2.4, 2.4, 8), body)
-	_shape(ci, _poly([perch + Vector2(-2.5, -5.0), perch + Vector2(-6.0, -3.8),
+	_shape(ci, PackedVector2Array([perch + Vector2(-2.5, -5.0), perch + Vector2(-6.0, -3.8),
 		perch + Vector2(-2.5, -2.8)]), Color("e8b44a", pal["main"].a))
 	_limb(ci, perch + Vector2(1.5, 2.0), perch + Vector2(5.0, 6.0 +
 		sin(pose.clock * 3.0)), 1.6, 0.5, Color("d8455e", pal["main"].a))
@@ -934,13 +948,13 @@ static func _mark_lantern(ci: CanvasItem, pal: Dictionary, pose: Pose,
 	var box := at + Vector2(swing, 5.0)
 	ci.draw_line(at, box, pal["metal"], 0.9)
 	var lit: float = 0.65 + sin(pose.clock * 6.0) * 0.2
-	_shape(ci, _poly([box + Vector2(-2.6, 0.0), box + Vector2(2.6, 0.0),
+	_shape(ci, PackedVector2Array([box + Vector2(-2.6, 0.0), box + Vector2(2.6, 0.0),
 		box + Vector2(2.2, 4.6), box + Vector2(-2.2, 4.6)]),
 		Color(1.0, 0.82, 0.42, lit * pal["main"].a))
 
 
 static func _mark_keg(ci: CanvasItem, pal: Dictionary, at: Vector2) -> void:
-	_shape(ci, _poly([at + Vector2(-4.0, -4.5), at + Vector2(4.0, -4.5),
+	_shape(ci, PackedVector2Array([at + Vector2(-4.0, -4.5), at + Vector2(4.0, -4.5),
 		at + Vector2(5.0, 0.0), at + Vector2(4.0, 4.5), at + Vector2(-4.0, 4.5),
 		at + Vector2(-5.0, 0.0)]), pal["wood"])
 	ci.draw_line(at + Vector2(-4.6, -1.6), at + Vector2(4.6, -1.6), pal["metal"], 1.0)
@@ -956,6 +970,6 @@ static func _mark_storm(ci: CanvasItem, pal: Dictionary, pose: Pose) -> void:
 	var bright := Color(0.66, 0.9, 1.0, (0.35 + flicker * 0.55) * pal["main"].a)
 	for side in [-1.0, 1.0]:
 		var top := Vector2(9.0 * side, -26.0)
-		ci.draw_polyline(_poly([top, top + Vector2(-2.0 * side, 3.5),
+		ci.draw_polyline(PackedVector2Array([top, top + Vector2(-2.0 * side, 3.5),
 			top + Vector2(1.5 * side, 4.0), top + Vector2(-1.0 * side, 8.0)]),
 			bright, 1.4)

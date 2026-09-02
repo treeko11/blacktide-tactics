@@ -402,7 +402,7 @@ class ShopCard extends PanelContainer:
 	var pair_completes_upgrade: bool = false
 	var duplicate_in_shop: bool = false
 
-	var _icon: Label = null
+	var _icon: UnitPortrait = null
 	var _name: Label = null
 	var _traits: Label = null
 	var _cost: Label = null
@@ -425,9 +425,15 @@ class ShopCard extends PanelContainer:
 		column.add_theme_constant_override("separation", 1 if compact else 2)
 		pad.add_child(column)
 
-		_icon = Label.new()
-		_icon.add_theme_font_override("font", UITheme.emoji_font())
-		_icon.add_theme_font_size_override("font_size", 14 if compact else 18)
+		# The figure the board draws, not the emoji the prototype used. This is
+		# the one screen where a pirate is chosen, and an emoji says nothing
+		# about whether the thing being bought is a siren or a sea serpent.
+		#
+		# Sized close to the label it replaced on purpose: the card's height is
+		# the board's height on a phone, and the shop taking two extra points a
+		# row is the board losing ten.
+		_icon = UnitPortrait.new(Vector2(20.0, 22.0) if compact
+			else Vector2(28.0, 30.0))
 		_name = UITheme.label("", UITheme.FONT_TINY if compact else UITheme.FONT_SMALL,
 			UITheme.INK)
 		_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -491,7 +497,7 @@ class ShopCard extends PanelContainer:
 		duplicate_in_shop = info.get("duplicate_in_shop", false)
 
 		if champion == null:
-			_icon.text = ""
+			_icon.champion = null
 			_name.text = ""
 			_traits.text = ""
 			_cost.text = ""
@@ -500,7 +506,12 @@ class ShopCard extends PanelContainer:
 			return
 
 		affordable = gold >= champion.cost
-		_icon.text = champion.icon
+		_icon.champion = champion
+		# The plate under a shop pirate is its cost tier — nobody owns it yet, so
+		# there is no team for it to be.
+		var tier: Color = UITheme.cost_color(champion.cost)
+		_icon.team_color = tier
+		_icon.rim_color = tier
 		_name.text = champion.display_name
 		_cost.text = "%s %d" % [UITheme.COIN, champion.cost]
 
