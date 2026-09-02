@@ -62,6 +62,10 @@ var _drag_from := Vector2.ZERO
 var _chip_from := Vector2.ZERO
 var _drag_distance := 0.0
 
+## Whether the chip is somewhere the player chose. Until it is, a re-fit returns
+## it to its corner rather than clamping it — see `_fit_to_screen`.
+var _chip_moved := false
+
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -132,6 +136,10 @@ func _on_chip_input(event: InputEvent) -> void:
 		if _drag_distance > DRAG_SLOP:
 			var room := _screen() - _chip.get_combined_minimum_size()
 			_chip.position = (_chip_from + moved).clamp(Vector2.ZERO, room)
+			# From here on the chip is where it was *put*, and a re-fit may only
+			# clamp it. Until then it is only where it landed, and a re-fit is
+			# free to put it back in its corner.
+			_chip_moved = true
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -167,8 +175,15 @@ func _build_panel() -> void:
 	_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_scrim.visible = false
+	# A press outside the panel closes it — but **a wheel notch is a
+	# `InputEventMouseButton` with `pressed` true**, and the menu is taller than
+	# it fits, so scrolling to reach the bottom of it closed it instead. Every
+	# section below the fold, the playtest log included, was unreachable with a
+	# wheel. Only the buttons that are buttons dismiss it.
+	const DISMISSES := [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]
 	_scrim.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventMouseButton and event.pressed:
+		if event is InputEventMouseButton and event.pressed \
+				and DISMISSES.has((event as InputEventMouseButton).button_index):
 			_toggle(false))
 	add_child(_scrim)
 
@@ -473,14 +488,25 @@ func _process(_delta: float) -> void:
 ## portrait one: the dev menu would become unreachable on exactly the device it
 ## exists for, and only after a rotation, which is the hardest way to find it.
 ##
-## The chip is clamped rather than moved back to its corner, so a chip dragged
-## somewhere deliberately stays as close to there as the new screen allows.
+## A chip the player dragged somewhere is clamped, so it stays as close to where
+## they put it as the new screen allows. **A chip they have not touched is put
+## back in its corner instead**, and the difference is not cosmetic: a clamp only
+## ever moves a chip when the screen *shrinks*, so a chip placed against a screen
+## that was too small stays exactly where it was when the screen grows.
+##
+## That is not hypothetical. A browser reports its window as 64x64 for the first
+## frames, before the canvas is sized — so the menu is built against a 64-point
+## screen, parks the chip at (34, 45), and the real size arriving a frame later
+## leaves it there: sitting on top of the HUD in the top-left corner, for the
+## whole session, in every web build. Nothing was wrong with the corner it chose,
+## only with the screen it measured, and re-measuring is what a re-fit is for.
 ##
 ## The size is a parameter so a test can hand it one, rather than having to move
 ## a real window to ask the question.
 func _fit_to_screen(screen: Vector2 = _screen()) -> void:
-	_chip.position = _chip.position.clamp(Vector2.ZERO,
-		screen - _chip.get_combined_minimum_size())
+	var room := screen - _chip.get_combined_minimum_size()
+	_chip.position = _chip.position.clamp(Vector2.ZERO, room) if _chip_moved \
+		else (room - CHIP_MARGIN).max(Vector2.ZERO)
 	_panel.custom_minimum_size = Vector2(minf(520.0, screen.x - 20.0), 0)
 	_scroll.custom_minimum_size = Vector2(0, minf(420.0, screen.y * 0.62))
 	# The grids are one width on a phone and another on a desktop, and a rotation

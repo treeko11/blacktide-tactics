@@ -358,6 +358,77 @@ func test_recording_a_line_puts_it_in_the_store() -> void:
 		"Dev.record kept the line in the heap and nowhere a crash cannot reach")
 
 
+## A chip nobody moved belongs in its corner, however the screen got bigger.
+##
+## `_fit_to_screen` clamped, which only ever moves a chip when the screen
+## *shrinks*. A browser reports its window as 64x64 for the first frames, so the
+## menu was built against a 64-point screen, parked the chip at (34, 45), and the
+## real size arriving a frame later left it exactly there — on top of the HUD in
+## the top-left corner, all session, in every web build.
+func test_a_chip_nobody_moved_is_put_back_in_its_corner() -> void:
+	var menu := DevMenu.new()
+	Engine.get_main_loop().root.add_child(menu)
+
+	# The opening frames of a browser, in order.
+	menu._fit_to_screen(Vector2(64, 64))
+	menu._fit_to_screen(Vector2(1600, 900))
+
+	var size: Vector2 = menu._chip.get_combined_minimum_size()
+	var want := Vector2(1600, 900) - size - DevMenu.CHIP_MARGIN
+	assert_almost_eq(menu._chip.position.x, want.x, 0.5,
+		"the chip stayed where a 64-point screen put it")
+	assert_almost_eq(menu._chip.position.y, want.y, 0.5,
+		"the chip stayed where a 64-point screen put it")
+
+	menu.free()
+
+
+## But a chip the player dragged somewhere stays there, which is the rule the
+## clamp was written for: it is clamped onto the new screen, never re-cornered.
+func test_a_chip_the_player_moved_is_only_ever_clamped() -> void:
+	var menu := DevMenu.new()
+	Engine.get_main_loop().root.add_child(menu)
+
+	menu._chip_moved = true
+	menu._chip.position = Vector2(300, 200)
+	menu._fit_to_screen(Vector2(1600, 900))
+	assert_eq(menu._chip.position, Vector2(300, 200),
+		"a chip put somewhere deliberately was moved back to the corner")
+
+	# And a rotation onto a screen it no longer fits still brings it back on.
+	menu._fit_to_screen(Vector2(390, 844))
+	var corner: Vector2 = menu._chip.position + menu._chip.get_combined_minimum_size()
+	assert_true(corner.x <= 390.0, "the chip is off the right edge at %s" % corner)
+
+	menu.free()
+
+
+## The scrim closes the menu on a press outside it. A wheel notch is not one.
+##
+## `InputEventMouseButton` covers the wheel, `pressed` is true for it, and the
+## menu is taller than it fits — so scrolling down to reach the bottom of it
+## closed it instead, and every section below the fold, the playtest log
+## included, could not be reached with a wheel at all.
+func test_scrolling_over_the_menu_does_not_dismiss_it() -> void:
+	var menu := DevMenu.new()
+	Engine.get_main_loop().root.add_child(menu)
+	menu._toggle(true)
+
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	wheel.pressed = true
+	menu._scrim.gui_input.emit(wheel)
+	assert_true(menu._open, "a wheel notch closed the menu")
+
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	menu._scrim.gui_input.emit(click)
+	assert_false(menu._open, "a press outside the panel no longer closes it")
+
+	menu.free()
+
+
 ## A recovered log nobody can reach is the same as no recovered log.
 ##
 ## The button only exists when there is something to recover, which on the

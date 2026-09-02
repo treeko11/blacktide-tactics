@@ -619,6 +619,20 @@ layouts.
   only platform the playtesters use. `_game_exists()` now asks which root
   children are autoloads (their nodes are named after the `autoload/<name>`
   setting) instead of assuming how many there will be.
+- **A browser reports its window as 64x64 for the first frames.** Everything
+  measured at boot is measured against that: the HUD builds compact-short and
+  rebuilds a frame later, which is only wasted work — but the DEV chip is
+  *placed*, and `_fit_to_screen` only ever **clamped**, which moves a chip when
+  the screen shrinks and never when it grows. So the chip stayed where a
+  64-point screen put it, sitting on the HUD in the top-left corner, all
+  session, in every web build. A chip the player has dragged is still clamped
+  (`_chip_moved`); one nobody has touched is put back in its corner, because
+  nothing was wrong with the corner it chose — only with the screen it measured.
+- **A wheel notch is an `InputEventMouseButton` with `pressed` true.** The scrim
+  closes the menu on a press outside the panel, and the menu is taller than it
+  fits, so scrolling down to reach the bottom of it closed it instead — the
+  playtest log section, and everything else below the fold, unreachable with a
+  wheel. Only LEFT, RIGHT and MIDDLE dismiss it.
 - **It is the one place allowed to mutate `GameState` outside `Main`.** A cheat
   panel is by definition a second path from a click to a change. Routing it
   through `Main` would spread code that has to be deleted across a file that

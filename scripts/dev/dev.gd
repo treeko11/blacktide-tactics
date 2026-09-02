@@ -71,6 +71,7 @@ var _dropped := 0
 var _booted := false
 
 var _last_window := Vector2i.ZERO
+var _last_css := Vector2.ZERO
 var _last_fleet := ""
 
 
@@ -135,9 +136,14 @@ func _process(_delta: float) -> void:
 	# The same poll `Main` uses, for the same reason: a browser canvas resize
 	# fires no signal. A rotation earns a line because it rebuilds the HUD, and
 	# more than one bug has only ever appeared on the far side of that.
-	var size := get_window().size
-	if size != _last_window:
-		_last_window = size
+	#
+	# Watched through `Layout`, not off the window. Both move on the same resize,
+	# but `Main` is what turns one into the other and an autoload processes
+	# *before* it — so reading the window here reported a brand new size against
+	# the previous layout's figures, and every web log opened with the flatly
+	# impossible `1280x720 device, 64x64 css`. Waiting for the layout to settle
+	# costs one frame and makes the line true.
+	if Layout.css_size != _last_css:
 		_record_view()
 
 
@@ -180,6 +186,7 @@ func _boot() -> void:
 
 func _record_view() -> void:
 	_last_window = get_window().size
+	_last_css = Layout.css_size
 	var shape := "wide"
 	if Layout.compact():
 		shape = "compact-short" if Layout.short() else "compact"
