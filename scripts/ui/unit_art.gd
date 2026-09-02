@@ -97,6 +97,11 @@ class Pose:
 	var moving: float = 0.0
 	var stunned: bool = false
 	var alpha: float = 1.0
+	## Whether to draw the plate the figure stands on. On the board it is the
+	## only thing carrying the team and the cost, so it is never off there; in a
+	## 24-point list row it is a flat ellipse under a figure barely taller than
+	## it, and reads as a pair of cart wheels.
+	var grounded: bool = true
 	## How much fine detail is worth drawing, from the scale the board is at.
 	## A phone draws a unit into a 21-point hex, where a belt buckle, a row of
 	## teeth and a parrot are three draw calls each producing one indistinct
@@ -213,7 +218,7 @@ static func draw_unit(ci: CanvasItem, body: StringName, tint: Color,
 static func _draw_ground(ci: CanvasItem, pose: Pose, team_color: Color,
 		rim_color: Color) -> void:
 	var alive: float = 1.0 - pose.dead
-	if alive <= 0.01:
+	if alive <= 0.01 or not pose.grounded:
 		return
 	var centre := Vector2(0.0, GROUND)
 

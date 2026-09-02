@@ -126,3 +126,32 @@ func test_an_unknown_page_is_empty() -> void:
 	assert_eq(_wiki.page_for(&"pirates", &"nobody"), "")
 	assert_eq(_wiki.page_for(&"nowhere", &"nothing"), "")
 	assert_eq(_wiki.entries(&"nowhere").size(), 0)
+
+
+## A champion's entry is headed by its figure; a trait's and an item's are not.
+##
+## The only test here that needs the almanac actually built, because the portrait
+## is a node beside the page rather than anything in the page text — every other
+## check in this file reads `page_for`, and a champion whose figure never appears
+## still returns a complete, correct page from it.
+func test_a_champion_entry_is_headed_by_its_figure() -> void:
+	var wiki := Wiki.new()
+	Engine.get_main_loop().root.add_child(wiki)
+
+	wiki.open(&"pirates")
+	wiki._open_entry(&"pirates", &"sirene")
+	assert_true(wiki._page_portrait.visible, "a pirate's entry drew no figure")
+	assert_eq(wiki._page_portrait.champion.id, &"sirene",
+		"the entry is headed by the wrong pirate")
+
+	wiki._open_entry(&"traits", &"siren")
+	assert_false(wiki._page_portrait.visible, "a trait's entry drew a pirate")
+
+	wiki._open_entry(&"monsters", &"waves")
+	assert_false(wiki._page_portrait.visible,
+		"the wave list drew a pirate — there is no one champion it is about")
+
+	wiki._open_entry(&"monsters", &"kraken")
+	assert_true(wiki._page_portrait.visible, "a monster's entry drew no figure")
+
+	wiki.free()

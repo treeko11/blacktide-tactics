@@ -38,6 +38,10 @@ const LINK := "[color=#7fe3ff][url=%s/%s]%s[/url][/color]"
 ## drills down; a landscape phone is 667-932 and does not.
 const TWO_PANE_WIDTH := 620.0
 
+## Tall enough for a figure to be a figure rather than a smear. Fifty-one pirates
+## scroll either way; the question is only whether they are scannable.
+const ROW_HEIGHT := 28.0
+
 const LIST_WIDTH := 224.0
 
 const SECTIONS := [
@@ -71,6 +75,7 @@ var _list_pane: Control = null
 var _list: VBoxContainer = null
 var _page_pane: Control = null
 var _page: RichTextLabel = null
+var _page_portrait: UnitPortrait = null
 var _page_scroll: ScrollContainer = null
 var _back: Button = null
 var _crumb: Label = null
@@ -213,6 +218,19 @@ func _build_page_pane() -> Control:
 	_page_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(_page_scroll)
 
+	# A column rather than the label alone, so a champion's entry can be headed
+	# by the figure the board draws. Everything else in the almanac — a trait, an
+	# item, a wave, a rules page — is text and gets no header at all.
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_page_scroll.add_child(column)
+
+	_page_portrait = UnitPortrait.new(_portrait_size())
+	_page_portrait.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_page_portrait.visible = false
+	column.add_child(_page_portrait)
+
 	_page = RichTextLabel.new()
 	_page.bbcode_enabled = true
 	_page.fit_content = true
@@ -223,8 +241,14 @@ func _build_page_pane() -> Control:
 	_page.add_theme_font_size_override("bold_font_size", UITheme.FONT_SMALL)
 	_page.scroll_active = false
 	_page.meta_clicked.connect(_on_link)
-	_page_scroll.add_child(_page)
+	column.add_child(_page)
 	return panel
+
+
+## Big enough to be a plate rather than an icon, and still leaving a portrait
+## phone's 330-point page room to be a page.
+func _portrait_size() -> Vector2:
+	return Vector2(92.0, 106.0) if _page_width >= 360.0 else Vector2(74.0, 86.0)
 
 
 func _two_pane() -> bool:
@@ -342,6 +366,7 @@ func _render() -> void:
 
 	_fill_list(rows)
 	_page.text = _page_text()
+	_show_page_portrait()
 	# A page followed from a link opens at the top of itself. Left alone the
 	# scroll stays where the last page was read, which lands a short entry
 	# somewhere below its own title.
@@ -380,8 +405,16 @@ func _fill_list(rows: Array) -> void:
 
 		var id: StringName = entry["id"]
 		var selected: bool = id == _entry
+		# A champion row is the pirate itself; everything else keeps its emoji,
+		# because a trait and an item have no body to draw.
+		var champion: ChampionDef = null
+		if _section in [&"pirates", &"monsters"] and id != &"waves":
+			champion = Content.champion(id)
+
 		var row := UITheme.button("%s  %s" % [entry["icon"], entry["title"]],
 			UITheme.FONT_SMALL)
+		if champion != null:
+			row.text = entry["title"]
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		row.clip_text = true
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -390,9 +423,38 @@ func _fill_list(rows: Array) -> void:
 		if selected:
 			row.add_theme_stylebox_override("normal",
 				UITheme.panel_style(Color("17415a"), UITheme.GOLD, 5))
+		if champion != null:
+			_seat_row_portrait(row, champion)
 		var section := _section
 		row.pressed.connect(func(): _open_entry(section, id))
 		_list.add_child(row)
+
+
+## Puts a figure at the left of a list row.
+##
+## The portrait is a child of the Button rather than beside it, so the whole row
+## stays one clickable thing — a row split into a portrait and a button is a row
+## with a dead patch on its left. It is `MOUSE_FILTER_IGNORE` by construction, so
+## the press still reaches the button underneath it.
+##
+## The text is moved out of its way with the content margin, which has to be set
+## on **every** state box: overriding only `normal` leaves the label jumping
+## thirty points left the moment the cursor enters the row.
+func _seat_row_portrait(row: Button, champion: ChampionDef) -> void:
+	const INSET := 30
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var box: StyleBoxFlat = row.get_theme_stylebox(state).duplicate()
+		box.content_margin_left = INSET
+		row.add_theme_stylebox_override(state, box)
+
+	row.custom_minimum_size.y = ROW_HEIGHT
+	var portrait := UnitPortrait.new(Vector2(24.0, ROW_HEIGHT - 3.0))
+	var tier: Color = UITheme.cost_color(champion.cost)
+	portrait.champion = champion
+	portrait.team_color = tier
+	portrait.rim_color = tier
+	portrait.position = Vector2(3.0, 1.5)
+	row.add_child(portrait)
 
 
 # =============================================================================
@@ -504,8 +566,33 @@ func page_for(section: StringName, entry: StringName) -> String:
 	return ""
 
 
+## The figure at the head of a champion's entry, or nothing.
+##
+## Driven off the section and entry rather than off the page text, because the
+## page is one BBCode string by the time it exists and nothing in it says what it
+## is about any more.
+func _show_page_portrait() -> void:
+	if _page_portrait == null:
+		return
+	var champion: ChampionDef = null
+	if _section in [&"pirates", &"monsters"] and _entry != &"" and _entry != &"waves":
+		champion = Content.champion(_entry)
+	_page_portrait.visible = champion != null
+	_page_portrait.champion = champion
+	if champion != null:
+		var tier: Color = UITheme.cost_color(champion.cost)
+		_page_portrait.team_color = tier
+		_page_portrait.rim_color = tier
+
+
+## An empty `icon` is allowed and means the page has the thing drawn at the top
+## of it already — a champion's entry does, and a glyph beside a portrait of the
+## same pirate is the old identifier arguing with the new one. Traits and items
+## keep theirs, having no figure to draw.
 static func _title(icon: String, name: String, tail: String = "") -> String:
-	var line := "[font_size=19][b]%s %s[/b][/font_size]" % [icon, name]
+	var line := "[font_size=19][b]%s[/b][/font_size]" % name
+	if icon != "":
+		line = "[font_size=19][b]%s %s[/b][/font_size]" % [icon, name]
 	if tail != "":
 		line += "   %s" % tail
 	return line
@@ -532,7 +619,7 @@ func _champion_page(id: StringName) -> String:
 
 	var monster := champion.cost == 0
 	var lines := PackedStringArray()
-	lines.append(_title(champion.icon, champion.display_name,
+	lines.append(_title("", champion.display_name,
 		"[color=#7c93a4]Monster[/color]" if monster
 		else "[color=#ffd98a]%s %d[/color]" % [UITheme.COIN, champion.cost]))
 

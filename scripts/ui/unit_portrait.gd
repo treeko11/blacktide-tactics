@@ -20,6 +20,9 @@ extends Control
 ## The space a figure occupies at scale 1: hat to ground plate, arms out.
 const ART_BOX := Vector2(52.0, 66.0)
 
+## The scale below which the ground plate stops being drawn.
+const GROUND_FLOOR := 0.42
+
 var champion: ChampionDef = null:
 	set(value):
 		champion = value
@@ -87,6 +90,10 @@ func _fit() -> void:
 	_figure.position = Vector2(box.x * 0.5, box.y - UnitArt.GROUND * factor * 1.15)
 	# Small enough that trim is a smudge; the figure keeps its silhouette.
 	_figure.pose.detail = clampf(factor * 1.2, 0.0, 1.0)
+	# Below this the plate is as tall as the pirate standing on it and reads as
+	# a pair of wheels. Nothing is lost: the places that draw a figure this small
+	# — a shop card, an almanac row — have the cost written beside it anyway.
+	_figure.pose.grounded = factor >= GROUND_FLOOR
 	_figure.queue_redraw()
 
 

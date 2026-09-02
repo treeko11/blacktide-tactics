@@ -23,6 +23,8 @@ extends "res://tools/tool_script.gd"
 ##   --briefing       photograph the opening almanac, and assert the run is
 ##                    holding its clock behind it and starts when it closes
 ##   --sfx            fight a real round and assert sound actually came out of it
+##   --almanac=<id>   open the almanac on one pirate's entry and photograph it,
+##                    asserting the entry drew its portrait
 ##   --sequence=buy   tap a card to buy it, and prove the inspector that opened
 ##                    on the way in is gone once the finger is off
 ##   --sequence=forge replay the reported lock-up: read the forge chart, close
@@ -100,6 +102,12 @@ func run() -> void:
 	if arg("modal") != "":
 		await _open_modal(arg("modal"), game)
 		await _frames(3)
+		_capture()
+		finish()
+		return
+
+	if arg("almanac") != "":
+		await _almanac_entry(arg("almanac"))
 		_capture()
 		finish()
 		return
@@ -386,6 +394,43 @@ func _browse_the_almanac() -> void:
 		fail("tapping outside the almanac did not close it")
 	else:
 		print("  tapping outside closed it")
+
+
+## Opens one champion's almanac entry and checks it came up with a figure on it.
+##
+## The portrait is a node beside the page rather than anything in the page text,
+## so `test_wiki.gd` walking every entry and rendering every page says nothing
+## about whether it appeared — a champion whose portrait never shows still has a
+## complete, correct page.
+func _almanac_entry(id: String) -> void:
+	var wiki: Node = _scene.wiki
+	var section: StringName = &"pirates"
+	var champion = content().champion(StringName(id))
+	if champion == null:
+		fail("no champion called '%s'" % id)
+		return
+	if champion.cost == 0:
+		section = &"monsters"
+
+	wiki.open(section)
+	await _frames(4)
+	wiki._open_entry(section, StringName(id))
+	await _frames(6)
+
+	if wiki._entry != StringName(id):
+		fail("the almanac opened '%s' rather than '%s'" % [wiki._entry, id])
+		return
+	var portrait: Control = wiki._page_portrait
+	if portrait == null:
+		fail("the almanac page has no portrait node at all")
+		return
+	if not portrait.visible:
+		fail("%s's entry drew no portrait" % id)
+	elif portrait.size.x < 20.0 or portrait.size.y < 20.0:
+		fail("%s's portrait collapsed to %s" % [id, portrait.size])
+	else:
+		print("  %s: %s, portrait %d x %d"
+			% [id, champion.art_body, portrait.size.x, portrait.size.y])
 
 
 ## Prints the height of every block of the HUD.

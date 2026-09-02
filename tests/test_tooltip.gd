@@ -87,3 +87,37 @@ func test_closing_an_inspector_drops_what_it_was_reading() -> void:
 	assert_false(tip._refresh_source.is_valid(), "the refresh outlived the inspector")
 
 	tip.queue_free()
+
+
+## A champion gets its figure beside the text; nothing else does.
+##
+## The portrait is a node rather than anything in the body string, so every
+## existing check here — which compares text — passes whether it appears or not.
+## And the gap it reserves comes out of the body's width, so a portrait left
+## showing for an item is also a stat block wrapped forty points narrower than it
+## needed to be, on the panel that is already most of a phone screen.
+func test_only_a_champion_gets_a_portrait() -> void:
+	var tip := _tooltip()
+	var champion: ChampionDef = content().champion(&"sirene")
+	assert_not_null(champion, "no champion called sirene to inspect")
+
+	var full: float = tip._body.custom_minimum_size.x
+	tip.show_text(Tooltip.champion_text(champion, 1), Vector2.ZERO, null,
+		Callable(), champion)
+	assert_true(tip._portrait.visible, "a pirate's inspector drew no figure")
+	assert_eq(tip._portrait.champion, champion, "the figure is of the wrong pirate")
+	assert_lt(tip._body.custom_minimum_size.x, full,
+		"the portrait took no width from the text, so it has nowhere to go")
+
+	tip.show_text(Tooltip.item_text(&"blade"), Vector2.ZERO)
+	assert_false(tip._portrait.visible, "an item's inspector drew a pirate")
+	assert_eq(tip._body.custom_minimum_size.x, full,
+		"the text never got its width back")
+
+	tip.show_text(Tooltip.champion_text(champion, 1), Vector2.ZERO, null,
+		Callable(), champion)
+	tip.hide_now()
+	assert_false(tip._portrait.visible,
+		"a closed inspector still holds the last pirate it showed")
+
+	tip.free()

@@ -455,8 +455,26 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
 - **Emoji are not gone, they moved.** They were the whole roster and are now the
   trait and item icons, the coin and the star — text, where a font glyph is the
   right answer and `test_glyphs.gd` still guards them. A champion's emoji is
-  still on its `ChampionDef` and still used in the almanac and the tooltip
-  headings.
+  still on its `ChampionDef`, but nothing draws it any more: wherever a pirate
+  is named, `UnitPortrait` draws the pirate instead. The two together is the old
+  identifier arguing with the new one, which is why `Tooltip.champion_text` and
+  the almanac's champion title both pass an empty icon.
+- **`UnitPortrait` is the figure anywhere that is not the board** — shop cards,
+  the inspector, the almanac's entry heading and its list rows. It fits itself to
+  whatever box the container settled on and drops the ground plate below a scale
+  of 0.42, where the plate is as tall as the pirate standing on it and reads as a
+  pair of cart wheels.
+- **A portrait in a list row goes *inside* the Button, not beside it.** A row
+  split into a portrait and a button is a row with a dead patch on its left. The
+  text is moved out of the way with `content_margin_left`, which has to be set on
+  **every** state box — override only `normal` and the label jumps thirty points
+  the moment the cursor enters the row.
+- **`test_wiki.gd` renders every page and would not notice a missing portrait**,
+  because the portrait is a node beside the page rather than anything in the page
+  text: a champion whose figure never appears still has a complete, correct page.
+  Hence one tree-based test there, and `screenshot.gd --almanac=<id>`, which
+  opens an entry at every layout and asserts the figure came up and did not
+  collapse to nothing.
 - **Measure the drawing with `soak.gd` run *windowed*.** Headless soak builds the
   whole HUD and never calls `_draw`, so it says nothing at all about the art. The
   figures cost nothing in steady state — both builds sit on the same vsync floor

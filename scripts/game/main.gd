@@ -61,6 +61,10 @@ var _hover_kind: StringName = &""
 var _hover_text: String = ""
 var _hover_unit: RosterUnit = null
 
+## The champion whose figure the inspector should show beside the text, or null
+## when the thing being read is a trait, an item or a rival captain.
+var _hover_champion: ChampionDef = null
+
 ## Rebuilds `_hover_text` from whatever it describes. The tooltip calls it while
 ## it is open; a hold that pins calls it once more, because a third of a second
 ## of a fight is long enough for the text to be stale before it appears.
@@ -554,8 +558,9 @@ func _on_shop_card_hovered(index: int, at: Vector2) -> void:
 	var text: String = refresh.call()
 	if text == "":
 		return
-	_note_hover(&"shop", text, null, refresh)
-	tooltip.show_text(text, at, shop, refresh)
+	var champion: ChampionDef = GameState.content.champion(GameState.shop[index]) 		if index < GameState.shop.size() else null
+	_note_hover(&"shop", text, null, refresh, champion)
+	tooltip.show_text(text, at, shop, refresh, champion)
 
 
 ## The card in shop slot `index`, or "" once there is nothing in it.
@@ -577,8 +582,8 @@ func _on_roster_unit_hovered(unit: RosterUnit, at: Vector2) -> void:
 		return
 	var refresh := func() -> String: return _roster_unit_text(unit)
 	var text := _roster_unit_text(unit)
-	_note_hover(&"unit", text, unit, refresh)
-	tooltip.show_text(text, at, null, refresh)
+	_note_hover(&"unit", text, unit, refresh, unit.champion)
+	tooltip.show_text(text, at, null, refresh, unit.champion)
 
 
 ## A pirate the player owns. Its star and its items both change while it is being
@@ -598,8 +603,8 @@ func _on_sim_unit_hovered(unit: SimUnit, at: Vector2) -> void:
 		return
 	var refresh := func() -> String: return _sim_unit_text(unit)
 	var text := _sim_unit_text(unit)
-	_note_hover(&"sim", text, null, refresh)
-	tooltip.show_text(text, at, null, refresh)
+	_note_hover(&"sim", text, null, refresh, unit.def)
+	tooltip.show_text(text, at, null, refresh, unit.def)
 
 
 ## The live numbers of a pirate in the fight now running: health falling, mana
@@ -668,11 +673,15 @@ func _on_captain_hovered(captain: Captain, at: Vector2) -> void:
 
 
 func _note_hover(kind: StringName, text: String, unit: RosterUnit = null,
-		refresh: Callable = Callable()) -> void:
+		refresh: Callable = Callable(), champion: ChampionDef = null) -> void:
 	_hover_kind = kind
 	_hover_text = text
 	_hover_unit = unit
 	_hover_refresh = refresh
+	# Recorded for the same reason the text is: a press-and-hold re-opens the
+	# inspector from what the hover noted, a third of a second later, and the
+	# panel it is re-opening from has usually gone.
+	_hover_champion = champion
 
 
 ## Closes the inspector whatever state it is in, pinned included.
@@ -710,6 +719,7 @@ func _forget_hover() -> void:
 	_hover_kind = &""
 	_hover_text = ""
 	_hover_unit = null
+	_hover_champion = null
 	_hover_refresh = Callable()
 
 
@@ -791,7 +801,7 @@ func _complete_hold() -> void:
 		if text == "":
 			_forget_hover()
 			return
-	tooltip.pin(text, _hold_origin, sellable, _hover_refresh)
+	tooltip.pin(text, _hold_origin, sellable, _hover_refresh, _hover_champion)
 
 
 # =============================================================================

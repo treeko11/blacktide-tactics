@@ -45,9 +45,19 @@ const MAX_WIDTH := 340.0
 ## the string actually differs, so a static tooltip costs one comparison.
 const REFRESH_SECONDS := 0.1
 
+## The figure beside a champion's stat block, and the space it takes from it.
+const PORTRAIT_SIZE := Vector2(48.0, 56.0)
+const PORTRAIT_GAP := 8
+
 var pinned: bool = false
 
+## The body's width with no portrait beside it. Kept so showing one can take the
+## difference and hiding one can give it back, without re-deriving the layout.
+var _full_body_width: float = 0.0
+
 var _column: VBoxContainer = null
+var _row: HBoxContainer = null
+var _portrait: UnitPortrait = null
 var _body: RichTextLabel = null
 var _footer: HBoxContainer = null
 var _sell_button: Button = null
@@ -81,15 +91,31 @@ func _ready() -> void:
 	_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_column)
 
+	# The portrait sits beside the stat block rather than above it, so the panel
+	# grows sideways into space it already had rather than downwards on a phone
+	# where the inspector is most of the screen.
+	_row = HBoxContainer.new()
+	_row.add_theme_constant_override("separation", PORTRAIT_GAP)
+	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_column.add_child(_row)
+
+	_portrait = UnitPortrait.new(PORTRAIT_SIZE)
+	# Top-aligned: a champion's stat block is a dozen lines and a figure centred
+	# against it floats in the middle of the panel.
+	_portrait.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_portrait.visible = false
+	_row.add_child(_portrait)
+
+	_full_body_width = width - 24.0
 	_body = RichTextLabel.new()
 	_body.bbcode_enabled = true
 	_body.fit_content = true
-	_body.custom_minimum_size = Vector2(width - 24.0, 0)
+	_body.custom_minimum_size = Vector2(_full_body_width, 0)
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_body.add_theme_font_size_override("normal_font_size", UITheme.FONT_SMALL)
 	_body.add_theme_font_size_override("bold_font_size", UITheme.FONT_SMALL)
-	_column.add_child(_body)
+	_row.add_child(_body)
 
 	_footer = HBoxContainer.new()
 	_footer.add_theme_constant_override("separation", 6)
@@ -122,8 +148,9 @@ func _ready() -> void:
 ## happened to be true when the cursor arrived. Pass nothing for anything that
 ## cannot change while it is on screen.
 func show_text(text: String, at: Vector2, owned_by: Control = null,
-		refresh: Callable = Callable()) -> void:
+		refresh: Callable = Callable(), champion: ChampionDef = null) -> void:
 	_body.text = text
+	_set_portrait(champion)
 	_owner = owned_by
 	_set_refresh(refresh)
 	visible = true
@@ -147,8 +174,9 @@ func show_text(text: String, at: Vector2, owned_by: Control = null,
 ## matters more here: a pinned inspector is the only one on a touchscreen, and
 ## nothing else will ever tell it that its pirate died or was sold.
 func pin(text: String, at: Vector2, sell_unit: RosterUnit = null,
-		refresh: Callable = Callable()) -> void:
+		refresh: Callable = Callable(), champion: ChampionDef = null) -> void:
 	_body.text = text
+	_set_portrait(champion)
 	visible = true
 	pinned = true
 	_sell_unit = sell_unit
@@ -194,6 +222,7 @@ func hide_now() -> void:
 	pinned = false
 	_owner = null
 	_sell_unit = null
+	_set_portrait(null)
 	# Dropped rather than kept: a refresh for a fight is a lambda holding a
 	# SimUnit, and `Sim.dispose()` exists because those keep a whole battle alive.
 	_set_refresh(Callable())
@@ -206,6 +235,30 @@ func hide_now() -> void:
 		_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _footer != null:
 		_footer.visible = false
+
+
+## Shows the champion's figure beside the text, or nothing at all.
+##
+## Only a champion gets one. A trait, an item and a rival captain are not things
+## with bodies, and a portrait column reserved for them would be an empty gap on
+## most of the inspectors in the game.
+##
+## The width is moved between the two rather than left to the container, because
+## a RichTextLabel with `fit_content` reports the width it was given as its
+## minimum — so a body sized for the full panel simply pushes the portrait off
+## the edge instead of making room for it.
+func _set_portrait(champion: ChampionDef) -> void:
+	if _portrait == null:
+		return
+	_portrait.visible = champion != null
+	_portrait.champion = champion
+	if champion != null:
+		var tier: Color = UITheme.cost_color(champion.cost)
+		_portrait.team_color = tier
+		_portrait.rim_color = tier
+		_body.custom_minimum_size.x = _full_body_width - PORTRAIT_SIZE.x - PORTRAIT_GAP
+	else:
+		_body.custom_minimum_size.x = _full_body_width
 
 
 func _set_refresh(refresh: Callable) -> void:
@@ -290,8 +343,12 @@ static func champion_text(champion: ChampionDef, star: int,
 	var stats := champion.stats_at(star)
 	var lines := PackedStringArray()
 
-	lines.append("[font_size=17][b]%s %s[/b][/font_size]  [color=#ffd98a]%s %d[/color]"
-		% [champion.icon, champion.display_name, UITheme.COIN, champion.cost])
+	# No emoji on the title. Every caller of this text is the inspector, and the
+	# inspector now draws the pirate's actual figure beside it — a glyph of a
+	# bird next to a drawing of the same pirate is the old identifier arguing
+	# with the new one.
+	lines.append("[font_size=17][b]%s[/b][/font_size]  [color=#ffd98a]%s %d[/color]"
+		% [champion.display_name, UITheme.COIN, champion.cost])
 	if star > 1:
 		lines.append("%s" % UITheme.STAR.repeat(star))
 
