@@ -40,6 +40,12 @@ window/size/viewport_height=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+; The game is played upright: turning the device is meant to do nothing at all.
+; This is the native half of that (1 = Portrait). The web export ignores it, so
+; Layout._lock_orientation asks the browser and Layout.apply holds the line for
+; the browsers that refuse.
+window/handheld/orientation=1
+
 [input_devices]
 
 ; Godot's own drag-and-drop is mouse-driven, and moving a pirate from the bench

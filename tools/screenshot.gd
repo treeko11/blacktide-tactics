@@ -16,6 +16,9 @@ extends "res://tools/tool_script.gd"
 ##   --bench=<ids>    comma-separated champion ids to sit on the bench
 ##   --stars=<n>      what star the fielded crew is (default 2)
 ##   --size=<WxH>     resize the window first, e.g. --size=390x844 for a phone
+##   --touch=yes|no   pretend the device does or does not have a touchscreen.
+##                    A desktop reports none, and `Layout.short()` now asks — so
+##                    a sideways *phone* is only reachable with --touch=yes
 ##   --hold=<what>    press and hold a "card", a "bench" slot, a "trait" badge,
 ##                    an "item" or a forge "chart"
 ##                    square, then photograph the inspector it opens
@@ -52,7 +55,13 @@ func setup() -> void:
 	startup_frames = int(arg("frames", "40"))
 
 	# Before the scene exists, so the HUD is built in the layout it will be shot
-	# in rather than built wide and then rebuilt.
+	# in rather than built wide and then rebuilt. The same goes for the touch
+	# answer: `Layout.short()` reads it, so it has to be settled before the first
+	# build or the sideways-phone shot is of a desktop's landscape HUD.
+	var pretend := arg("touch")
+	if pretend != "":
+		Layout.touch_override = 1 if pretend == "yes" else 0
+
 	var wanted := arg("size")
 	if wanted != "":
 		var parts := wanted.split("x")
@@ -215,6 +224,24 @@ func fail(message: String) -> void:
 
 # --- scripted touch ----------------------------------------------------------
 
+## Viewport coordinates to window coordinates.
+##
+## Everything here is aimed by measuring a Control, which lives in the viewport's
+## space — but `Input.parse_input_event` and `Input.warp_mouse` both speak the
+## *window's*, and Godot maps between the two with the content-scale transform.
+##
+## They are the same numbers only while that transform is identity, which it was
+## at every layout this tool had ever run at. A phone held sideways is the first
+## that is not: the game is played upright, so a portrait canvas is letterboxed
+## into the wider window at 0.46 with a third of the screen as an offset. Aimed
+## without this, every tap landed off the left edge and all fifteen checks
+## reported the game ignoring the player. The game was fine — a real finger
+## arrives in window coordinates already, which is the half a scripted one has
+## to do for itself.
+func _to_window(at: Vector2) -> Vector2:
+	return root.get_final_transform() * at
+
+
 ## One finger down at a point, held for `seconds`, then lifted.
 func _touch(at: Vector2, seconds: float = 0.05) -> void:
 	_touch_down(at)
@@ -229,7 +256,7 @@ func _touch_down(at: Vector2) -> void:
 	var down := InputEventScreenTouch.new()
 	down.index = 0
 	down.pressed = true
-	down.position = at
+	down.position = _to_window(at)
 	Input.parse_input_event(down)
 
 
@@ -237,7 +264,7 @@ func _touch_up(at: Vector2) -> void:
 	var up := InputEventScreenTouch.new()
 	up.index = 0
 	up.pressed = false
-	up.position = at
+	up.position = _to_window(at)
 	Input.parse_input_event(up)
 
 
@@ -259,15 +286,16 @@ func _hover_at(at: Vector2) -> void:
 	# machine, and loses every argument about where it should be. The warp is
 	# checked and repeated rather than assumed, and `fail()` below says so when
 	# the thing that moved it was a hand.
+	var window_at := _to_window(at)
 	for attempt in 5:
-		Input.warp_mouse(at)
+		Input.warp_mouse(window_at)
 		if root.get_mouse_position().distance_to(at) <= 2.0:
 			break
 	_hover_home = at
 
 	var motion := InputEventMouseMotion.new()
-	motion.position = at
-	motion.global_position = at
+	motion.position = window_at
+	motion.global_position = window_at
 	Input.parse_input_event(motion)
 
 
@@ -277,8 +305,8 @@ func _click_at(at: Vector2) -> void:
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		click.pressed = pressed
-		click.position = at
-		click.global_position = at
+		click.position = _to_window(at)
+		click.global_position = _to_window(at)
 		Input.parse_input_event(click)
 
 
@@ -472,8 +500,8 @@ func _swipe(from: Vector2, by: Vector2, steps: int = 6) -> void:
 		at += step
 		var drag := InputEventScreenDrag.new()
 		drag.index = 0
-		drag.position = at
-		drag.relative = step
+		drag.position = _to_window(at)
+		drag.relative = root.get_final_transform().basis_xform(step)
 		Input.parse_input_event(drag)
 		await _frames(1)
 
@@ -546,10 +574,16 @@ func _measure() -> void:
 			roundi(Hex.board_size().y * _scene.board.board_scale)])
 
 
-## Resizes a running HUD and checks it rebuilt into the other layout.
+## Resizes a running HUD and checks it did the right thing — which is the
+## opposite thing on a touchscreen.
 ##
-## A phone turning sideways is the one resize that matters, and it is a resize
-## the *running* game has to notice — not one it is launched with.
+## A window resize on a desktop crosses a breakpoint and has to rebuild, and that
+## is a resize the *running* game must notice rather than one it is launched
+## with. A phone being turned is the same event and now has to be **ignored**:
+## the game is played upright, so the HUD keeps the size it had and the extra
+## width becomes bars. So the assertion inverts rather than being skipped — "it
+## did not rebuild" is the pass on touch, and a phone that quietly went back to
+## reflowing would otherwise look exactly like a phone that was never tested.
 func _rotate(spec: String) -> void:
 	var parts := spec.split("x")
 	if parts.size() != 2:
@@ -558,13 +592,26 @@ func _rotate(spec: String) -> void:
 
 	var was_short := Layout.short()
 	var was_compact := Layout.compact()
+	var was_css := Layout.css_size
 	var old_shop: Node = _scene.shop
 
 	root.size = Vector2i(int(parts[0]), int(parts[1]))
 	await _frames(12)
 
-	print("  before: compact=%s short=%s" % [str(was_compact), str(was_short)])
-	print("  after:  compact=%s short=%s" % [str(Layout.compact()), str(Layout.short())])
+	print("  before: compact=%s short=%s css=%.0fx%.0f"
+		% [str(was_compact), str(was_short), was_css.x, was_css.y])
+	print("  after:  compact=%s short=%s css=%.0fx%.0f"
+		% [str(Layout.compact()), str(Layout.short()),
+			Layout.css_size.x, Layout.css_size.y])
+
+	if Layout.touch():
+		if Layout.css_size != was_css:
+			fail("turning the phone changed the layout size from %.0fx%.0f to %.0fx%.0f"
+				% [was_css.x, was_css.y, Layout.css_size.x, Layout.css_size.y])
+		elif _scene.shop != old_shop:
+			fail("turning the phone rebuilt the HUD; it is supposed to do nothing")
+		return
+
 	if Layout.short() == was_short and Layout.compact() == was_compact:
 		fail("the layout did not change; pick a size on the other side of a breakpoint")
 	elif _scene.shop == old_shop:
@@ -626,21 +673,13 @@ func _press_and_hold(game: Node, what: String) -> void:
 	var at := target.global_position + target.size * 0.5
 	var gold_before: int = game.player.gold
 
-	var down := InputEventScreenTouch.new()
-	down.index = 0
-	down.pressed = true
-	down.position = at
-	Input.parse_input_event(down)
+	_touch_down(at)
 
 	# Long enough for Main's timer to elapse, with frames for the hover to land
 	# and the inspector to lay itself out.
 	await _frames(45)
 
-	var up := InputEventScreenTouch.new()
-	up.index = 0
-	up.pressed = false
-	up.position = at
-	Input.parse_input_event(up)
+	_touch_up(at)
 	await _frames(6)
 
 	print("  inspector pinned: %s" % str(_scene.tooltip.pinned))
@@ -752,8 +791,8 @@ func _watch_a_fight(game: Node) -> void:
 	var board = _scene.board
 	var at: Vector2 = board.global_position + unit.pos * board.board_scale + board.board_offset
 	var motion := InputEventMouseMotion.new()
-	motion.position = at
-	motion.global_position = at
+	motion.position = _to_window(at)
+	motion.global_position = _to_window(at)
 	Input.parse_input_event(motion)
 	await _frames(4)
 

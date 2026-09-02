@@ -40,24 +40,47 @@ static var css_size: Vector2 = Vector2(DESIGN)
 ## Device pixels per CSS pixel: 1 on a desktop monitor, 2-3 on a phone.
 static var pixel_ratio: float = 1.0
 
+## Forces the answer `touch()` gives: -1 asks the display server, 0 is a mouse,
+## 1 is a finger. For the tools only.
+##
+## `short()` turns on this answer now, and a desktop reports no touchscreen — so
+## without a way to force it, screenshot.gd could not render a sideways phone at
+## all, which is the case the change below exists to describe.
+static var touch_override: int = -1
+
+## The last size the window was at while upright, in CSS pixels. A touch device
+## turned sideways keeps laying itself out at this, which is what makes the
+## rotation a no-op — see `apply`.
+static var _upright: Vector2 = Vector2.ZERO
+
+## Whether the browser has been asked to stop rotating the page. Asked once.
+static var _lock_tried: bool = false
+
 
 static func compact() -> bool:
 	return mode == Mode.COMPACT
 
 
-## A short landscape phone: wide, and with barely any height. It gets a different
-## shape entirely rather than a tighter version of portrait — see
-## Main._build_landscape.
+## A short, narrow window driven by a mouse: wide, with barely any height. It
+## gets a different shape entirely rather than a tighter version of portrait —
+## see Main._build_landscape.
+##
+## **A touchscreen is excluded on purpose.** Landscape is not supported on a
+## phone any more: a device that can be turned gets the portrait arrangement
+## whichever way it is held, and the two-column build survives only for a window
+## somebody chose to make that shape and can drag back to a sensible one.
 static func short() -> bool:
-	return mode == Mode.COMPACT and css_size.y < SHORT_HEIGHT
+	return mode == Mode.COMPACT and css_size.y < SHORT_HEIGHT and not touch()
 
 
-## Whether to offer press-and-hold inspection and tap-to-sell.
+## Whether a finger is driving rather than a mouse.
 ##
 ## Gated on the device having a touchscreen rather than on the layout being
 ## compact: a small window on a desktop is still driven by a mouse, and a mouse
 ## held down for a third of a second should not pop an inspector open.
 static func touch() -> bool:
+	if touch_override >= 0:
+		return touch_override == 1
 	return DisplayServer.is_touchscreen_available()
 
 
@@ -75,7 +98,33 @@ static func apply(window: Window) -> bool:
 	var was_short := short()
 
 	pixel_ratio = _pixel_ratio()
-	css_size = px / pixel_ratio
+	var seen := px / pixel_ratio
+
+	# **Turning a phone sideways does nothing.** The game is played upright, so a
+	# rotation is not a different layout and not a prompt — it is ignored. The HUD
+	# keeps the size it had while upright, and the extra width becomes bars either
+	# side rather than something to reflow into, so `mode` and `short()` come out
+	# unchanged and Main is told there is nothing to rebuild.
+	#
+	# `_lock_orientation` is the half that means most players never see the bars:
+	# a browser that honours it simply never reports a landscape window. It cannot
+	# be relied on — it needs fullscreen, and iOS Safari refuses outright — which
+	# is why the layout has to hold the line by itself as well.
+	_lock_orientation()
+	var sideways := touch() and seen.x > seen.y
+	if sideways:
+		# Nothing remembered means the page was *loaded* sideways, so there is no
+		# upright size to go back to. The same screen turned the other way is it.
+		if _upright == Vector2.ZERO:
+			_upright = Vector2(seen.y, seen.x)
+		css_size = _upright
+		window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	else:
+		css_size = seen
+		window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+		if seen.y >= seen.x:
+			_upright = seen
+
 	mode = Mode.COMPACT if css_size.x < COMPACT_WIDTH else Mode.WIDE
 
 	# Crossing *either* breakpoint is a rebuild. Watching only WIDE/COMPACT meant
@@ -94,6 +143,21 @@ static func apply(window: Window) -> bool:
 		window.content_scale_size = DESIGN
 
 	return changed
+
+
+## Asks the browser to keep the page upright, once.
+##
+## This is the real answer to a phone being turned: with the lock honoured the
+## window never becomes landscape and nothing downstream has to cope. It throws
+## when the page is not fullscreen and iOS Safari does not implement it at all,
+## so the promise and the call are both swallowed — a refusal is expected, not an
+## error, and `apply` above holds the line either way.
+static func _lock_orientation() -> void:
+	if _lock_tried or not OS.has_feature("web"):
+		return
+	_lock_tried = true
+	JavaScriptBridge.eval("try{if(screen.orientation&&screen.orientation.lock)"
+		+ "screen.orientation.lock('portrait').catch(function(){});}catch(e){}", true)
 
 
 ## Device pixels per CSS pixel.

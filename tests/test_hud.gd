@@ -187,6 +187,56 @@ func test_a_finger_scrolls_a_panel_of_buttons_without_pressing_one() -> void:
 	scroll.free()
 
 
+## Turning a phone sideways does nothing at all.
+##
+## The game is played upright. A rotation is not a different layout and not a
+## prompt — it is ignored, so the HUD keeps the size it had and the extra width
+## becomes bars. The failure this guards is silent in both directions: a phone
+## that quietly went back to reflowing looks exactly like a phone nobody tested,
+## and it lands on a screen with 390 points of height, where the portrait
+## furniture alone is 387 and the board is what gets the remainder — nothing.
+##
+## The same window driven by a *mouse* must still reflow, because a desktop
+## window somebody dragged into that shape is not a phone and can be dragged
+## back. Both halves are asserted here; `screenshot.gd --rotate=` is the
+## end-to-end pair.
+func test_turning_a_phone_does_not_reflow_the_hud() -> void:
+	# A throwaway window rather than the root: `apply` writes content scaling to
+	# whatever it is handed, and the root belongs to the rest of the run.
+	var window := Window.new()
+
+	Layout.touch_override = 1
+	window.size = Vector2i(390, 844)
+	Layout.apply(window)
+	var upright := Layout.css_size
+	assert_gt(upright.y, upright.x, "an upright phone should be taller than it is wide")
+
+	window.size = Vector2i(844, 390)
+	assert_false(Layout.apply(window), "turning the phone asked for a rebuild")
+	assert_eq(Layout.css_size, upright, "turning the phone changed the layout size")
+	assert_false(Layout.short(), "a phone was given the landscape layout")
+
+	Layout.touch_override = 0
+	window.size = Vector2i(390, 844)
+	Layout.apply(window)
+	window.size = Vector2i(844, 390)
+	assert_true(Layout.apply(window),
+		"a mouse-driven window that got short did not ask for a rebuild")
+	assert_true(Layout.short(),
+		"a short mouse-driven window did not get the landscape layout")
+
+	window.free()
+
+
+## Layout is static and shared, so a test that moved it puts it back.
+func after_each() -> void:
+	Layout.touch_override = -1
+	var window := Window.new()
+	window.size = Layout.DESIGN
+	Layout.apply(window)
+	window.free()
+
+
 func _press(at: Vector2, down: bool) -> InputEventScreenTouch:
 	var event := InputEventScreenTouch.new()
 	event.index = 0

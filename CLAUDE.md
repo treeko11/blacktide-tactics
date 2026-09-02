@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `art_sheet.gd` | Draws **every champion**, or every body in every animation state (`--poses`). Must run **without** `--headless`. The only check that a polygon still triangulates |
@@ -58,12 +58,31 @@ tolerable:
   somewhere other than where the last hover put it. Every `--sequence=` and
   `--hold=` is affected; `--measure`, `--rotate=` and a plain shot are not.
 
-**Run `screenshot.gd`'s assertions at every layout, not just one.** The three
-that matter are `--size=390x844` (phone upright), `--size=844x390` (sideways) and
-`--size=1600x900` (desktop); they build genuinely different HUDs. The toast
-blocking input on the cargo hold was live in all three, and passed unnoticed
-because `--hold=item` had only ever been run upright, where the toast happens to
-cover nothing.
+**Run `screenshot.gd`'s assertions at every layout, not just one.** There are
+**four**: `--size=390x844` (phone upright), `--size=1600x900` (desktop),
+`--size=844x390` (a mouse-driven window dragged narrow and short, which is the
+only thing that still gets the two-column build), and
+`--size=844x390 --touch=yes` (a real phone, turned — the portrait HUD
+letterboxed). They are genuinely different HUDs. The toast blocking input on
+the cargo hold was live in all of them, and passed unnoticed because
+`--hold=item` had only ever been run upright, where the toast happens to cover
+nothing.
+
+**`--touch=` is not a convenience, it is the only way to reach the phone.** A
+desktop reports no touchscreen and `Layout.short()` asks, so without
+`--touch=yes` every "sideways" run is of the *desktop's* landscape HUD and the
+phone path is never rendered at all.
+
+**A scripted tap is in viewport coordinates and the input system wants the
+window's.** `Input.parse_input_event` and `Input.warp_mouse` speak window space;
+everything the tool aims by is measured off a `Control`, which is viewport
+space. Those are the same numbers only while the content-scale transform is
+identity — true at every layout until a phone held sideways letterboxes a
+portrait canvas at 0.46 with a third of the screen as an offset. `_to_window`
+maps them, and a swipe maps its `relative` through the transform's *basis*
+rather than the whole thing, because a delta has no origin. Without it all
+fifteen checks failed at once and every message said the game was ignoring the
+player, which is exactly what a real bug looks like — the game was fine.
 
 ### Headless gotchas, each learned the hard way
 
@@ -264,14 +283,26 @@ Each of these cost a debugging session or settles a design argument.
   took the shop to 24% and the board to 46% at a 43-point hex. `screenshot.gd
   --measure` prints the height of every block; **decide this with numbers**, not
   by squinting at a screenshot.
-- **Sideways is a different shape, not a tighter one.** Stacking the portrait
-  arrangement on a 390-point-tall landscape phone left the board 94 points —
-  less than the board is tall, so it was drawn at the scale floor and *clipped*,
-  with the back rows unreachable. A landscape phone is a wide short screen,
-  which is what the desktop layout is for, so it gets two columns: board on the
-  left, everything else in a narrow column on the right. That column is narrow,
-  so the shop and bench inside it use the *portrait* arrangement — the screen
-  being wide says nothing about the column.
+- **The game is played upright, and turning a phone does nothing.** Not a
+  different layout and not a prompt: `Layout.apply` keeps the size the HUD had
+  while upright, so `mode` and `short()` come out unchanged, Main is told there
+  is nothing to rebuild, and the extra width becomes bars either side.
+  `_lock_orientation` asks the browser to stop rotating the page at all, which
+  is the half most players actually get — but it needs fullscreen and iOS Safari
+  refuses it outright, so the layout has to hold the line by itself as well.
+  `window/handheld/orientation=1` is the same rule for a native export.
+  **Reflowing instead is not an option that exists.** The portrait furniture is
+  387 points of a 390-point landscape screen and the board takes what is left,
+  so a sideways phone that reflows has *no board at all* — measured, not
+  guessed. The cost of holding the line is that a browser refusing the lock
+  letterboxes the portrait canvas to a 180x390 strip at 0.46 scale.
+- **The two-column landscape build is for a mouse, not a phone.**
+  `Layout.short()` excludes touchscreens, so `Main._build_landscape` is now only
+  ever reached by a desktop window somebody dragged narrow *and* short — which
+  they can drag back. Board on the left, everything else in a narrow column on
+  the right; that column is narrow, so the shop and bench inside it use the
+  *portrait* arrangement, because the screen being wide says nothing about the
+  column.
 - **The window size is polled, not watched.** `Window.size_changed` does not fire
   when a browser canvas resizes, so a phone turned sideways kept its portrait
   layout stretched across a landscape window. A Vector2i compare once a frame is
