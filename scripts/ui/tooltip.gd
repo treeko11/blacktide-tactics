@@ -427,6 +427,70 @@ static func trait_text(trait_id: StringName, count: int, tier: int) -> String:
 		else:
 			lines.append("[color=#7c93a4]%s[/color]" % line)
 
+	lines.append("")
+	lines.append(_carrier_lines(trait_id))
+	return "\n".join(lines)
+
+
+## Every pirate that carries a trait, grouped by what they cost, and marked with
+## where the player's own copies are.
+##
+## The breakpoint list says a trait wants two more pirates; it does not say
+## *which* two, and until now the only place that answered was the almanac — a
+## full-screen dialog opened over the shop, mid-decision, with a clock running.
+## The inspector is already open on the badge, so the answer belongs in it.
+##
+## Grouped by cost, because that is the shape of the decision: reaching a
+## breakpoint off a 1-cost bench body and reaching it off a 5-cost are not the
+## same plan. Names inside a cost share a line rather than taking one each, so
+## the widest trait — nine carriers — is five lines instead of nine.
+##
+## The marks are live, because this text is rebuilt ten times a second: a pirate
+## on the board is one of the ones being counted right now (gold), one on the
+## bench is a breakpoint sitting in the hold, and the rest are dim. That is the
+## "what would complete this" question answered in the colours.
+static func _carrier_lines(trait_id: StringName) -> String:
+	# Where each owned copy is. The board wins over the bench: a champion seated
+	# is counted by the trait however many spares sit behind it.
+	# The bench is fixed length and holds a null in every empty slot.
+	var placed: Dictionary = {}
+	for unit in GameState.bench:
+		if unit != null:
+			placed[unit.id()] = false
+	for unit in GameState.board:
+		placed[unit.id()] = true
+
+	# Cost -> the names at that cost, already marked up.
+	var by_cost: Dictionary = {}
+	for champion in Content.champions():
+		# Monsters carry no traits, but a creep that grew one has no business in
+		# a shopping list for a trait the player cannot buy into.
+		if champion.cost <= 0 or not champion.has_trait(trait_id):
+			continue
+		var entry := champion.display_name
+		if placed.get(champion.id, null) == true:
+			entry = "[color=#ffd98a][b]✔ %s[/b][/color]" % entry
+		elif placed.has(champion.id):
+			entry = "[color=#b9cbd8]· %s[/color]" % entry
+		else:
+			entry = "[color=#5f7280]%s[/color]" % entry
+		# A plain Array, not a PackedStringArray: a packed array held in a
+		# Dictionary is a value, so appending through the subscript appends to a
+		# copy and the line comes out empty.
+		if not by_cost.has(champion.cost):
+			by_cost[champion.cost] = []
+		by_cost[champion.cost].append(entry)
+
+	var costs := by_cost.keys()
+	costs.sort()
+	if costs.is_empty():
+		return "[color=#7c93a4]Nobody carries it, which is a content bug.[/color]"
+
+	var lines := PackedStringArray()
+	lines.append("[color=#7c93a4]WHO HAS IT[/color]")
+	for cost in costs:
+		lines.append("[color=#ffd98a]%s %d[/color]  %s"
+			% [UITheme.COIN, cost, "   ".join(by_cost[cost])])
 	return "\n".join(lines)
 
 

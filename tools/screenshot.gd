@@ -16,7 +16,8 @@ extends "res://tools/tool_script.gd"
 ##   --bench=<ids>    comma-separated champion ids to sit on the bench
 ##   --stars=<n>      what star the fielded crew is (default 2)
 ##   --size=<WxH>     resize the window first, e.g. --size=390x844 for a phone
-##   --hold=<what>    press and hold a "card", a "bench" slot or a forge "chart"
+##   --hold=<what>    press and hold a "card", a "bench" slot, a "trait" badge,
+##                    an "item" or a forge "chart"
 ##                    square, then photograph the inspector it opens
 ##   --rotate=<WxH>   resize again once the HUD is up, to prove it rebuilds
 ##   --measure        print how tall each block of the HUD ended up
@@ -191,6 +192,23 @@ func _stock_shop(game: Node, ids: PackedStringArray) -> void:
 	events().shop_rolled.emit(game.shop.duplicate())
 
 
+## Adds the one explanation that is not a bug in the game.
+##
+## Every hover check here drives the real mouse pointer, because that is what the
+## inspector reads. Run the tool while somebody is using the machine and their
+## hand wins: the cursor leaves the card, the inspector closes itself exactly as
+## designed, and the assertion reports a bug that is not there. A run that ends
+## with the pointer somewhere other than where the last hover put it is the one
+## case worth calling out, because it is otherwise indistinguishable.
+func fail(message: String) -> void:
+	if _hover_home.x >= 0.0 and root.get_mouse_position().distance_to(_hover_home) > 2.0:
+		super("%s
+           (the pointer was moved during the run — this tool "
+			% message + "drives the real cursor, so run it on an idle machine)")
+	else:
+		super(message)
+
+
 # --- scripted touch ----------------------------------------------------------
 
 ## One finger down at a point, held for `seconds`, then lifted.
@@ -227,12 +245,27 @@ func _touch_up(at: Vector2) -> void:
 ## `emulate_mouse_from_touch` sends the button but not the move, so a scripted
 ## touch on its own never opens one — and a test of "does the inspector close
 ## again" that never opened one passes for the wrong reason.
+## Where the last scripted hover put the pointer, so a failure can tell whether
+## it is still there. -1 means nothing has hovered yet.
+var _hover_home := Vector2(-1.0, -1.0)
+
+
 func _hover_at(at: Vector2) -> void:
 	# The pointer is actually moved, not merely told about: the inspector closes
 	# itself when `get_viewport().get_mouse_position()` leaves its owner, and that
 	# reports where the pointer *is*, not what was last parsed. A parsed motion
 	# alone opens the inspector and then the next frame closes it again.
-	Input.warp_mouse(at)
+	#
+	# Which means the tool is sharing one pointer with whoever is sitting at the
+	# machine, and loses every argument about where it should be. The warp is
+	# checked and repeated rather than assumed, and `fail()` below says so when
+	# the thing that moved it was a hand.
+	for attempt in 5:
+		Input.warp_mouse(at)
+		if root.get_mouse_position().distance_to(at) <= 2.0:
+			break
+	_hover_home = at
+
 	var motion := InputEventMouseMotion.new()
 	motion.position = at
 	motion.global_position = at
@@ -562,6 +595,22 @@ func _press_and_hold(game: Node, what: String) -> void:
 				game.give_item(id, &"salvage")
 			await _frames(6)
 			target = _scene.hold._grid.get_child(0)
+		"trait":
+			# The trait strip is empty until something is fielded, and the trait
+			# inspector is the longest panel in the game now that it lists every
+			# pirate carrying the trait — which makes it the one most likely to
+			# run off the bottom of a phone.
+			# Blackbeard Ashmore rather than any champion: his first badge is
+			# Corsair, the widest trait in the game at nine carriers, so the
+			# panel under test is the tallest one a player can open.
+			if game.board.is_empty():
+				_field(game, PackedStringArray(["ashmore"]))
+				await _frames(4)
+			var rows: Node = _scene.traits._rows
+			if rows.get_child_count() == 0:
+				fail("nothing was fielded, so no trait badge to hold")
+				return
+			target = rows.get_child(0)
 		"chart":
 			_scene.modals.open_forge_chart()
 			await _frames(10)
@@ -602,8 +651,30 @@ func _press_and_hold(game: Node, what: String) -> void:
 	if game.player.gold != gold_before:
 		fail("press and hold bought the card it was meant to describe")
 
+	_check_inspector_fits()
+
 	if what == "bench":
 		await _check_sell_button(game)
+
+
+## A pinned inspector that runs off the screen is one a phone cannot read and
+## cannot close — its Close button is past the edge.
+##
+## Worth its own check because the panel's height is content: the trait
+## inspector grew five lines when it started naming every carrier, and the
+## longest of those is nine pirates over five costs.
+func _check_inspector_fits() -> void:
+	var tip: Control = _scene.tooltip
+	var screen: Vector2 = tip.get_viewport_rect().size
+	var rect := Rect2(tip.global_position, tip.size)
+	print("  inspector %.0f x %.0f at %.0f, %.0f in %.0f x %.0f"
+		% [rect.size.x, rect.size.y, rect.position.x, rect.position.y,
+			screen.x, screen.y])
+	if rect.position.x < -1.0 or rect.position.y < -1.0:
+		fail("the inspector is off the top or left of the screen")
+	elif rect.end.x > screen.x + 1.0 or rect.end.y > screen.y + 1.0:
+		fail("the inspector runs off the screen by %.0f x %.0f"
+			% [maxf(0.0, rect.end.x - screen.x), maxf(0.0, rect.end.y - screen.y)])
 
 
 ## Any champion, for a test that needs a body on the bench and does not care

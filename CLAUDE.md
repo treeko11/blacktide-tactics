@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `art_sheet.gd` | Draws **every champion**, or every body in every animation state (`--poses`). Must run **without** `--headless`. The only check that a polygon still triangulates |
@@ -34,6 +34,29 @@ that needs no engine, and say plainly in the commit message that code is
 
 All extend `tools/tool_script.gd`. **Write new tools by extending it** — it
 carries the two headless traps below so no tool has to rediscover them.
+
+### The windowed tools borrow the screen and the mouse
+
+`screenshot.gd`, `art_sheet.gd` and a windowed `soak.gd` cannot run headless — a
+dummy renderer draws nothing, and what was drawn is the whole point — so each run
+opens a real window on the machine of whoever is running it. Two habits keep that
+tolerable:
+
+- **Pass the engine flag `--screen 1`**, before `--script`, so the window opens on
+  the second monitor rather than moving there a frame later:
+  `Godot --path . --screen 1 --script res://tools/screenshot.gd -- --size=...`.
+  `tool_script.gd` parks it on the first non-primary screen anyway for every
+  invocation that forgets, clears WINDOW_FLAG_NO_FOCUS so it stops taking the
+  keyboard, and puts the pointer back where it found it when the tool exits.
+  `GODOT_TOOL_SCREEN` overrides the screen; `-1` opts out.
+- **Run the hover checks on an idle machine.** `_hover_at` moves the *real*
+  pointer, because `get_viewport().get_mouse_position()` on the root viewport
+  reports where the pointer physically is and not what was last parsed — so a
+  hand on the mouse mid-run drags the cursor off the card, the inspector closes
+  itself exactly as designed, and the assertion reports a bug that is not there.
+  `screenshot.gd` overrides `fail()` to say so when the pointer ended up
+  somewhere other than where the last hover put it. Every `--sequence=` and
+  `--hold=` is affected; `--measure`, `--rotate=` and a plain shot are not.
 
 **Run `screenshot.gd`'s assertions at every layout, not just one.** The three
 that matter are `--size=390x844` (phone upright), `--size=844x390` (sideways) and
@@ -316,6 +339,14 @@ Each of these cost a debugging session or settles a design argument.
   `× · • ° « »`, en and em dashes, and anything Noto Color Emoji covers —
   including the Dingbats that are emoji, such as `✔`. Confirmed missing:
   Geometric Shapes, and the arrows and dashes outside Latin-1.
+- **A trait badge names every pirate that carries it.** The breakpoint list says
+  the trait wants two more and never says *which* two, so the only place that
+  answered was the almanac — a full-screen dialog opened over the shop,
+  mid-decision, with the planning clock running. `Tooltip._carrier_lines` puts
+  the roster in the inspector that is already open, grouped by cost because that
+  is the shape of the decision, and marked live: gold with a tick for a pirate on
+  the board, lit for one on the bench, dim for one not owned. Nine carriers over
+  five costs is the widest it gets, which is `--hold=trait` at every layout.
 - **The almanac is the reference, and it is not the tooltip.** `Wiki` answers
   "what exists and what would it do" — all three stars of a pirate at once, every
   breakpoint of a trait, every wave of the run — where the floating inspector

@@ -121,3 +121,50 @@ func test_only_a_champion_gets_a_portrait() -> void:
 		"a closed inspector still holds the last pirate it showed")
 
 	tip.free()
+
+
+## A trait's inspector names every pirate that carries it.
+##
+## The breakpoint list says a trait wants two more pirates and never says which,
+## so the only place that answered was the almanac — a full-screen dialog over
+## the shop, opened mid-decision with the planning clock running.
+func test_a_trait_lists_every_pirate_that_carries_it() -> void:
+	state().start_game()
+	var text := Tooltip.trait_text(&"leviathan", 0, -1)
+
+	var carriers := 0
+	for champion in content().champions():
+		if champion.cost <= 0 or not champion.has_trait(&"leviathan"):
+			continue
+		carriers += 1
+		assert_true(text.contains(champion.display_name),
+			"%s carries Leviathan and the inspector did not name it"
+				% champion.display_name)
+	assert_gt(carriers, 0, "no pirate carries Leviathan, so the test proves nothing")
+
+
+## The marks are live: they say where the player's own copies are.
+##
+## The text is rebuilt ten times a second, so seating a pirate has to change what
+## the badge's inspector says about it while that inspector is open. A bench copy
+## is the interesting one — it is a breakpoint sitting in the hold.
+func test_the_carrier_list_marks_what_the_player_owns() -> void:
+	var s := state()
+	s.start_game()
+
+	var champion: ChampionDef = content().champion(&"kelpar")
+	assert_not_null(champion, "no champion called kelpar to seat")
+	assert_true(champion.has_trait(&"leviathan"), "kelpar stopped being a Leviathan")
+
+	var unowned := Tooltip.trait_text(&"leviathan", 0, -1)
+
+	var unit := RosterUnit.new(champion, 1)
+	s.bench[s.first_free_bench_slot()] = unit
+	var benched := Tooltip.trait_text(&"leviathan", 0, -1)
+	assert_ne(benched, unowned, "a bench copy did not change how it is listed")
+
+	s.move_to_board(unit, Vector2i(3, 5))
+	var fielded := Tooltip.trait_text(&"leviathan", 1, -1)
+	assert_ne(fielded, benched, "seating a pirate did not change how it is listed")
+	assert_true(fielded.contains("✔ %s" % champion.display_name),
+		"a pirate on the board is not marked as one of the ones being counted")
