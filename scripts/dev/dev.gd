@@ -48,16 +48,28 @@ var lines := PackedStringArray()
 ## Where the log is being written, or "" on the web and under a tool.
 var log_path := ""
 
+## The web's answer to flushing a file every line. See `dev_store.gd`: the log
+## the menu buttons hand out is the one in this heap, and a hang or a crash takes
+## the heap with it, so every line also goes into browser storage as it is
+## written. Null everywhere but the web.
+var store: DevStore = null
+
+## The last session, if there was one and it left anything behind. Populated at
+## boot and offered by the menu for the whole run — `{}` on a first launch and
+## on every platform that is not the web.
+var recovered := {}
+
+## `console` on the web, so the log is in the place a frozen tab can still be
+## asked about. DevTools attaches to a wedged page and keeps what was printed
+## before the wedge, which is the interesting part.
+var _console: JavaScriptObject = null
+
 var _file: FileAccess = null
 var _started_ms := 0
 var _recording := false
 var _dropped := 0
 var _booted := false
 
-## How many children the root has before the game is added: this autoload and the
-## three before it. Dev is registered last, so at its own _ready() that is all
-## of them.
-var _autoloads := 0
 var _last_window := Vector2i.ZERO
 var _last_fleet := ""
 
@@ -68,7 +80,6 @@ func _ready() -> void:
 		return
 
 	_started_ms = Time.get_ticks_msec()
-	_autoloads = get_tree().root.get_child_count()
 	# Headless is the test suite and the balance tools. Nothing there is a
 	# playtest, and a log file per test run is litter.
 	_recording = DisplayServer.get_name() != "headless"
@@ -101,14 +112,21 @@ func _process(_delta: float) -> void:
 		# header and the menu want it: the header records the layout the run
 		# opened in, and the menu needs something to sit on top of.
 		#
-		# The wait is for the root to gain a child that is not an autoload,
-		# rather than for `current_scene`, which is only set for a scene the
-		# engine loaded itself. A tool that instantiates `main.tscn` and adds it
-		# by hand leaves `current_scene` null forever, and the menu would then
-		# never appear in the one place it can be looked at on a phone-sized
-		# screen. Adding a node runs its `_ready()` there and then, so by the
-		# time the count moves, `Main` has already applied the layout.
-		if get_tree().root.get_child_count() <= _autoloads:
+		# The wait is for a root child that is not an autoload, rather than for
+		# `current_scene`, which is only set for a scene the engine loaded
+		# itself. A tool that instantiates `main.tscn` and adds it by hand
+		# leaves `current_scene` null forever, and the menu would then never
+		# appear in the one place it can be looked at on a phone-sized screen.
+		#
+		# **Asked as a question, never counted.** This used to record the root's
+		# child count during `_ready()` and wait for it to go up, on the reasoning
+		# that an autoload registered last sees only the autoloads. That is true
+		# on the desktop and false in a browser, where `Main` is already parented
+		# by the time this `_ready()` runs: the count was captured one too high,
+		# nothing ever exceeded it, and `_boot()` never ran. **The playtest log
+		# and the dev menu did not exist in any web build** — no log, no chip, no
+		# way in, and no error to say so, on the one platform the testers use.
+		if not _game_exists():
 			return
 		_booted = true
 		_boot()
@@ -123,14 +141,28 @@ func _process(_delta: float) -> void:
 		_record_view()
 
 
+## True once something that is not an autoload is sitting under the root.
+##
+## An autoload's node is named exactly after the `autoload/<name>` setting that
+## registered it, so the tree can be asked which of its children are game rather
+## than told a number that only happens to be right on one platform.
+func _game_exists() -> bool:
+	for child in get_tree().root.get_children():
+		if not ProjectSettings.has_setting("autoload/%s" % child.name):
+			return true
+	return false
+
+
 func _boot() -> void:
 	_open_file()
+	_open_store()
 
 	record(&"RUN", "Blacktide Tactics, %s" % Time.get_datetime_string_from_system(false, true))
 	record(&"RUN", "%s, Godot %s" % [OS.get_name(),
 		Engine.get_version_info().get("string", "?")])
 	if log_path != "":
 		record(&"RUN", "log: %s" % ProjectSettings.globalize_path(log_path))
+	_announce_recovery()
 
 	# The opening state, recorded rather than replayed. `GameState.start_game()`
 	# runs inside its own `_ready()`, which is before this autoload's, so the
@@ -177,6 +209,14 @@ func record(tag: StringName, text_: String) -> void:
 			lines.append("[  ..   ] TRIM   past %d lines; the oldest are being dropped"
 				% MAX_LINES)
 
+	# Out of the heap before the frame ends. Both of these are the web's
+	# substitute for the flush below, and neither can be skipped for being
+	# expensive: the lines are only ever worth having if the last one survived.
+	if store != null:
+		store.append(line)
+	if _console != null:
+		_console.log(line)
+
 	if _file == null:
 		return
 	_file.store_line(line)
@@ -204,6 +244,41 @@ func _open_file() -> void:
 	log_path = path
 
 
+## Opens browser storage and the console mirror. Both are web-only, and both are
+## no-ops that cost nothing anywhere else.
+func _open_store() -> void:
+	if not OS.has_feature("web"):
+		return
+
+	var opened := DevStore.new()
+	if not opened.available():
+		return
+	opened.open()
+	store = opened
+	recovered = store.recover()
+
+	_console = JavaScriptBridge.get_interface("console")
+
+
+## Says in the log, and on screen, that the last session left something behind.
+##
+## The toast is the point. A recovery button nobody knows to press is the same
+## as no recovery button, and the tester who needs it is the one whose game just
+## locked up and who has already reloaded to get out of it.
+func _announce_recovery() -> void:
+	if recovered.is_empty():
+		return
+
+	var ended := "ended cleanly" if bool(recovered.get("clean", false)) else "STOPPED DEAD"
+	record(&"PREV", "last session (%s) %s, %d lines kept%s" % [
+		String(recovered.get("started", "?")), ended, int(recovered.get("count", 0)),
+		", the oldest dropped" if bool(recovered.get("trimmed", false)) else ""])
+
+	if bool(recovered.get("clean", false)):
+		return
+	GameState.notify("Last session stopped dead — DEV » RECOVER LAST", &"warn")
+
+
 ## The whole log as one string, for the clipboard and the download.
 func text() -> String:
 	return "\n".join(lines)
@@ -220,6 +295,34 @@ func download() -> void:
 	var stamp := Time.get_datetime_string_from_system(false, false).replace(":", "")
 	JavaScriptBridge.download_buffer(text().to_utf8_buffer(),
 		"playtest_%s.log" % stamp, "text/plain")
+
+
+## The recovered log, with a header saying which session it is and how it ended.
+##
+## The header matters more than it looks: a log arriving by chat message with no
+## end marker is indistinguishable from one whose owner got bored and closed the
+## tab, and the whole reason for keeping it is to know which of those happened.
+func recovered_text() -> String:
+	if recovered.is_empty():
+		return ""
+	return "\n".join([
+		"---- recovered from the previous session ----",
+		"started: %s" % String(recovered.get("started", "?")),
+		"ended:   %s" % ("cleanly" if bool(recovered.get("clean", false))
+			else "abruptly — frozen, crashed, or the tab was killed"),
+		"lines:   %d%s" % [int(recovered.get("count", 0)),
+			" (the oldest were dropped)" if bool(recovered.get("trimmed", false)) else ""],
+		"",
+		String(recovered.get("text", "")),
+	])
+
+
+## Hands the previous session's log over the same way as the live one.
+func download_recovered() -> void:
+	if recovered.is_empty() or not OS.has_feature("web"):
+		return
+	JavaScriptBridge.download_buffer(recovered_text().to_utf8_buffer(),
+		"playtest_previous.log", "text/plain")
 
 
 # =============================================================================

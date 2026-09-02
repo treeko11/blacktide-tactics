@@ -174,6 +174,254 @@ func test_the_chip_stays_reachable_after_a_rotation() -> void:
 	menu.free()
 
 
+## The log and the menu wait for the game to exist. They must not do it by
+## counting.
+##
+## `Dev` used to record the root's child count during its own `_ready()` and wait
+## for it to go up, on the reasoning that an autoload registered last sees only
+## the autoloads. In a browser that is false — `Main` is already parented by
+## then — so the count was captured one too high, nothing ever exceeded it, and
+## `_boot()` never ran. The log, the DEV chip and the whole menu were absent from
+## every web build, silently, on the only platform the playtesters use.
+func test_the_game_is_found_by_asking_the_tree_not_by_counting_it() -> void:
+	var root: Node = Engine.get_main_loop().root
+
+	# The suite parents nothing of its own here, so what is under the root is the
+	# autoloads — and the autoloads are not a game.
+	assert_false(Dev._game_exists(),
+		"an autoload reads as the game, so the log would boot before there is one")
+
+	# The browser case. Nothing is going to *arrive*: it is already standing
+	# there, and has to be recognised where it stands.
+	var stand_in := Control.new()
+	stand_in.name = "Main"
+	root.add_child(stand_in)
+
+	assert_true(Dev._game_exists(),
+		"a game already under the root went unnoticed, which is the web bug")
+
+	root.remove_child(stand_in)
+	stand_in.free()
+
+
+# =============================================================================
+#  The web log
+# =============================================================================
+#
+#  On the web the playtest log lives in the WASM heap, and the only two ways out
+#  of it are Godot buttons. The export runs single-threaded, so a hang in the
+#  game's main loop is a hang of the whole page: no button, no timer, no
+#  JavaScript. A crash is worse — it takes the heap and the log together. Either
+#  way the log was gone at exactly the moment it was worth reading, which is what
+#  `DevStore` exists to fix.
+#
+#  None of that can be tested through a browser from here, so the storage is
+#  injected and these drive the real class against a Dictionary. A store that
+#  looks perfect and records nothing is the DPS-meter problem, so every
+#  assertion below is on what came back out.
+
+
+## Stands in for `localStorage`, with the same shape the browser backend has.
+class FakeStorage:
+	var data := {}
+
+	func put(key: String, value: String) -> void:
+		data[key] = value
+
+	func take(key: String) -> Variant:
+		return data.get(key, null)
+
+	func drop(key: String) -> void:
+		data.erase(key)
+
+
+func _store(disk: FakeStorage) -> DevStore:
+	return DevStore.new(disk.put, disk.take, disk.drop)
+
+
+## The last line before the freeze is the whole point.
+func test_the_store_holds_the_line_it_just_wrote() -> void:
+	var disk := FakeStorage.new()
+
+	var first := _store(disk)
+	first.open()
+	first.append("[00:00.0] RUN    started")
+	first.append("[00:12.3] BUY    Old Anchor Ned")
+	# No mark_clean: this is a session that stopped dead, which is the case
+	# worth recovering.
+
+	var next := _store(disk)
+	next.open()
+	var found := next.recover()
+
+	assert_false(found.is_empty(), "nothing survived the session")
+	assert_true(String(found.get("text", "")).ends_with("BUY    Old Anchor Ned"),
+		"the last line written is missing, which is the only one that matters: %s"
+		% found.get("text", ""))
+	assert_eq(int(found.get("count", 0)), 2)
+	assert_false(bool(found.get("clean", true)),
+		"a session that never sealed must read as having stopped dead")
+
+
+## A sealed session is one the player walked away from, not a freeze.
+func test_a_sealed_session_reads_as_a_clean_exit() -> void:
+	var disk := FakeStorage.new()
+
+	var first := _store(disk)
+	first.open()
+	first.append("[00:00.0] RUN    started")
+	# What the page's own `pagehide` does on a real exit.
+	first.mark_clean()
+
+	var next := _store(disk)
+	next.open()
+
+	assert_true(bool(next.recover().get("clean", false)),
+		"a sealed session must not be reported as a crash")
+
+
+## Past what a bank holds, the oldest go and the newest stay.
+func test_a_long_session_keeps_its_tail() -> void:
+	var disk := FakeStorage.new()
+	var capacity := DevStore.CHUNKS * DevStore.CHUNK_LINES
+
+	var first := _store(disk)
+	first.open()
+	for i in capacity + 100:
+		first.append("line %04d" % i)
+
+	var next := _store(disk)
+	next.open()
+	var found := next.recover()
+	var text := String(found.get("text", ""))
+
+	assert_true(bool(found.get("trimmed", false)),
+		"a session past the ring must say that it was trimmed")
+	assert_true(text.ends_with("line %04d" % (capacity + 99)),
+		"the newest line was dropped instead of the oldest")
+	assert_false(text.contains("line 0000"),
+		"the ring kept the oldest line, so it is not bounded")
+	assert_eq(text.split("\n").size(), capacity,
+		"the ring holds a different number of lines than it claims")
+
+
+## Two sessions are kept, not one. The banks alternate for this reason: a launch
+## must not be able to destroy the log of the launch that went wrong, and the
+## tester's next act after a freeze is to reload.
+func test_a_new_run_cannot_destroy_the_session_before_it() -> void:
+	var disk := FakeStorage.new()
+
+	var first := _store(disk)
+	first.open()
+	first.append("the oldest session")
+
+	var second := _store(disk)
+	second.open()
+	second.append("the session that froze")
+
+	var third := _store(disk)
+	third.open()
+	var found := third.recover()
+
+	assert_true(String(found.get("text", "")).contains("the session that froze"),
+		"the run before this one was overwritten")
+	assert_false(String(found.get("text", "")).contains("the oldest session"),
+		"two runs back is still being reported as the previous one")
+
+
+## And the thing that feeds it. `record()` writing to the heap and nowhere else
+## is the bug this whole section exists to close, and it would look identical
+## from every other angle.
+func test_recording_a_line_puts_it_in_the_store() -> void:
+	var disk := FakeStorage.new()
+	var store := _store(disk)
+	store.open()
+
+	# Headless is not a playtest, so `Dev` is deliberately not recording. Both
+	# are put back below.
+	var was_recording: bool = Dev._recording
+	var was_store: DevStore = Dev.store
+	var was_lines: int = Dev.lines.size()
+	Dev._recording = true
+	Dev.store = store
+
+	Dev.record(&"TEST", "a line that has to reach storage")
+
+	Dev._recording = was_recording
+	Dev.store = was_store
+	Dev.lines.resize(was_lines)
+
+	var next := _store(disk)
+	next.open()
+	assert_true(String(next.recover().get("text", "")).contains(
+		"a line that has to reach storage"),
+		"Dev.record kept the line in the heap and nowhere a crash cannot reach")
+
+
+## A recovered log nobody can reach is the same as no recovered log.
+##
+## The button only exists when there is something to recover, which on the
+## desktop is never — the file there outlived whatever happened to the game — so
+## this is the only place it is ever built outside a browser.
+func test_the_menu_offers_a_recovered_session() -> void:
+	var was: Dictionary = Dev.recovered
+	Dev.recovered = {
+		"text": "[00:00.0] RUN    started",
+		"count": 41,
+		"started": "2026-09-02 10:00:00",
+		"clean": false,
+		"trimmed": false,
+	}
+
+	var menu := DevMenu.new()
+	Engine.get_main_loop().root.add_child(menu)
+	# The pages are built when the menu opens, not when it is constructed.
+	menu._toggle(true)
+	var labels := PackedStringArray()
+	_collect_button_labels(menu, labels)
+
+	Dev.recovered = was
+
+	var found := false
+	for label in labels:
+		if label.begins_with("RECOVER LAST"):
+			found = true
+	assert_true(found, "no way to reach the previous session's log, got: %s"
+		% ", ".join(labels))
+
+	menu.free()
+
+
+## And that it hands over the log rather than a summary of it. The header is
+## worth its lines: a log arriving with no end marker cannot be told from one
+## whose owner simply closed the tab, which is the question being asked.
+func test_the_recovered_log_says_how_the_session_ended() -> void:
+	var was: Dictionary = Dev.recovered
+	Dev.recovered = {
+		"text": "[00:00.0] RUN    started\n[01:02.3] BUY    Old Anchor Ned",
+		"count": 2,
+		"started": "2026-09-02 10:00:00",
+		"clean": false,
+		"trimmed": true,
+	}
+	var text: String = Dev.recovered_text()
+	Dev.recovered = was
+
+	assert_true(text.contains("abruptly"),
+		"a session that stopped dead is not reported as one: %s" % text)
+	assert_true(text.contains("Old Anchor Ned"),
+		"the header replaced the log instead of introducing it")
+	assert_true(text.contains("oldest were dropped"),
+		"a trimmed log does not say that it is one")
+
+
+func _collect_button_labels(node: Node, into: PackedStringArray) -> void:
+	for child in node.get_children():
+		if child is Button:
+			into.append((child as Button).text)
+		_collect_button_labels(child, into)
+
+
 ## Every visible Control under `node` that would take a click.
 func _collect_visible_blockers(node: Node, path: String, into: PackedStringArray) -> void:
 	for child in node.get_children():

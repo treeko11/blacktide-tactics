@@ -235,8 +235,14 @@ func _rebuild() -> void:
 
 
 func _refresh_status() -> void:
-	var where := "log in memory only (web)" if Dev.log_path == "" \
-		else ProjectSettings.globalize_path(Dev.log_path)
+	var where := ProjectSettings.globalize_path(Dev.log_path)
+	if Dev.log_path == "":
+		# It said "memory only" here, which stopped being true when the log
+		# started going into browser storage a line at a time — and which was the
+		# discouraging half of the message, since memory is precisely what a
+		# freeze takes with it.
+		where = "log kept in browser storage" if Dev.store != null \
+			else "log in memory only (no browser storage)"
 	_status.text = "%d-%d %s  ·  level %d  ·  %d gold  ·  %d hull\n%d log lines  ·  %s" % [
 		GameState.stage, GameState.round_number, String(GameState.round_type()),
 		GameState.player.level, GameState.player.gold, GameState.player.hp,
@@ -303,6 +309,17 @@ func _build_root_page() -> void:
 	])
 	_note_line(log_box, "MARK drops a divider in the log, for pointing at the "
 		+ "moment something went wrong.")
+
+	# Only when there is something to recover, which on the desktop is never:
+	# there the log is a file that outlived whatever happened to the game.
+	if not Dev.recovered.is_empty():
+		var ended: String = "ended cleanly" if bool(Dev.recovered.get("clean", false)) \
+			else "STOPPED DEAD"
+		_row(log_box, [["RECOVER LAST (%d)" % int(Dev.recovered.get("count", 0)),
+			_recover_log]])
+		_note_line(log_box, "The previous session %s. Its log survived in browser "
+			% ended + "storage, which is the only copy a freeze or a crash leaves "
+			+ "behind — the buttons above can only reach this run's.")
 
 
 func _build_champion_page() -> void:
@@ -699,6 +716,17 @@ func _download_log() -> void:
 			% ProjectSettings.globalize_path(Dev.log_path), &"good")
 		return
 	Dev.download()
+
+
+func _recover_log() -> void:
+	if OS.has_feature("web"):
+		Dev.download_recovered()
+		return
+	# Nowhere but the web ever fills this, but the clipboard is the honest
+	# fallback if that changes: a download on the desktop is a file the player
+	# has to be told the location of anyway.
+	DisplayServer.clipboard_set(Dev.recovered_text())
+	GameState.notify("Previous session copied", &"good")
 
 
 func _mark() -> void:

@@ -556,6 +556,7 @@ the game.
 | Piece | What it is |
 |---|---|
 | `scripts/dev/dev.gd` | The `Dev` autoload. Writes a playtest log |
+| `scripts/dev/dev_store.gd` | The same log, mirrored into browser storage |
 | `scripts/dev/dev_menu.gd` | The cheat panel, opened by the DEV chip |
 | `tests/test_dev.gd` | The invariants below |
 
@@ -581,9 +582,23 @@ the one signal skipped; it fires thirty times a second and says nothing.
 
 On the desktop it is written to `user://playtests/playtest_<stamp>.log`, flushed
 every line, because the part of a playtest log worth having is the last few lines
-before whatever went wrong. On the **web there is no reachable filesystem**, so it
-is kept in memory and leaves through the menu's COPY LOG and DOWNLOAD LOG
-buttons. MARK drops a divider in it, for pointing at a moment.
+before whatever went wrong. On the **web there is no reachable filesystem**, so
+the same argument runs the other way: the log is in the WASM heap, the menu's
+COPY LOG and DOWNLOAD LOG are Godot buttons, and the export is single-threaded —
+so a hang inside the game's main loop is a hang of the page, and there is no
+button, no timer and no JavaScript left to press it with. A crash is worse; it
+takes the heap and the log together. **Both of the ways a playtest ends badly
+were the two the log could not survive.**
+
+So every line also goes into `localStorage` as it is written (`dev_store.gd`),
+and into `console.log`, which is where a wedged tab can still be asked. Two
+banks alternate, so a launch cannot destroy the log of the launch that went
+wrong — the tester's next act after a freeze is to reload. The next run says
+`STOPPED DEAD` in a toast and grows a **RECOVER LAST** button in the menu, which
+downloads it: a tester who has just been frozen out should not need DevTools.
+`pagehide` writes a "clean" marker, and its **absence** is the signal — a page
+killed under a hang never runs it. MARK still drops a divider in it, for pointing
+at a moment.
 
 It stands down in two situations, both deliberate. Headless is the test suite and
 the balance tools, and none of those is a playtest. And the **menu** hides under
@@ -594,6 +609,16 @@ layouts.
 
 ### Rules the menu already broke once each
 
+- **Ask the tree whether the game exists; never count its children.** `Dev` waits
+  for the game before it opens the log or adds the chip, and it used to do that
+  by recording the root's child count during its own `_ready()` and waiting for
+  the number to go up — sound on the desktop, where an autoload registered last
+  sees only autoloads. **In a browser `Main` is already parented by then.** The
+  count came out one too high, nothing ever exceeded it, and `_boot()` never ran:
+  no log, no chip, no menu, no error, in *every web build ever exported* — the
+  only platform the playtesters use. `_game_exists()` now asks which root
+  children are autoloads (their nodes are named after the `autoload/<name>`
+  setting) instead of assuming how many there will be.
 - **It is the one place allowed to mutate `GameState` outside `Main`.** A cheat
   panel is by definition a second path from a click to a change. Routing it
   through `Main` would spread code that has to be deleted across a file that
