@@ -366,8 +366,7 @@ func _breadcrumb() -> String:
 
 
 func _fill_list(rows: Array) -> void:
-	for child in _list.get_children():
-		child.queue_free()
+	UITheme.clear_children(_list)
 
 	var group := ""
 	for entry in rows:

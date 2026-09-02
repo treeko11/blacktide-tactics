@@ -1033,13 +1033,26 @@ func attack(u: SimUnit, target: SimUnit) -> void:
 		hook.call(u, target)
 
 
-## Runs the whole fight immediately. Used for the bot matches nobody watches.
-func run_to_end() -> int:
-	var cap := int(TIME_LIMIT / TICK) + 10
+## Advances at most `max_steps` ticks, stopping early if the fight ends. Returns
+## true once it has.
+##
+## The unwatched fights use this rather than running in one go. Six of them
+## resolved inside a single frame is a third of a second of the game not
+## responding on a desktop, and several times that in a browser — for work
+## nobody is looking at, during a fight the player *is* looking at, which has
+## hundreds of frames to spare.
+func advance(max_steps: int) -> bool:
 	var n := 0
-	while not done and n < cap:
+	while not done and n < max_steps:
 		step()
 		n += 1
+	return done
+
+
+## Runs the whole fight immediately. The tools use it, and so does the last
+## moment before a result is needed from a fight still part way through.
+func run_to_end() -> int:
+	advance(int(TIME_LIMIT / TICK) + 10)
 	done = true
 	return winner
 

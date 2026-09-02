@@ -53,8 +53,7 @@ class TraitPanel extends VBoxContainer:
 		refresh()
 
 	func refresh() -> void:
-		for child in _rows.get_children():
-			child.queue_free()
+		UITheme.clear_children(_rows)
 
 		var traits: Array = GameState.board_traits()
 		if traits.is_empty():
@@ -195,8 +194,7 @@ class HoldPanel extends VBoxContainer:
 
 	func refresh() -> void:
 		_forget_stale()
-		for child in _grid.get_children():
-			child.queue_free()
+		UITheme.clear_children(_grid)
 
 		if GameState.player.items.is_empty():
 			if _compact:
@@ -297,6 +295,10 @@ class FleetPanel extends VBoxContainer:
 	signal captain_hovered(captain: Captain, at: Vector2)
 	signal captain_unhovered()
 
+	## How many lines of the log are kept on screen. `GameState` keeps sixty; this
+	## is what fits in the column without the panel becoming the whole run.
+	const MAX_LOG_LINES := 40
+
 	var _rows: VBoxContainer = null
 	var _log: VBoxContainer = null
 
@@ -325,8 +327,7 @@ class FleetPanel extends VBoxContainer:
 		refresh()
 
 	func refresh() -> void:
-		for child in _rows.get_children():
-			child.queue_free()
+		UITheme.clear_children(_rows)
 
 		var captains := GameState.everyone()
 		captains.sort_custom(func(a, b):
@@ -347,8 +348,10 @@ class FleetPanel extends VBoxContainer:
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_log.add_child(line)
 		_log.move_child(line, 0)
-		while _log.get_child_count() > 40:
-			_log.get_child(_log.get_child_count() - 1).queue_free()
+		# Was a `while` on the child count, which never terminated: see
+		# `UITheme.trim_children`. The log passes forty lines a few rounds into
+		# every run, and the game locked up on the frame it did.
+		UITheme.trim_children(_log, MAX_LOG_LINES)
 
 
 class CaptainRow extends PanelContainer:

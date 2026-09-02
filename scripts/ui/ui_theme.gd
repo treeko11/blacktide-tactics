@@ -214,6 +214,49 @@ static func button(text: String, size: int = FONT_SMALL) -> Button:
 	return node
 
 
+## Empties a container, detaching each child before freeing it.
+##
+## **`queue_free()` does not remove the node.** It marks it and deletes it at the
+## end of the frame, so until then it is still a child, still counted by
+## `get_child_count()`, still holding an index, and still drawn. Every panel here
+## clears itself and refills in the same call, so a panel that only queued its
+## old rows spends that frame showing both sets.
+##
+## The `while` version of that mistake is far worse and cost this project a day:
+## see `trim_children` below.
+static func clear_children(box: Node) -> void:
+	for child in box.get_children():
+		box.remove_child(child)
+		child.queue_free()
+
+
+## Cuts a container down to `limit` children, freeing the surplus.
+##
+## Which end goes depends on which end is newest: the log puts each new line at
+## index 0 and loses them off the bottom, a stack of toasts appends and loses
+## them off the top, so `from_front` says which.
+##
+## **The number of children to drop is counted once, before anything is freed.**
+## The obvious way to write this is
+##
+##     while box.get_child_count() > limit:
+##         box.get_child(box.get_child_count() - 1).queue_free()
+##
+## and that is an infinite loop, because `queue_free()` is deferred and the count
+## it is waiting on never changes. It spins at 100% of a core, pushing the same
+## node onto the scene tree's delete queue millions of times a second until
+## memory runs out. That was the freeze the log panel hit on its forty-first
+## line — a few rounds into every run, on every device, with no error to show for
+## it. Written this way the loop cannot spin whatever the body does, which is the
+## only reason to prefer it.
+static func trim_children(box: Node, limit: int, from_front: bool = false) -> void:
+	var excess := box.get_child_count() - limit
+	for i in maxi(0, excess):
+		var dropped := box.get_child(0 if from_front else box.get_child_count() - 1)
+		box.remove_child(dropped)
+		dropped.queue_free()
+
+
 static func spacer(minimum: float = 0.0) -> Control:
 	var node := Control.new()
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL

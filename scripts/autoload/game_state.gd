@@ -26,6 +26,16 @@ const PLAN_SECONDS := 32.0
 ## it ran low. Rounds ended mid-purchase.
 const WARNING_SECONDS := 8.0
 
+## Ticks given to each unwatched fight per frame while the player watches theirs.
+##
+## Six fights resolved in one go is up to 7,600 ticks in a single frame: a third
+## of a second of a still window on a desktop by stage 5, and several times that
+## in a browser, where it reads as the game having crashed. A fight the player is
+## watching lasts hundreds of frames, and this is the work of the round spread
+## across them — eight ticks each is enough to finish every one of them inside
+## four seconds of a fight, and costs a fraction of a millisecond a frame.
+const UNWATCHED_STEPS_PER_FRAME := 8
+
 ## How long the result banner holds before the next planning phase.
 const RESULT_SECONDS := 2.6
 const POST_COMBAT_SECONDS := 1.3
@@ -77,6 +87,12 @@ var shop_locked: bool = false
 var pool: Dictionary = {}
 
 var sim: Sim = null
+
+## The six fights nobody watches, stepped alongside the one that is.
+##
+## Each entry is { "sim": Sim, "a": Bot, "b": Bot }, with `b` null on a monster
+## round. They are opened when the player's fight starts and read when it ends.
+var _bot_fights: Array = []
 
 ## The last fight's meter rows and how long it ran, kept after the sim is thrown
 ## away. The player reads the DPS meter in the aftermath and through the planning
@@ -780,6 +796,7 @@ func _tick_planning(delta: float) -> void:
 func _tick_combat(delta: float) -> void:
 	if sim == null:
 		return
+	_step_bot_fights()
 	if not sim.done:
 		_sim_accumulator += delta * speed
 		var steps := 0
@@ -836,6 +853,12 @@ func _start_combat() -> void:
 	_dispose_sim()
 	sim = Sim.new(content, my_board, enemy_board, true, rng.randi())
 
+	# The rest of the lobby's fights are built now and stepped alongside this one.
+	# They used to be run in one go the moment this fight ended, which by stage 5
+	# was a third of a second of nothing responding, every round, on the frame the
+	# player was waiting for a result.
+	_open_bot_fights()
+
 	# The phase is announced last, so anything listening for it finds the fight
 	# already built rather than a null sim.
 	_set_phase(Phase.COMBAT)
@@ -845,6 +868,11 @@ func _dispose_sim() -> void:
 	if sim != null:
 		sim.dispose()
 		sim = null
+	# The unwatched fights are the same web of RefCounted holding each other, and
+	# there are six of them for every one of these.
+	for fight in _bot_fights:
+		fight["sim"].dispose()
+	_bot_fights.clear()
 
 
 # --- resolving it ------------------------------------------------------------
@@ -893,7 +921,7 @@ func _resolve_combat() -> void:
 		else:
 			opponent_bot.record_result(true)
 
-	_resolve_bot_fights()
+	_close_bot_fights()
 	_check_eliminations()
 
 	Events.round_resolved.emit(won, damage, opponent_name)
@@ -932,24 +960,30 @@ func _player_loot() -> void:
 	log_line("Salvage: %s and %d gold." % [", ".join(names), gold], &"good")
 
 
-## The six fights nobody watches. Resolved headless, at no rendering cost.
-func _resolve_bot_fights() -> void:
+## Builds the six fights nobody watches, without running any of them.
+##
+## They are resolved headless, at no rendering cost, and now at no *frame* cost
+## either: each is stepped a little at a time while the player watches their own.
+##
+## Who fights whom is decided here rather than at the end, which is the one thing
+## that changed: the player's opponent is already known by now, and the bots do
+## not act again between here and the result, so the matches are the same ones
+## the old code would have made.
+func _open_bot_fights() -> void:
+	_bot_fights.clear()
+
 	if round_type() == &"pve":
 		for b in bots:
 			if not b.alive:
 				continue
-			var bot_sim := Sim.new(content, b.formation(), creep_wave(), false, rng.randi())
-			bot_sim.run_to_end()
-			if bot_sim.winner == Sim.Result.PLAYER_WIN:
-				b.record_result(true)
-				b.gold += 1
-			else:
-				var d := stage_damage()
-				for u in bot_sim.survivors(Sim.Team.ENEMY):
-					d += u.star
-				b.hp -= d
-				b.record_result(false)
-			bot_sim.dispose()
+			# A fresh wave each, rather than one array handed to seven sims. The
+			# contents are identical either way; not sharing it is what keeps that
+			# true if a sim ever takes the list apart as it seats it.
+			_bot_fights.append({
+				"sim": Sim.new(content, b.formation(), creep_wave(), false, rng.randi()),
+				"a": b,
+				"b": null,
+			})
 		return
 
 	var pool_of_bots: Array[Bot] = []
@@ -966,20 +1000,63 @@ func _resolve_bot_fights() -> void:
 	while pool_of_bots.size() >= 2:
 		var a: Bot = pool_of_bots.pop_back()
 		var b: Bot = pool_of_bots.pop_back()
-		var bot_sim := Sim.new(content, a.formation(), b.formation(), false, rng.randi())
-		bot_sim.run_to_end()
+		_bot_fights.append({
+			"sim": Sim.new(content, a.formation(), b.formation(), false, rng.randi()),
+			"a": a,
+			"b": b,
+		})
 
+	# The odd one out sits the round out, as it always did.
+	if pool_of_bots.size() == 1:
+		pool_of_bots[0].last_result = 0
+
+
+## A slice of each unwatched fight, once a frame, while the player watches theirs.
+func _step_bot_fights() -> void:
+	for fight in _bot_fights:
+		var bot_sim: Sim = fight["sim"]
+		if not bot_sim.done:
+			bot_sim.advance(UNWATCHED_STEPS_PER_FRAME)
+
+
+## Reads the results off, finishing anything still running.
+##
+## A fight that is not done by now is one the player's own ended before: a rout
+## in four seconds leaves the rest half fought, and their results are needed on
+## this frame. That remainder is the only part still paid for in one go, and it
+## is a fraction of what the whole round used to cost here.
+func _close_bot_fights() -> void:
+	for fight in _bot_fights:
+		var bot_sim: Sim = fight["sim"]
+		if not bot_sim.done:
+			bot_sim.run_to_end()
+
+		var a: Bot = fight["a"]
+		var b: Variant = fight["b"]
+
+		if b == null:
+			if bot_sim.winner == Sim.Result.PLAYER_WIN:
+				a.record_result(true)
+				a.gold += 1
+			else:
+				var d := stage_damage()
+				for u in bot_sim.survivors(Sim.Team.ENEMY):
+					d += u.star
+				a.hp -= d
+				a.record_result(false)
+			continue
+
+		var other: Bot = b
 		if bot_sim.winner == Sim.Result.DRAW:
 			a.hp -= 2
-			b.hp -= 2
+			other.hp -= 2
 			a.record_result(false, true)
-			b.record_result(false, true)
-			bot_sim.dispose()
+			other.record_result(false, true)
 			continue
 
 		var a_won := bot_sim.winner == Sim.Result.PLAYER_WIN
-		var winner := a if a_won else b
-		var loser := b if a_won else a
+		var winner := a if a_won else other
+		var loser := other if a_won else a
 		var d := stage_damage()
 		for u in bot_sim.survivors(Sim.Team.PLAYER if a_won else Sim.Team.ENEMY):
 			d += u.star + (1 if u.def.cost >= 4 else 0)
@@ -987,10 +1064,10 @@ func _resolve_bot_fights() -> void:
 		loser.record_result(false)
 		winner.record_result(true)
 		winner.gold += 1
-		bot_sim.dispose()
 
-	if pool_of_bots.size() == 1:
-		pool_of_bots[0].last_result = 0
+	for fight in _bot_fights:
+		fight["sim"].dispose()
+	_bot_fights.clear()
 
 
 func _check_eliminations() -> void:

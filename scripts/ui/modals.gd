@@ -96,10 +96,8 @@ func close() -> void:
 
 
 func _clear() -> void:
-	for child in _content.get_children():
-		child.queue_free()
-	for child in _actions.get_children():
-		child.queue_free()
+	UITheme.clear_children(_content)
+	UITheme.clear_children(_actions)
 
 
 func _open(title: String, subtitle: String, dismissable: bool = true) -> void:

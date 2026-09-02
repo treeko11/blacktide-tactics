@@ -73,10 +73,9 @@ func _on_notice(text: String, _style: StringName) -> void:
 
 
 func _push(icon: String, body: String, heading: String, accent: Color) -> void:
-	while get_child_count() >= MAX_VISIBLE:
-		var oldest := get_child(0)
-		remove_child(oldest)
-		oldest.queue_free()
+	# Detaching before freeing is what makes this terminate; `trim_children` is
+	# the same rule written so that it cannot stop being true.
+	UITheme.trim_children(self, MAX_VISIBLE - 1, true)
 
 	var toast := Toast.new()
 	toast.build(icon, body, heading, accent)

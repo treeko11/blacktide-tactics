@@ -25,6 +25,7 @@ that needs no engine, and say plainly in the commit message that code is
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
 | `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
+| `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
@@ -161,6 +162,17 @@ Each of these cost a debugging session or settles a design argument.
   speed is *used*, so removing a buff restores the original value exactly.
   Clamping on the way in loses the difference and leaves the unit permanently
   slower than it started.
+- **The six unwatched fights are stepped alongside the one that is watched, not
+  resolved in a burst.** `run_to_end()` on all of them at the end of a round is up
+  to 7,600 ticks in a single frame: by stage 5 that measured a third of a second
+  of a still window on the desktop, and several times that in a browser, on the
+  frame the player is waiting for their own result. `_open_bot_fights` builds them
+  when the player's fight starts, `_step_bot_fights` gives each
+  `UNWATCHED_STEPS_PER_FRAME` ticks a frame while the player watches theirs, and
+  `_close_bot_fights` reads the results, finishing anything a short fight left
+  half-run. Nothing about the outcomes changes — the same pairings, the same seeds
+  drawn in the same order — only when the work happens. `soak.gd` reports the
+  worst frame of every round, which is how that is kept honest.
 - **`Sim.dispose()` must be called on a finished fight.** A battle builds
   reference cycles — `target` points at another unit, every hook is a lambda that
   captured its unit, every pending delayed call captured the caster — and
@@ -253,6 +265,18 @@ Each of these cost a debugging session or settles a design argument.
   and the round clock came back foam with six seconds left. State that is only
   ever pushed by a signal is the trap — the signal already fired, at a panel that
   no longer exists.
+- **`queue_free()` does not remove the node, and a loop that waits for it never
+  ends.** A queued child is still a child for the rest of the frame: still
+  counted by `get_child_count()`, still holding its index, still drawn. The fleet
+  panel trimmed its log with `while get_child_count() > 40: get_child(...).queue_free()`,
+  and on the forty-first line — a few rounds into every run, on every device —
+  the game locked solid at 100% of a core, pushing the same node onto the delete
+  queue millions of times a second until memory ran out. No error, no crash, just
+  a window that stopped. **Use `UITheme.clear_children` and
+  `UITheme.trim_children`**: both detach before freeing, and `trim_children`
+  counts the surplus *once* so the loop bound can never depend on the thing being
+  deferred. The same "counting the corpses" trap is why `DpsPanel._clear_rows`
+  detaches, and why a panel that clears and refills in one call must too.
 - **`mouse_filter` is per node, so an overlay is only as transparent as its
   children.** `Container` defaults to STOP where `Label` defaults to IGNORE, so
   setting IGNORE on a toast's panel left the two boxes inside it hit-testable:
@@ -505,8 +529,11 @@ generator only to add something new.
   fails any that changes nothing. That is the net under the riskiest thousand
   lines of the port.
 - `test_hud.gd` holds the invariants whose breakage looks like the game ignoring
-  the player rather than like a bug — currently that nothing in the toast layer
-  can take a click.
+  the player rather than like a bug: that nothing in the toast layer can take a
+  click, that `queue_free()` leaves the child in place (the fact the freeze rested
+  on), that the container helpers take effect immediately, and that the log panel
+  survives passing its limit. **A hang in that last one is the freeze returning**,
+  not a slow test.
 - `test_glyphs.gd` fails any character the web export could not draw. The rule it
   replaces was "check it in the browser", which means exporting, and which is why
   the game shipped twice with tofu where its prices were.

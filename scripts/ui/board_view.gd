@@ -265,8 +265,7 @@ func _closed(points: PackedVector2Array) -> PackedVector2Array:
 # --- units -------------------------------------------------------------------
 
 func clear_units() -> void:
-	for child in units_root.get_children():
-		child.queue_free()
+	UITheme.clear_children(units_root)
 	_views.clear()
 	_sim = null
 

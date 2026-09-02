@@ -22,6 +22,16 @@ extends Node2D
 ## is better than dropping frames.
 const MAX_EFFECTS := 400
 
+## The most segments any one effect may draw.
+##
+## Two effects size a loop from the distance they span: a harpoon pays out a rope
+## link every 14 pixels, a chain a link every 12. On a board 600 across that is
+## fifty at the most — but the sum is `int(span / 14.0)`, so the loop bound is a
+## number that came from somewhere else, and drawing has to stay bounded whatever
+## it is handed. A `for` inside `_draw` with a wrong number in it is a locked
+## window, not a graphical glitch.
+const MAX_SEGMENTS := 64
+
 ## Pixels per second a projectile travels.
 ##
 ## Tuned down from a realistic speed until a shot was actually legible: at
@@ -251,7 +261,7 @@ func _draw_projectile(e: Dictionary, t: float) -> void:
 			var rope_start: Vector2 = e["from"]
 			var rope := pos - forward * 20.0
 			var span := rope_start.distance_to(rope)
-			var links := int(span / 14.0)
+			var links := mini(MAX_SEGMENTS, int(span / 14.0))
 			for i in links:
 				var a := rope_start.lerp(rope, float(i) / maxf(1.0, links))
 				var b := rope_start.lerp(rope, float(i + 0.5) / maxf(1.0, links))
@@ -396,7 +406,7 @@ func _draw_chain(e: Dictionary, t: float) -> void:
 	var alpha := 1.0 - t
 	var from: Vector2 = e["from"]
 	var to: Vector2 = e["at"]
-	var links := maxi(3, int(from.distance_to(to) / 12.0))
+	var links := clampi(int(from.distance_to(to) / 12.0), 3, MAX_SEGMENTS)
 	for i in links:
 		var a := from.lerp(to, float(i) / links)
 		var b := from.lerp(to, (float(i) + 0.55) / links)
