@@ -544,14 +544,32 @@ func _process(delta: float) -> void:
 # second. Returning "" means the subject is gone, and closes the inspector.
 
 func _on_shop_card_hovered(index: int, at: Vector2) -> void:
-	if tooltip.pinned or index >= GameState.shop.size():
+	if tooltip.pinned:
 		return
+	# The one caller that used to hand over a finished string and nothing else,
+	# which made it the one inspector that could not tell it was describing a card
+	# that had gone. Buying empties the slot, so the refresh below returns "" and
+	# closes it — the same way selling a pirate closes the inspector on one.
+	var refresh := func() -> String: return _shop_card_text(index)
+	var text: String = refresh.call()
+	if text == "":
+		return
+	_note_hover(&"shop", text, null, refresh)
+	tooltip.show_text(text, at, shop, refresh)
+
+
+## The card in shop slot `index`, or "" once there is nothing in it.
+##
+## Buying sets the slot to an empty id, so this is what turns a purchase into a
+## closed inspector rather than a panel still describing the pirate that is now
+## on the bench.
+func _shop_card_text(index: int) -> String:
+	if index < 0 or index >= GameState.shop.size():
+		return ""
 	var champion: ChampionDef = GameState.content.champion(GameState.shop[index])
 	if champion == null:
-		return
-	var text := Tooltip.champion_text(champion, 1)
-	_note_hover(&"shop", text)
-	tooltip.show_text(text, at, shop)
+		return ""
+	return Tooltip.champion_text(champion, 1)
 
 
 func _on_roster_unit_hovered(unit: RosterUnit, at: Vector2) -> void:
@@ -716,6 +734,14 @@ func _input(event: InputEvent) -> void:
 			# The inspector only starts swallowing taps now, with the finger off
 			# the glass. Doing it the moment it opened broke every later tap.
 			tooltip.arm_input()
+			# **A finger has no hover, so nothing else would ever close this.**
+			# The emulated cursor stops wherever the tap landed, still inside the
+			# panel that opened the inspector, so the un-hover that closes it on a
+			# desktop never comes: a tooltip opened on the way into a tap stayed up
+			# until the next tap somewhere else. A pinned one is exempt — that was
+			# opened deliberately by a hold and has its own way out.
+			if not tooltip.pinned:
+				_dismiss_inspector()
 	elif event is InputEventScreenDrag and _holding:
 		# Past the slop this is a drag, and dragging a pirate somewhere is not a
 		# request to read about it.

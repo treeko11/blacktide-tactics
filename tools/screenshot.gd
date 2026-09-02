@@ -23,6 +23,8 @@ extends "res://tools/tool_script.gd"
 ##   --briefing       photograph the opening almanac, and assert the run is
 ##                    holding its clock behind it and starts when it closes
 ##   --sfx            fight a real round and assert sound actually came out of it
+##   --sequence=buy   tap a card to buy it, and prove the inspector that opened
+##                    on the way in is gone once the finger is off
 ##   --sequence=forge replay the reported lock-up: read the forge chart, close
 ##                    it, then try to buy from the shop
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
@@ -185,19 +187,59 @@ func _stock_shop(game: Node, ids: PackedStringArray) -> void:
 
 ## One finger down at a point, held for `seconds`, then lifted.
 func _touch(at: Vector2, seconds: float = 0.05) -> void:
+	_touch_down(at)
+	await _frames(maxi(2, roundi(seconds * 60.0)))
+	_touch_up(at)
+	await _frames(4)
+
+
+## The two halves separately, for the checks that have to look at the screen
+## while the finger is still on it.
+func _touch_down(at: Vector2) -> void:
 	var down := InputEventScreenTouch.new()
 	down.index = 0
 	down.pressed = true
 	down.position = at
 	Input.parse_input_event(down)
-	await _frames(maxi(2, roundi(seconds * 60.0)))
 
+
+func _touch_up(at: Vector2) -> void:
 	var up := InputEventScreenTouch.new()
 	up.index = 0
 	up.pressed = false
 	up.position = at
 	Input.parse_input_event(up)
-	await _frames(4)
+
+
+## Moves the pointer, the way a browser does on the way into a tap.
+##
+## A phone's tap is not only a touch: the browser synthesises the compatibility
+## mouse events with it, and the `mousemove` in that set is what makes a control
+## report `mouse_entered` and open the inspector. Godot's own
+## `emulate_mouse_from_touch` sends the button but not the move, so a scripted
+## touch on its own never opens one — and a test of "does the inspector close
+## again" that never opened one passes for the wrong reason.
+func _hover_at(at: Vector2) -> void:
+	# The pointer is actually moved, not merely told about: the inspector closes
+	# itself when `get_viewport().get_mouse_position()` leaves its owner, and that
+	# reports where the pointer *is*, not what was last parsed. A parsed motion
+	# alone opens the inspector and then the next frame closes it again.
+	Input.warp_mouse(at)
+	var motion := InputEventMouseMotion.new()
+	motion.position = at
+	motion.global_position = at
+	Input.parse_input_event(motion)
+
+
+## A left click where the pointer already is.
+func _click_at(at: Vector2) -> void:
+	for pressed in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = pressed
+		click.position = at
+		click.global_position = at
+		Input.parse_input_event(click)
 
 
 func _centre_of(control: Control) -> Vector2:
@@ -235,6 +277,8 @@ func _sequence(game: Node, which: String) -> void:
 			await _frames(4)
 		"almanac":
 			await _browse_the_almanac()
+		"buy":
+			await _tap_to_buy(game)
 		_:
 			fail("unknown sequence '%s'" % which)
 			return
@@ -646,6 +690,102 @@ func _listen_to_a_fight(game: Node) -> void:
 	else:
 		print("  muted: silent")
 	sound.set_muted(was_muted)
+
+
+## Buying a pirate with a tap, and the inspector that opened on the way in.
+##
+## The reported bug: on a phone the card's tooltip stayed up after the purchase,
+## until a tap somewhere else. **A finger has no hover** — the emulated cursor
+## stops wherever the tap landed, still inside the shop, so the un-hover that
+## closes an inspector on a desktop never arrives.
+##
+## Both halves are asserted, and in this order, because either one alone passes
+## for the wrong reason: an inspector that never opened is not a fix, and a tap
+## that stopped buying is a worse bug than the one being fixed.
+func _tap_to_buy(game: Node) -> void:
+	game.player.gold = 50
+	events().gold_changed.emit(game.player.gold, 0)
+	await _frames(3)
+
+	var before: int = game.player.gold
+	var card: Control = _scene.shop._cards[1]
+	var at := _centre_of(card)
+
+	_hover_at(at)
+	await _frames(3)
+	_touch_down(at)
+	await _frames(4)
+	var opened: bool = _scene.tooltip.visible
+
+	_touch_up(at)
+	await _frames(8)
+
+	if not opened:
+		fail("the inspector never opened on the way into the tap, so this proves nothing")
+		return
+	if game.player.gold >= before:
+		fail("the tap did not buy anything — gold is still %d" % before)
+		return
+	print("  tapped a card: gold %d -> %d, inspector opened" % [before, game.player.gold])
+
+	if _scene.tooltip.visible:
+		fail("the inspector is still up after buying — stuck until the next tap")
+		return
+	print("  and closed again when the finger came off")
+
+	# The other half, and the one a purchase cannot fix for itself. Buying empties
+	# the slot, so the inspector on a bought card closes because what it was
+	# describing is gone — but a tap that buys *nothing* leaves the card exactly
+	# where it was, and then only the finger coming off the glass can close it.
+	game.player.gold = 0
+	events().gold_changed.emit(0, 0)
+	await _frames(3)
+
+	var other: Control = _scene.shop._cards[2]
+	var elsewhere := _centre_of(other)
+	_hover_at(elsewhere)
+	await _frames(3)
+	_touch_down(elsewhere)
+	await _frames(4)
+	if not _scene.tooltip.visible:
+		fail("the inspector did not open on a card the player cannot afford")
+		return
+	_touch_up(elsewhere)
+	await _frames(8)
+
+	if _scene.tooltip.visible:
+		fail("a tap that bought nothing left the inspector up")
+		return
+	print("  a tap that could not afford anything closed it too")
+
+	# And the desktop half of the same complaint, with no finger involved: the
+	# cursor rests on a card and clicks it. Nothing here closes the inspector on
+	# its own — the pointer has not moved and the card is still under it — so what
+	# has to close it is the card itself being gone, which is the refresh the shop
+	# handler is the only one that used to do without.
+	game.player.gold = 50
+	events().gold_changed.emit(50, 0)
+	await _frames(3)
+
+	var third: Control = _scene.shop._cards[3]
+	var over := _centre_of(third)
+	_hover_at(over)
+	await _frames(4)
+	if not _scene.tooltip.visible:
+		fail("the inspector did not open under the cursor")
+		return
+
+	var gold_before: int = game.player.gold
+	_click_at(over)
+	await _frames(10)
+
+	if game.player.gold >= gold_before:
+		fail("the click did not buy anything")
+		return
+	if _scene.tooltip.visible:
+		fail("the inspector stayed up over a card that has been bought — it is describing a slot that is now empty")
+	else:
+		print("  a mouse click on a card closed it as well")
 
 
 ## The meter with no fight behind it. It has to say so in words and stay

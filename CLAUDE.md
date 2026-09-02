@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
@@ -347,6 +347,18 @@ Each of these cost a debugging session or settles a design argument.
   watches the cursor and has usually closed itself by then. A shop card is the
   only thing a bare tap acts on, so it buys on *release* and skips the release
   that a hold consumed (`ShopBar.swallow_click`).
+- **A finger has no hover, so a tap must close the inspector itself.** The
+  emulated cursor stops wherever the tap landed — still inside the panel that
+  opened the inspector — so the un-hover that closes one on a desktop never
+  arrives, and buying a pirate on a phone left its card's tooltip up until the
+  player tapped somewhere else. `Main._input` dismisses an un-pinned inspector on
+  every touch release; a pinned one is exempt, because that was opened
+  deliberately by a hold and has its own way out. The other half of the same
+  complaint is that **the shop card was the one hover handler that passed no
+  `refresh`**, so it could not tell that the card it described had been bought —
+  `_shop_card_text` returns `""` for an empty slot, which is what closes it. Both
+  halves are replayed by `screenshot.gd --sequence=buy`, and each has an act that
+  fails without it.
 - **The tooltip closes itself.** A tooltip opened by a hover and closed only by
   the matching un-hover stays up forever when the panel underneath rebuilds —
   which the shop does on every purchase. It watches its owner every frame.
