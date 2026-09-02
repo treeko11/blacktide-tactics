@@ -27,6 +27,9 @@ that needs no engine, and say plainly in the commit message that code is
 | `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
+| `art_sheet.gd` | Draws **every champion**, or every body in every animation state (`--poses`). Must run **without** `--headless`. The only check that a polygon still triangulates |
+| `assign_art.gd` | Stamps `ArtTable` into `data/champions/*.tres`. Idempotent, and preserves balance where `generate_content.gd` would not |
+| `crop.gd` | Magnifies a region of a PNG, nearest-neighbour, for looking at the art |
 | `generate_content.gd` | One-time bootstrap that writes `data/*.tres`. See below |
 
 All extend `tools/tool_script.gd`. **Write new tools by extending it** — it
@@ -123,9 +126,10 @@ scripts/core/abilities/            one file per champion (44)
 scripts/core/traits/               one file per trait (13)
 scripts/core/items/                one file per item (20)
 scripts/ui/                        UITheme, Layout, BoardView, UnitView,
-                                   FxLayer, ShopBar, BenchBar, SidePanels,
-                                   TopBar, Tooltip, ToastLayer, Modals, Wiki,
-                                   DpsPanel
+                                   UnitArt, UnitPortrait, Ocean, FxLayer,
+                                   ShopBar, BenchBar, SidePanels, TopBar,
+                                   Tooltip, ToastLayer, Modals, Wiki, DpsPanel
+shaders/                           ocean.gdshader
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 scripts/dev/                       DEV BUILD ONLY - the log and the dev menu
 scenes/main.tscn                   a bare Control; the HUD is built in code
@@ -378,6 +382,87 @@ Each of these cost a debugging session or settles a design argument.
   health without touching the mouse again, and fails if the panel does not
   follow.
 
+### The art
+
+There is no image asset in this project and there is not going to be one. Every
+pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
+
+- **A champion's appearance is data, like its stats.** `art_body`, `art_tint` and
+  `art_marks` on `ChampionDef`: one of twelve bodies, one colour, and up to three
+  accessories. Fifty-one bespoke silhouettes would be detail nobody can resolve —
+  a board hex is 43 points on a phone — and adding a pirate would stop being a
+  `.tres` edit. Authored in `tools/art_table.gd` and stamped in by
+  `assign_art.gd`, which loads each resource and sets three fields; **do not use
+  `generate_content.gd` for this**, because it overwrites a champion whole and
+  throws away every number tuned since the port.
+- **`draw_set_transform` replaces a CanvasItem's draw transform; it does not
+  compose with it.** So a figure cannot be positioned by whatever is drawing it —
+  only by moving the node it is drawn into. That is why the board gives every
+  unit its own `UnitView`, why `UnitPortrait` is a Control wrapping a Node2D, and
+  why `art_sheet.gd` builds one node per figure instead of drawing a grid of them
+  into one Control. Written the obvious way, every figure on a page stacks up at
+  the origin.
+- **A polygon that folds over itself draws nothing and prints once a frame.**
+  Godot answers a self-intersecting polygon with "triangulation failed" rather
+  than with a wrong shape, so the symptom is a missing limb and a log nobody is
+  reading. Three rules came out of it, each having cost a body: a band is walked
+  *up one edge and back down the other* so the two can never cross; anything that
+  could fold is a **triangle**, not a quad; and `_curl` clamps its own bend and
+  width against its length, because the numbers that break it arrive from a sine
+  and a siren's tail is fine at rest and folds the moment she swims.
+- **A test cannot check that any of this draws.** Godot refuses a draw call made
+  outside a real `_draw()`, so a headless test that makes them anyway collects
+  errors and still reports green — the loop counting them finishes either way.
+  `tools/art_sheet.gd` is the renderer check: it runs windowed, draws every
+  champion and every animation state over fourteen frames at a moving clock, and
+  surfaces Godot's own complaint. It caught two folded polygons on its first run.
+  Same split as the sound — `test_audio` can check the bank, only
+  `screenshot.gd --sfx` can check the noise.
+- **The animation is derived from the sim, never delivered by it.** An attack is
+  an attack timer that jumped back up; a wound is health that went down; a death
+  is `alive` going false. `UnitView` reads those every frame and decays a pose.
+  Nothing was added to `Sim` and nothing needed to be: `fx_queue` carries
+  positions rather than uids and cannot say *which unit* swung, and building a
+  channel that could would have put a cost on the six fights a round that are
+  never watched. Decay runs in **battle** time, so a swing at 4x still finishes
+  before the unit that threw it dies.
+- **The board is played up the screen, so a figure faces the viewer and leans.**
+  A body turned to face its target spends the fight in profile facing away from
+  you. Only the two shapes read from above — a serpent, a gull — actually rotate
+  (`TURNS_TO_AIM`), and the two drawn from the side flip (`MIRRORS_TO_AIM`). The
+  shark was drawn from above first, to match the board; a shark from above is a
+  spindle with two fins, which at forty pixels is a leaf.
+- **`Ocean` is a full-panel Control over the board, and `Control` defaults
+  `mouse_filter` to STOP.** Left alone that is an invisible sheet that eats every
+  press meant for the board — no dragging a pirate, no dropping an item, nothing
+  on screen to say why. It is the toast bug with the blast radius of the board,
+  and `test_hud.gd` walks a real BoardView rather than trusting the comment. It
+  also sets `show_behind_parent`, because a CanvasItem paints itself before its
+  children and the grid is drawn in BoardView's own `_draw`.
+- **The sea is a shader because water has to move when nothing else is.** A fight
+  at 4x, a planning phase where the player is reading, an idle window — animating
+  it from GDScript would mean repainting the whole board panel sixty times a
+  second forever. Only the foam on the hex rims is drawn, at 15fps, because that
+  has to be in board space. Tuned **down** twice: the first pass ran deep to
+  shallow across four stops of brightness and the grid vanished into what looked
+  like upholstery, and three straight sine trains sum into a diagonal weave that
+  reads as quilting until the sample point is warped.
+- **`Pose.detail` comes from the board scale, and trims what a small figure
+  pays.** A phone draws a unit into a 21-point hex, where a belt buckle and a row
+  of teeth are draw calls producing one indistinct pixel each, eighteen times
+  over, on the device least able to afford it. Silhouette is never gated; below
+  0.45 even the outlines stop.
+- **Emoji are not gone, they moved.** They were the whole roster and are now the
+  trait and item icons, the coin and the star — text, where a font glyph is the
+  right answer and `test_glyphs.gd` still guards them. A champion's emoji is
+  still on its `ChampionDef` and still used in the almanac and the tooltip
+  headings.
+- **Measure the drawing with `soak.gd` run *windowed*.** Headless soak builds the
+  whole HUD and never calls `_draw`, so it says nothing at all about the art. The
+  figures cost nothing in steady state — both builds sit on the same vsync floor
+  — and 8-18ms extra on the frame a fight starts, which is a frame that already
+  hitched.
+
 ### Sound
 
 - **Sound has two feeds, and the split is the same one rendering uses.** Anything
@@ -551,6 +636,11 @@ refers to the JavaScript at all, and only in a comment.
   on), that the container helpers take effect immediately, and that the log panel
   survives passing its limit. **A hang in that last one is the freeze returning**,
   not a slow test.
+- `test_art.gd` checks that every champion has a body the renderer knows, that
+  every mark is one it draws, that no two champions sharing a body share a
+  colour, and that the `.tres` still agree with `ArtTable` — editing the table
+  without re-running `assign_art.gd` changes nothing and looks like it worked.
+  It **cannot check that anything draws**; see the art rules below.
 - `test_glyphs.gd` fails any character the web export could not draw. The rule it
   replaces was "check it in the browser", which means exporting, and which is why
   the game shipped twice with tofu where its prices were.

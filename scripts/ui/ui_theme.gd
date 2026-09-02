@@ -64,8 +64,11 @@ const WARNING := Color("ff8a5c")
 ## Color Emoji — which has no ● or ★, because neither is an emoji.
 ##
 ## So the two symbols become the emoji that mean the same thing and *are* in the
-## font already paying for itself. It suits a game whose entire roster is emoji,
-## and it is the one fix that needs no new asset.
+## font already paying for itself, and it is the one fix that needs no new asset.
+##
+## The roster itself is no longer emoji — every pirate is drawn by `UnitArt` now —
+## but the traits, the items, the coin and the star still are, because those are
+## text, where a font glyph is the right answer.
 const COIN := "🪙"
 const STAR := "⭐"
 
