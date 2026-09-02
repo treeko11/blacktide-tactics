@@ -18,6 +18,13 @@ extends Node
 ## with a little pitch wander is what stops eighteen pirates attacking from
 ## sounding like one sample stuttering.
 ##
+## Loudness is two numbers on purpose. A cue's `db` is where it sits *against the
+## other cues*, and `MASTER_DB` is where the game sits against everything else
+## the player has open — so turning the game down is one edit rather than fifty,
+## and it cannot quietly undo the mix. `GROUP_GAPS` is the same split applied to
+## density: a per-cue gap keeps one sound from stuttering, a group gap keeps a
+## whole board of them from arriving together.
+##
 ## **The sounds are CC0** from Kenney (kenney.nl) — see `audio/CREDITS.md`. They
 ## were chosen by what each file is *named*: a pack's "confirmation" and "error"
 ## carry their meaning in the name, where a melody's mood cannot be read off a
@@ -36,73 +43,113 @@ const VOICES := 12
 
 const SETTINGS := "user://settings.cfg"
 
+## How loud the game is, over the top of everything below.
+##
+## `BANK` is a *mix*: each cue's `db` says how loud that sound is next to the
+## others, which is a different question from how loud the game is next to
+## whatever else the player has open. Tuning the first by editing fifty numbers
+## loses the second, so the master trim is its own knob — turn the game down
+## here, and the balance struck below survives it.
+const MASTER_DB := -9.0
+
+## Everything a fight does, throttled together rather than cue by cue.
+##
+## A per-cue gap keeps one sound from stuttering; it does nothing about
+## *eighteen* pirates, because a board with four attack styles on it is four
+## separate throttles all firing at once. Eighteen units attacking at 4x is
+## upwards of fifty swings a second, and a twelve-voice pool asked for fifty
+## sounds a second spends the fight stealing voices from itself — which is what
+## a wall of noise actually is. One shared floor across every attack turns that
+## into a patter of distinct hits, and the sounds that carry information — a
+## death, an ability, a crit — are deliberately *outside* it, so they still cut
+## through the swings rather than queueing behind them.
+const GROUP_GAPS := {
+	&"swing": 0.085,
+}
+
 ## Every cue in the game.
 ##
 ##   files  one or more names in `audio/`; one is picked at random
-##   db     volume, relative to the file's own level
+##   db     volume, relative to the file's own level and to every other cue.
+##          `MASTER_DB` is added on top of it
 ##   pitch  the range the playback rate may wander in — variation, and for a few
 ##          cues (the cannon) the whole reason the file sounds like what it is
 ##   gap    the shortest time between two plays of this cue, in seconds. A fight
 ##          at 4x fires attacks faster than a sound can finish, and without this
 ##          the result is mush rather than a battle
+##   group  a gap shared with every other cue naming it, from `GROUP_GAPS`. Both
+##          gaps apply: the cue's own, and its group's
 const BANK := {
 	# --- the shop and the economy
-	&"buy":       { "files": ["handleCoins.ogg"],    "db": -6.0,  "pitch": Vector2(0.98, 1.04) },
-	&"sell":      { "files": ["chips-handle-2.ogg"], "db": -8.0,  "pitch": Vector2(0.98, 1.04) },
-	&"roll":      { "files": ["card-shuffle.ogg"],   "db": -12.0, "pitch": Vector2(0.98, 1.04) },
-	&"lock":      { "files": ["switch_004.ogg"],     "db": -10.0, "pitch": Vector2(1.0, 1.0) },
-	&"xp":        { "files": ["tick_002.ogg"],       "db": -10.0, "pitch": Vector2(0.98, 1.06) },
-	&"level_up":  { "files": ["select_005.ogg"],     "db": -6.0,  "pitch": Vector2(1.0, 1.0) },
-	&"star_up":   { "files": ["confirmation_004.ogg"], "db": -4.0, "pitch": Vector2(1.0, 1.0) },
-	&"denied":    { "files": ["error_004.ogg"],      "db": -10.0, "pitch": Vector2(1.0, 1.0), "gap": 0.25 },
+	&"buy":       { "files": ["handleCoins.ogg"],    "db": -7.0,  "pitch": Vector2(0.98, 1.04) },
+	&"sell":      { "files": ["chips-handle-2.ogg"], "db": -9.0,  "pitch": Vector2(0.98, 1.04) },
+	&"roll":      { "files": ["card-shuffle.ogg"],   "db": -13.0, "pitch": Vector2(0.98, 1.04) },
+	&"lock":      { "files": ["switch_004.ogg"],     "db": -12.0, "pitch": Vector2(1.0, 1.0) },
+	# Four XP a purchase, so this is the most-played cue in the shop by a wide
+	# margin. It is a tick under the coins, not a second sound beside them.
+	&"xp":        { "files": ["tick_002.ogg"],       "db": -15.0, "pitch": Vector2(0.98, 1.06), "gap": 0.06 },
+	&"level_up":  { "files": ["select_005.ogg"],     "db": -8.0,  "pitch": Vector2(1.0, 1.0) },
+	&"star_up":   { "files": ["confirmation_004.ogg"], "db": -6.0, "pitch": Vector2(1.0, 1.0) },
+	# A buzzer is the harshest noise in the pack and it fires on every refusal —
+	# a mistimed click on a locked shop used to buzz twice a second. Quiet, and
+	# rationed: the toast is the message, this only points at it.
+	&"denied":    { "files": ["error_004.ogg"],      "db": -14.0, "pitch": Vector2(1.0, 1.0), "gap": 0.7 },
 
 	# --- items
-	&"item":      { "files": ["metalLatch.ogg"],     "db": -6.0,  "pitch": Vector2(0.97, 1.03) },
-	&"equip":     { "files": ["beltHandle1.ogg"],    "db": -8.0,  "pitch": Vector2(0.97, 1.05) },
+	&"item":      { "files": ["metalLatch.ogg"],     "db": -8.0,  "pitch": Vector2(0.97, 1.03) },
+	&"equip":     { "files": ["beltHandle1.ogg"],    "db": -9.0,  "pitch": Vector2(0.97, 1.05) },
 	&"forge":     { "files": ["impactMetal_heavy_000.ogg", "impactMetal_heavy_001.ogg"],
-	                                                 "db": -6.0,  "pitch": Vector2(0.9, 1.0) },
+	                                                 "db": -8.0,  "pitch": Vector2(0.9, 1.0) },
 
 	# --- the round loop
-	&"round":     { "files": ["open_004.ogg"],       "db": -10.0, "pitch": Vector2(1.0, 1.0) },
-	&"warning":   { "files": ["bong_001.ogg"],       "db": -8.0,  "pitch": Vector2(1.0, 1.0) },
-	&"combat":    { "files": ["impactBell_heavy_002.ogg"], "db": -4.0, "pitch": Vector2(0.9, 0.9) },
-	&"armoury":   { "files": ["creak1.ogg"],         "db": -6.0,  "pitch": Vector2(0.95, 1.0) },
-	&"won":       { "files": ["confirmation_002.ogg"], "db": -4.0, "pitch": Vector2(1.0, 1.0) },
-	&"lost":      { "files": ["error_008.ogg"],      "db": -6.0,  "pitch": Vector2(1.0, 1.0) },
-	&"hull":      { "files": ["impactWood_heavy_001.ogg"], "db": -3.0, "pitch": Vector2(0.85, 0.95) },
+	&"round":     { "files": ["open_004.ogg"],       "db": -11.0, "pitch": Vector2(1.0, 1.0) },
+	&"warning":   { "files": ["bong_001.ogg"],       "db": -10.0, "pitch": Vector2(1.0, 1.0) },
+	&"combat":    { "files": ["impactBell_heavy_002.ogg"], "db": -8.0, "pitch": Vector2(0.9, 0.9) },
+	&"armoury":   { "files": ["creak1.ogg"],         "db": -8.0,  "pitch": Vector2(0.95, 1.0) },
+	&"won":       { "files": ["confirmation_002.ogg"], "db": -6.0, "pitch": Vector2(1.0, 1.0) },
+	&"lost":      { "files": ["error_008.ogg"],      "db": -8.0,  "pitch": Vector2(1.0, 1.0) },
+	&"hull":      { "files": ["impactWood_heavy_001.ogg"], "db": -7.0, "pitch": Vector2(0.85, 0.95) },
 
 	# --- a fight: ranged attacks, one cue per style
 	#
 	# The pitch is doing real work here. There is no cannon in a CC0 interface
 	# pack, but a heavy metal impact dropped half an octave is a cannon — and the
 	# same file at its own pitch is the anvil the forge uses.
+	#
+	# Every one of these is in the `swing` group. A single attack is background:
+	# what the player is reading is the board, and the swings are its texture, so
+	# they sit well under the round's own announcements.
 	&"shot":         { "files": ["impactMetal_light_001.ogg", "impactMetal_light_002.ogg"],
-	                                                 "db": -16.0, "pitch": Vector2(1.1, 1.3), "gap": 0.05 },
+	                                                 "db": -20.0, "pitch": Vector2(1.1, 1.3), "gap": 0.09, "group": &"swing" },
 	&"shot_cannon":  { "files": ["impactMetal_heavy_000.ogg", "impactMetal_heavy_001.ogg"],
-	                                                 "db": -12.0, "pitch": Vector2(0.5, 0.62), "gap": 0.06 },
+	                                                 "db": -16.0, "pitch": Vector2(0.5, 0.62), "gap": 0.1, "group": &"swing" },
 	&"shot_bullet":  { "files": ["impactMetal_light_001.ogg", "impactMetal_light_002.ogg"],
-	                                                 "db": -16.0, "pitch": Vector2(1.15, 1.35), "gap": 0.05 },
-	&"shot_harpoon": { "files": ["drawKnife2.ogg"],  "db": -14.0, "pitch": Vector2(0.95, 1.1), "gap": 0.06 },
-	&"shot_bolt":    { "files": ["pluck_002.ogg"],   "db": -16.0, "pitch": Vector2(0.9, 1.15), "gap": 0.05 },
-	&"shot_spark":   { "files": ["pluck_002.ogg"],   "db": -16.0, "pitch": Vector2(1.15, 1.4), "gap": 0.05 },
-	&"shot_orb":     { "files": ["glass_005.ogg"],   "db": -16.0, "pitch": Vector2(0.95, 1.15), "gap": 0.06 },
-	&"shot_wisp":    { "files": ["glass_005.ogg"],   "db": -16.0, "pitch": Vector2(0.7, 0.85), "gap": 0.06 },
+	                                                 "db": -20.0, "pitch": Vector2(1.15, 1.35), "gap": 0.09, "group": &"swing" },
+	&"shot_harpoon": { "files": ["drawKnife2.ogg"],  "db": -18.0, "pitch": Vector2(0.95, 1.1), "gap": 0.1, "group": &"swing" },
+	&"shot_bolt":    { "files": ["pluck_002.ogg"],   "db": -20.0, "pitch": Vector2(0.9, 1.15), "gap": 0.09, "group": &"swing" },
+	&"shot_spark":   { "files": ["pluck_002.ogg"],   "db": -20.0, "pitch": Vector2(1.15, 1.4), "gap": 0.09, "group": &"swing" },
+	&"shot_orb":     { "files": ["glass_005.ogg"],   "db": -20.0, "pitch": Vector2(0.95, 1.15), "gap": 0.1, "group": &"swing" },
+	&"shot_wisp":    { "files": ["glass_005.ogg"],   "db": -20.0, "pitch": Vector2(0.7, 0.85), "gap": 0.1, "group": &"swing" },
 
 	# --- a fight: melee
 	&"melee":          { "files": ["knifeSlice.ogg", "knifeSlice2.ogg"],
-	                                                 "db": -14.0, "pitch": Vector2(0.95, 1.1), "gap": 0.05 },
+	                                                 "db": -18.0, "pitch": Vector2(0.95, 1.1), "gap": 0.09, "group": &"swing" },
 	&"melee_slash":    { "files": ["knifeSlice.ogg", "knifeSlice2.ogg"],
-	                                                 "db": -14.0, "pitch": Vector2(0.95, 1.1), "gap": 0.05 },
-	&"melee_claw":     { "files": ["knifeSlice2.ogg"], "db": -14.0, "pitch": Vector2(1.1, 1.3), "gap": 0.05 },
+	                                                 "db": -18.0, "pitch": Vector2(0.95, 1.1), "gap": 0.09, "group": &"swing" },
+	&"melee_claw":     { "files": ["knifeSlice2.ogg"], "db": -18.0, "pitch": Vector2(1.1, 1.3), "gap": 0.09, "group": &"swing" },
 	&"melee_crush":    { "files": ["impactPlank_medium_000.ogg", "impactPlank_medium_001.ogg"],
-	                                                 "db": -12.0, "pitch": Vector2(0.8, 0.95), "gap": 0.05 },
-	&"melee_spectral": { "files": ["glass_005.ogg"], "db": -16.0, "pitch": Vector2(0.6, 0.75), "gap": 0.06 },
+	                                                 "db": -16.0, "pitch": Vector2(0.8, 0.95), "gap": 0.09, "group": &"swing" },
+	&"melee_spectral": { "files": ["glass_005.ogg"], "db": -20.0, "pitch": Vector2(0.6, 0.75), "gap": 0.1, "group": &"swing" },
 
 	# --- a fight: everything that is not an attack
-	&"crit":      { "files": ["impactPlate_heavy_000.ogg"], "db": -8.0, "pitch": Vector2(0.95, 1.1), "gap": 0.07 },
-	&"death":     { "files": ["dropLeather.ogg"],    "db": -8.0,  "pitch": Vector2(0.85, 1.0), "gap": 0.06 },
-	&"cast":      { "files": ["maximize_006.ogg"],   "db": -12.0, "pitch": Vector2(0.95, 1.1), "gap": 0.06 },
-	&"nova":      { "files": ["impactMetal_heavy_000.ogg"], "db": -8.0, "pitch": Vector2(0.65, 0.75), "gap": 0.08 },
+	#
+	# Outside the `swing` group on purpose. These four are the ones carrying
+	# information — something died, something cast, something hit hard — and a
+	# fight in which they queue behind the swings is a fight that reports nothing.
+	&"crit":      { "files": ["impactPlate_heavy_000.ogg"], "db": -13.0, "pitch": Vector2(0.95, 1.1), "gap": 0.13 },
+	&"death":     { "files": ["dropLeather.ogg"],    "db": -11.0, "pitch": Vector2(0.85, 1.0), "gap": 0.1 },
+	&"cast":      { "files": ["maximize_006.ogg"],   "db": -15.0, "pitch": Vector2(0.95, 1.1), "gap": 0.12 },
+	&"nova":      { "files": ["impactMetal_heavy_000.ogg"], "db": -12.0, "pitch": Vector2(0.65, 0.75), "gap": 0.14 },
 }
 
 ## What a drawn effect sounds like.
@@ -141,6 +188,7 @@ var _streams: Dictionary = {}
 var _voices: Array[AudioStreamPlayer] = []
 var _started: Array[float] = []
 var _last_played: Dictionary = {}
+var _last_group: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 ## The level the last `level_changed` reported, so a level-up can be told from
@@ -188,6 +236,17 @@ func play(cue: StringName) -> void:
 	var gap: float = spec.get("gap", 0.0)
 	if gap > 0.0 and now - float(_last_played.get(cue, -1000.0)) < gap:
 		return
+
+	# The cue's own gap stops one sound stuttering; its group's stops a whole
+	# board of them arriving at once. Both are checked before either is recorded,
+	# or a cue refused by its group would still push the other one forward and
+	# silence itself twice over.
+	var group: StringName = spec.get("group", &"")
+	if group != &"":
+		var group_gap: float = GROUP_GAPS.get(group, 0.0)
+		if group_gap > 0.0 and now - float(_last_group.get(group, -1000.0)) < group_gap:
+			return
+		_last_group[group] = now
 	_last_played[cue] = now
 
 	var files: Array = spec["files"]
@@ -199,7 +258,7 @@ func play(cue: StringName) -> void:
 	var voice := _voices[index]
 	var pitch: Vector2 = spec.get("pitch", Vector2.ONE)
 	voice.stream = stream
-	voice.volume_db = spec.get("db", -6.0)
+	voice.volume_db = float(spec.get("db", -6.0)) + MASTER_DB
 	voice.pitch_scale = _rng.randf_range(pitch.x, pitch.y)
 	voice.play()
 

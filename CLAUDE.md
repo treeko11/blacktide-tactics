@@ -574,6 +574,18 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   mush. Pitch is part of the cue too, and does real work — there is no cannon in
   a CC0 interface pack, so the cannon is a heavy metal impact at half speed, and
   the same file at its own pitch is the forge's anvil.
+- **Loudness and density are each two numbers, not one.** A cue's `db` places it
+  against the *other cues*; `Audio.MASTER_DB` places the game against everything
+  else the player has open. Turning the game down is that one number, so it can
+  never quietly undo the mix — and a mix rebalanced later cannot quietly turn the
+  game back up. Density splits the same way: a cue's own `gap` stops one sound
+  stuttering, and a `group` from `Audio.GROUP_GAPS` throttles a whole class of
+  them together. Every attack shares the `swing` group, because four attack
+  styles on a board is four separate throttles all firing at once and a
+  twelve-voice pool asked for fifty sounds a second spends the fight stealing
+  voices from itself. A death, a cast and a crit are outside it deliberately:
+  those carry information, and a fight where they queue behind the swings
+  reports nothing.
 - **The sounds were picked by name, not by ear.** They are CC0 from Kenney (see
   `audio/CREDITS.md`), chosen so that "confirmation" and "error" carry their own
   meaning and an impact on wood or leather is a physical noise that means

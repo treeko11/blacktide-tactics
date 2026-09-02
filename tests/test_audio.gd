@@ -88,6 +88,27 @@ func test_the_effect_map_only_names_real_cues() -> void:
 		"a pirate dying is the one thing in a fight that has to be audible")
 
 
+## A cue's `group` has to name a real one.
+##
+## The same silent shape as everything else here: a group spelled wrongly is not
+## an error, it is a cue with no shared throttle at all — so a fight goes back to
+## eighteen pirates firing every attack style at once, and the only report is
+## that the sound got worse again. `MASTER_DB` is checked with it, because a
+## positive trim would push every cue above the level its file was mixed at.
+func test_every_group_a_cue_names_is_real() -> void:
+	var broken := PackedStringArray()
+	for cue in Audio.BANK:
+		var group: StringName = Audio.BANK[cue].get("group", &"")
+		if group == &"":
+			continue
+		if not Audio.GROUP_GAPS.has(group):
+			broken.append("%s -> %s" % [cue, group])
+
+	assert_true(broken.is_empty(),
+		"these cues are throttled by nothing: %s" % ", ".join(broken))
+	assert_lt(Audio.MASTER_DB, 0.1, "the master trim is meant to turn the game down")
+
+
 ## An unknown cue is ignored rather than fatal. Sound is a garnish, and a typo in
 ## one must not be able to take a round down with it.
 func test_an_unknown_cue_is_harmless() -> void:
