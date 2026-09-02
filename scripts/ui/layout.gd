@@ -48,11 +48,6 @@ static var pixel_ratio: float = 1.0
 ## all, which is the case the change below exists to describe.
 static var touch_override: int = -1
 
-## The last size the window was at while upright, in CSS pixels. A touch device
-## turned sideways keeps laying itself out at this, which is what makes the
-## rotation a no-op — see `apply`.
-static var _upright: Vector2 = Vector2.ZERO
-
 ## Whether the browser has been asked to stop rotating the page. Asked once.
 static var _lock_tried: bool = false
 
@@ -111,19 +106,17 @@ static func apply(window: Window) -> bool:
 	# be relied on — it needs fullscreen, and iOS Safari refuses outright — which
 	# is why the layout has to hold the line by itself as well.
 	_lock_orientation()
-	var sideways := touch() and seen.x > seen.y
-	if sideways:
-		# Nothing remembered means the page was *loaded* sideways, so there is no
-		# upright size to go back to. The same screen turned the other way is it.
-		if _upright == Vector2.ZERO:
-			_upright = Vector2(seen.y, seen.x)
-		css_size = _upright
+	if touch() and seen.x > seen.y:
+		# The upright shape of the same screen is its axes the other way round.
+		# Derived rather than remembered on purpose: a browser reports its window
+		# as 64x64 for the first frames, and a remembered size records *that* —
+		# so a phone that loaded the page already sideways would have laid the
+		# whole HUD out at 64 points. Nothing to poison if nothing is kept.
+		css_size = Vector2(seen.y, seen.x)
 		window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	else:
 		css_size = seen
 		window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
-		if seen.y >= seen.x:
-			_upright = seen
 
 	mode = Mode.COMPACT if css_size.x < COMPACT_WIDTH else Mode.WIDE
 

@@ -216,6 +216,18 @@ func test_turning_a_phone_does_not_reflow_the_hud() -> void:
 	assert_eq(Layout.css_size, upright, "turning the phone changed the layout size")
 	assert_false(Layout.short(), "a phone was given the landscape layout")
 
+	# A browser reports its window as 64x64 for the first frames, so a phone that
+	# loads the page already sideways has a boot frame behind it and no upright
+	# size to go back to. It still has to come out portrait, at the real screen's
+	# shape — an earlier version kept the last upright size instead and laid the
+	# whole HUD out at 64 points here.
+	window.size = Vector2i(64, 64)
+	Layout.apply(window)
+	window.size = Vector2i(844, 390)
+	Layout.apply(window)
+	assert_eq(Layout.css_size, upright,
+		"a phone loaded sideways did not come out at its screen's upright shape")
+
 	Layout.touch_override = 0
 	window.size = Vector2i(390, 844)
 	Layout.apply(window)
