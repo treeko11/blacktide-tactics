@@ -33,6 +33,12 @@ const SHIELD := Color("cfe9ff")
 ## Board.
 const HEX_MINE := Color("0f2d3f")
 const HEX_ENEMY := Color("141d28")
+
+## The same two, as washes laid over the animated sea rather than as opaque
+## fills. Your half is lit shallow water, theirs is the deep — one substance at
+## two depths, so a crest running up the board crosses both.
+const HEX_WATER_MINE := Color(0.26, 0.64, 0.82, 0.22)
+const HEX_WATER_ENEMY := Color(0.02, 0.04, 0.09, 0.58)
 const HEX_DROP := Color("1f5a76")
 const HEX_EDGE := Color("18384a")
 

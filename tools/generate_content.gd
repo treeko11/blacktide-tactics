@@ -87,6 +87,15 @@ func _write_champion(entry: Dictionary) -> void:
 	def.ability_name = entry.get("ability", "")
 	def.ability_desc = entry.get("desc", "")
 	def.ability_values = entry.get("values", {})
+
+	# Appearance comes from the same table `assign_art.gd` stamps in, so a
+	# champion added here arrives with a face rather than as a default blue
+	# pirate that nobody notices until it is on the board.
+	var art := ArtTable.lookup(def.id)
+	def.art_body = art["body"]
+	def.art_tint = Color(art["tint"])
+	def.art_marks.assign(art["marks"])
+
 	_save(def, CHAMPION_DIR, def.id)
 
 

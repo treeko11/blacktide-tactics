@@ -105,6 +105,34 @@ func test_the_log_panel_survives_passing_its_limit() -> void:
 	panel.free()
 
 
+## The sea must not be able to take a click.
+##
+## `Ocean` is a ColorRect covering the whole board panel, and `Control` defaults
+## `mouse_filter` to STOP — so the default is an invisible sheet over the board
+## that eats every press meant for it: no dragging a pirate onto a hex, no
+## dropping an item on one, no inspecting anything, and nothing on screen to
+## suggest why. That is the toast bug again with the blast radius of the board.
+##
+## Checked through a real BoardView rather than on a bare Ocean, because what
+## matters is that the board *ends up* with nothing hit-testable in front of it.
+func test_the_ocean_cannot_swallow_a_click_on_the_board() -> void:
+	var board := BoardView.new()
+	board.size = Vector2(600, 500)
+	Engine.get_main_loop().root.add_child(board)
+
+	var blockers := PackedStringArray()
+	_collect_blockers(board, "BoardView", blockers)
+	assert_true(blockers.is_empty(),
+		"these sit over the board and would swallow a drag: %s" % ", ".join(blockers))
+
+	var ocean := board.find_child("Ocean", false, false)
+	assert_not_null(ocean, "BoardView built no Ocean")
+	assert_true(ocean.show_behind_parent,
+		"the sea is drawn over the grid instead of under it")
+
+	board.free()
+
+
 func _collect_blockers(node: Node, path: String, into: PackedStringArray) -> void:
 	for child in node.get_children():
 		var where := "%s/%s" % [path, child.get_class()]

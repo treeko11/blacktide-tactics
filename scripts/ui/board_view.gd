@@ -37,10 +37,20 @@ var fx: FxLayer = null
 var _views: Dictionary = {}      ## uid -> UnitView
 var _sim: Sim = null
 
+## Seconds, for the foam lapping at the hex edges.
+var _clock: float = 0.0
+var _foam_accum: float = 0.0
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clip_contents = true
+
+	# Behind everything, including this control's own `_draw`. Added first so it
+	# is also first in the tree, which is what the sea being the sea depends on.
+	var ocean := Ocean.new()
+	ocean.name = "Ocean"
+	add_child(ocean)
 
 	units_root = Node2D.new()
 	units_root.name = "Units"
@@ -72,7 +82,19 @@ func _fit() -> void:
 	units_root.scale = transform_scale
 	fx.position = board_offset
 	fx.scale = transform_scale
+	for uid in _views:
+		var view: UnitView = _views[uid]
+		view.detail = _detail()
 	queue_redraw()
+
+
+## How much of a figure's trim is worth drawing at the scale the board ended up
+## at. A phone gives the board a 43-point hex at best and a 21-point one in a
+## landscape column; a belt buckle and a row of teeth are draw calls producing
+## one indistinct pixel each, eighteen times over, on the device least able to
+## afford them.
+func _detail() -> float:
+	return clampf(board_scale / 0.85, 0.0, 1.0)
 
 
 # --- coordinates -------------------------------------------------------------
@@ -220,6 +242,25 @@ func _notification(what: int) -> void:
 
 # --- the grid ----------------------------------------------------------------
 
+## How often the grid is repainted for the foam alone.
+##
+## The water itself is a shader and animates without anybody redrawing anything;
+## this is only the foam breaking along the hex rims, which has to be drawn in
+## board space and therefore costs a repaint of fifty-six outlines. Fifteen times
+## a second is enough for a lap and a fraction of the cost of matching the
+## monitor. Anything the player *does* — a hover, a drop target — still redraws
+## the instant it changes, because those call `queue_redraw` themselves.
+const FOAM_FRAME := 1.0 / 15.0
+
+
+func _process(delta: float) -> void:
+	_clock += delta
+	_foam_accum += delta
+	if _foam_accum >= FOAM_FRAME:
+		_foam_accum = 0.0
+		queue_redraw()
+
+
 func _draw() -> void:
 	draw_set_transform(board_offset, 0.0, Vector2.ONE * board_scale)
 	for row in Hex.ROWS:
@@ -232,14 +273,24 @@ func _draw_cell(cell: Vector2i) -> void:
 	var centre := Hex.to_pixel(cell)
 	var points := _hex_points(centre, Hex.HEX_H * 0.5 - 1.5)
 
-	var fill := UITheme.HEX_MINE if Hex.is_player_half(cell) else UITheme.HEX_ENEMY
+	# Translucent, so the sea underneath shows through and a crest visibly runs
+	# across the grid. The two halves are two depths of the same water rather
+	# than two colours: your half is lit and shallow, theirs is dark and deep.
+	var fill := UITheme.HEX_WATER_MINE if Hex.is_player_half(cell) 		else UITheme.HEX_WATER_ENEMY
 	if cell == drop_cell:
 		fill = UITheme.HEX_DROP
 	elif cell == hover_cell and Hex.is_player_half(cell):
-		fill = fill.lerp(UITheme.HEX_DROP, 0.45)
+		fill = fill.lerp(UITheme.HEX_DROP, 0.5)
 
 	draw_colored_polygon(points, fill)
+
+	# Foam lapping the rim, out of phase cell by cell so it travels across the
+	# board instead of the whole grid pulsing at once.
+	var phase: float = float(cell.x * 3 + cell.y * 5)
+	var lap: float = 0.5 + 0.5 * sin(_clock * 1.6 + phase)
 	draw_polyline(_closed(points), UITheme.HEX_EDGE, 1.0)
+	draw_polyline(_closed(points),
+		Color(UITheme.FOAM.r, UITheme.FOAM.g, UITheme.FOAM.b, 0.05 + lap * 0.11), 1.0)
 
 	# A brighter rim on the halfway line, so the two halves read as two fleets.
 	if cell.y == Hex.PLAYER_ROW_MIN:
@@ -275,6 +326,7 @@ func show_roster(board: Array[RosterUnit]) -> void:
 	clear_units()
 	for unit in board:
 		var view := UnitView.new()
+		view.detail = _detail()
 		units_root.add_child(view)
 		view.bind_roster(unit)
 		view.position = Hex.to_pixel(unit.cell)
@@ -288,6 +340,7 @@ func show_battle(sim: Sim) -> void:
 	fx.clear()
 	for unit in sim.units:
 		var view := UnitView.new()
+		view.detail = _detail()
 		units_root.add_child(view)
 		view.bind_sim(unit)
 		view.position = unit.pos
@@ -302,6 +355,10 @@ func follow_battle(speed: float) -> void:
 	fx.speed = speed
 	for uid in _views:
 		var view: UnitView = _views[uid]
+		# The figures animate at battle speed for the same reason the effects do:
+		# a swing that takes a quarter of a second at 4x has to take a quarter of
+		# a *battle* second, or every unit is still winding up when it dies.
+		view.anim_speed = speed
 		view.follow_sim()
 	for entry in _sim.fx_queue:
 		fx.add_effect(entry)

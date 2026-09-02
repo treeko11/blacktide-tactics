@@ -25,6 +25,18 @@ const AD_PER_STAR := 1.55
 ## Origin and class ids, matched against TraitDef.id.
 @export var traits: Array[StringName] = []
 
+@export_group("Appearance")
+## Which of `UnitArt.BODIES` this champion is drawn as. Named as a plain
+## StringName rather than by reaching for UnitArt, because this file is compiled
+## as a dependency of a `--script` tool and pulling the whole UI in behind it is
+## how that breaks.
+@export var art_body: StringName = &"pirate"
+## The one colour a body derives its whole palette from.
+@export var art_tint: Color = Color("4d8fb5")
+## Signature accessories from `UnitArt.MARKS` — a crown, an eyepatch, a parrot.
+## Two or three is the readable limit at the size a unit is actually seen.
+@export var art_marks: Array[StringName] = []
+
 @export_group("Base stats")
 @export var hp: float = 500.0
 @export var ad: float = 50.0
