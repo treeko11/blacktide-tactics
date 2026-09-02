@@ -29,23 +29,37 @@ func test_the_closed_menu_only_hit_tests_its_own_chip() -> void:
 	menu.free()
 
 
-## The chip has to stay on screen at every layout, including the phone ones.
+## The chip has to stay on screen, and the screen is the *viewport*.
 ##
-## It is positioned from `Layout.css_size` rather than from the window, and those
-## are the same number only on a desktop. A chip placed off the bottom of a phone
-## is a dev menu with no way to open it on the one device the playtests are on.
+## This test used to measure against `Layout.css_size` — the same yardstick the
+## menu positioned the chip with — so it passed while the chip was off screen on
+## every desktop window that was not exactly 1600x900. `css_size` is the window
+## in CSS pixels; the wide layout stretches a 1600x900 content scale to fill it,
+## so a 2000x1004 window is a 1793x900 coordinate space and a chip at
+## `css_size - 44` is 163 units past the right edge, invisible and unclickable.
+##
+## So `css_size` is set here to something the viewport deliberately is not, and
+## the assertion is against the viewport.
 func test_the_chip_sits_inside_the_screen() -> void:
+	var was := Layout.css_size
+	# A Variant off `get_main_loop()`, so the type is spelled out — the same trap
+	# `content()` and `state()` carry.
+	var screen: Vector2 = Engine.get_main_loop().root.get_visible_rect().size
+	Layout.css_size = screen + Vector2(400, 104)
+
 	var menu := DevMenu.new()
 	Engine.get_main_loop().root.add_child(menu)
 
 	var chip: Button = menu._chip
-	var corner := chip.position + DevMenu.CHIP_SIZE
+	var corner := chip.position + chip.get_combined_minimum_size()
 	assert_gt(chip.position.x, 0.0, "the chip is off the left edge")
 	assert_gt(chip.position.y, 0.0, "the chip is off the top edge")
-	assert_true(corner.x <= Layout.css_size.x and corner.y <= Layout.css_size.y,
-		"the chip corner %s is outside the %s screen" % [corner, Layout.css_size])
+	assert_true(corner.x <= screen.x and corner.y <= screen.y,
+		"the chip corner %s is outside the %s viewport (it was placed from the %s css size)"
+		% [corner, screen, Layout.css_size])
 
 	menu.free()
+	Layout.css_size = was
 
 
 ## Spawning must take the real cost out of the shared pool.
@@ -136,21 +150,20 @@ func test_skipping_a_fight_resolves_it_and_restores_the_speed() -> void:
 ## A rotation must not strand the chip off the edge of the screen.
 ##
 ## `Main` survives a rotation by rebuilding; this menu survives it by not being
-## one of Main's children. But everything here is positioned from
-## `Layout.css_size`, and a phone turned upright takes that from 844 wide to 390.
+## one of Main's children. But everything here is positioned from the viewport,
+## and a phone turned upright takes that from 844 wide to 390.
 ## A chip parked in the bottom-right corner of the landscape screen then sits at
 ## x=800, off the right-hand edge — the dev menu unreachable on the one device it
 ## exists for, and only after a rotation.
 func test_the_chip_stays_reachable_after_a_rotation() -> void:
-	var was := Layout.css_size
-
-	Layout.css_size = Vector2(844, 390)
 	var menu := DevMenu.new()
 	Engine.get_main_loop().root.add_child(menu)
-	menu._chip.position = Vector2(800, 358)
 
-	Layout.css_size = Vector2(390, 844)
-	menu._fit_to_screen()
+	# Parked in the bottom-right corner of a landscape phone, then turned
+	# upright. The size is handed in rather than moved, because a test cannot
+	# resize a headless window and the question has nothing to do with one.
+	menu._chip.position = Vector2(800, 358)
+	menu._fit_to_screen(Vector2(390, 844))
 
 	var corner: Vector2 = menu._chip.position + menu._chip.get_combined_minimum_size()
 	assert_true(corner.x <= 390.0 and corner.y <= 844.0,
@@ -159,7 +172,6 @@ func test_the_chip_stays_reachable_after_a_rotation() -> void:
 		"the panel is wider than the screen it rotated onto")
 
 	menu.free()
-	Layout.css_size = was
 
 
 ## Every visible Control under `node` that would take a click.

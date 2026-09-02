@@ -55,7 +55,7 @@ var _saved_instant := false
 
 ## The screen the chip and panel were last sized against. A phone rotation
 ## changes it, and everything here is positioned from it.
-var _last_css := Vector2.ZERO
+var _last_screen := Vector2.ZERO
 
 var _dragging := false
 var _drag_from := Vector2.ZERO
@@ -80,6 +80,21 @@ func _ready() -> void:
 #  The opener
 # =============================================================================
 
+## The screen, in the coordinates the Controls in here are positioned in.
+##
+## **Not `Layout.css_size`**, which is the window in CSS pixels and only agrees
+## with this on a phone. The wide layout keeps the 1600x900 content scale and
+## stretches it with `expand`, so a 2000x1004 window is a *1793x900* coordinate
+## space — and a chip placed at `css_size - 44` sat 163 units past its right edge
+## and 78 below its bottom. The DEV chip was off screen on every desktop window
+## except exactly 1600x900, which is the one size `screenshot.gd` renders at, so
+## neither the tool nor `test_dev` — measuring against `css_size` as well — ever
+## saw it. The rule the whole file now follows: `css_size` decides *which* layout
+## is built, the viewport decides *where* a thing goes.
+func _screen() -> Vector2:
+	return get_viewport_rect().size
+
+
 func _build_chip() -> void:
 	_chip = UITheme.button("DEV", UITheme.FONT_TINY)
 	_chip.custom_minimum_size = CHIP_SIZE
@@ -91,7 +106,7 @@ func _build_chip() -> void:
 	# padding set a minimum the nominal size loses to, and positioning from the
 	# nominal one put the chip flush against the bottom edge of a phone with no
 	# margin at all.
-	_chip.position = Layout.css_size - _chip.get_combined_minimum_size() - CHIP_MARGIN
+	_chip.position = _screen() - _chip.get_combined_minimum_size() - CHIP_MARGIN
 	_chip.gui_input.connect(_on_chip_input)
 
 
@@ -115,7 +130,7 @@ func _on_chip_input(event: InputEvent) -> void:
 		var moved: Vector2 = (event as InputEventMouseMotion).global_position - _drag_from
 		_drag_distance = maxf(_drag_distance, moved.length())
 		if _drag_distance > DRAG_SLOP:
-			var room := Layout.css_size - CHIP_SIZE
+			var room := _screen() - _chip.get_combined_minimum_size()
 			_chip.position = (_chip_from + moved).clamp(Vector2.ZERO, room)
 
 
@@ -169,7 +184,7 @@ func _build_panel() -> void:
 	# Same sizing rule the real dialogs use: never wider than the screen, never
 	# taller than most of it. A phone is the narrow case and it is the one that
 	# matters, because it is where the playtests are.
-	_panel.custom_minimum_size = Vector2(minf(520.0, Layout.css_size.x - 20.0), 0)
+	_panel.custom_minimum_size = Vector2(minf(520.0, _screen().x - 20.0), 0)
 	_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	centre.add_child(_panel)
 
@@ -191,7 +206,7 @@ func _build_panel() -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, minf(420.0, Layout.css_size.y * 0.62))
+	scroll.custom_minimum_size = Vector2(0, minf(420.0, _screen().y * 0.62))
 	stack.add_child(scroll)
 
 	_scroll = scroll
@@ -201,7 +216,7 @@ func _build_panel() -> void:
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_content)
 
-	_last_css = Layout.css_size
+	_last_screen = _screen()
 
 
 func _rebuild() -> void:
@@ -415,9 +430,10 @@ func _go(page: StringName) -> void:
 # =============================================================================
 
 func _process(_delta: float) -> void:
-	if _last_css != Layout.css_size:
-		_last_css = Layout.css_size
-		_fit_to_screen()
+	var screen := _screen()
+	if _last_screen != screen:
+		_last_screen = screen
+		_fit_to_screen(screen)
 
 	# Pinning the clock rather than pausing it: `GameState` owns the countdown
 	# and there is no way to stop it from outside without editing game code, but
@@ -434,19 +450,22 @@ func _process(_delta: float) -> void:
 ## `Main` handles a rotation by throwing its whole HUD away and building the
 ## other one. This menu is not one of its children, which is what lets it survive
 ## a rotation — but surviving is not the same as still fitting. Every size here
-## comes from `Layout.css_size`, and on a phone turned sideways that goes from
-## 390 wide to 844 and back. Left alone, a chip parked in the bottom-right corner
-## of a landscape screen sits at x=800, which is off the right-hand edge of the
+## comes from `_screen()`, and on a phone turned sideways that goes from 390 wide
+## to 844 and back. Left alone, a chip parked in the bottom-right corner of a
+## landscape screen sits at x=800, which is off the right-hand edge of the
 ## portrait one: the dev menu would become unreachable on exactly the device it
 ## exists for, and only after a rotation, which is the hardest way to find it.
 ##
 ## The chip is clamped rather than moved back to its corner, so a chip dragged
 ## somewhere deliberately stays as close to there as the new screen allows.
-func _fit_to_screen() -> void:
+##
+## The size is a parameter so a test can hand it one, rather than having to move
+## a real window to ask the question.
+func _fit_to_screen(screen: Vector2 = _screen()) -> void:
 	_chip.position = _chip.position.clamp(Vector2.ZERO,
-		Layout.css_size - _chip.get_combined_minimum_size())
-	_panel.custom_minimum_size = Vector2(minf(520.0, Layout.css_size.x - 20.0), 0)
-	_scroll.custom_minimum_size = Vector2(0, minf(420.0, Layout.css_size.y * 0.62))
+		screen - _chip.get_combined_minimum_size())
+	_panel.custom_minimum_size = Vector2(minf(520.0, screen.x - 20.0), 0)
+	_scroll.custom_minimum_size = Vector2(0, minf(420.0, screen.y * 0.62))
 	# The grids are one width on a phone and another on a desktop, and a rotation
 	# crosses that breakpoint.
 	if _open:

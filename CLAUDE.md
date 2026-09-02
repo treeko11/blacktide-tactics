@@ -610,10 +610,18 @@ layouts.
   as its minimum width and the panel sizes to its contents, so one unwrapped
   sentence dragged the menu out to 772 points on a 390-point phone, off both
   edges. Explanatory lines go through `_note_line`, which wraps.
-- **Everything is positioned from `Layout.css_size`, so a rotation has to re-fit
-  it.** A chip in the bottom-right of a landscape phone sits at x=800, which is
-  off the right edge of the portrait one — the dev menu unreachable on the only
-  device it exists for, and only after a rotation.
+- **`Layout.css_size` decides which layout is built; the *viewport* decides where
+  a thing goes.** They are the same number only when compact — the wide layout
+  keeps a 1600x900 content scale and stretches it with `expand`, so a 2000x1004
+  window is a 1793x900 coordinate space. The DEV chip was placed at
+  `css_size - 44` and therefore sat 163 units past the right edge of every
+  desktop window except exactly 1600x900, which is the one size `screenshot.gd`
+  renders at. `test_dev` measured against `css_size` too, so both agreed the chip
+  was fine while it was off screen and the menu could only be opened with the
+  `` ` `` key. Everything in the menu now sizes itself from `_screen()`.
+- **A rotation has to re-fit it.** A chip in the bottom-right of a landscape
+  phone sits at x=800, which is off the right edge of the portrait one — the dev
+  menu unreachable on the only device it exists for, and only after a rotation.
 
 **Jump to stage is a scenario jump, not a simulation.** It pays the income and
 gives the bots the shopping turns for every round it passes, so the opponents are
