@@ -42,6 +42,26 @@ const HEX_WATER_ENEMY := Color(0.02, 0.04, 0.09, 0.58)
 const HEX_DROP := Color("1f5a76")
 const HEX_EDGE := Color("18384a")
 
+## The bench is a ship's deck.
+##
+## The rest of the HUD is sea-blue, ported from the old build's CSS. Timber is
+## the one place that deliberately leaves it: the bench is the only panel that
+## holds *your* crew rather than the world, so it is the deck they are standing
+## on. Kept dark and low in saturation — a warm brown at full strength beside
+## this much navy reads as a different game rather than as wood.
+const DECK_TIMBER := Color("2b1e14")
+const DECK_TIMBER_LIT := Color("3b2a1c")
+const DECK_SEAM := Color("130d07")
+const DECK_GRAIN := Color("46311e")
+const DECK_NAIL := Color("6b5637")
+const DECK_HATCH := Color("1a120b")
+const ROPE := Color("9c7845")
+const ROPE_DARK := Color("6a4f2b")
+const BRASS := Color("c49a4a")
+
+## The water past the gunwale, for the sell zone.
+const OVERBOARD := Color("091620")
+
 ## Damage number colours.
 const DMG_PHYSICAL := Color("ffffff")
 const DMG_MAGIC := Color("c9a2ff")

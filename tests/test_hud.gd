@@ -133,6 +133,51 @@ func test_the_ocean_cannot_swallow_a_click_on_the_board() -> void:
 	board.free()
 
 
+## The deck the bench is drawn on cannot swallow a drag off it.
+##
+## The bench is a ship's deck now, and the drawing of it covers every part of the
+## bench that a drag has to start on: `DeckPlate` spans the whole panel, and a
+## `SlotRing` spans each of the nine slots. `Control.mouse_filter` defaults to
+## STOP, so the default for both is an invisible sheet over the bench — no
+## dragging a pirate out to the board, no dropping an item on one, and nothing on
+## screen to say why. That is the Ocean bug one panel down.
+##
+## The slots themselves must stay STOP: they are what the drag starts on.
+func test_the_deck_cannot_swallow_a_drag_off_the_bench() -> void:
+	var bench := BenchBar.new()
+	bench.size = Vector2(700, 90)
+	Engine.get_main_loop().root.add_child(bench)
+
+	var plate: DeckPlate = null
+	var rings: Array[Control] = []
+	var slots: Array[Control] = []
+	for node in _every_control(bench):
+		if node is DeckPlate:
+			plate = node
+		elif node is BenchBar.SlotRing:
+			rings.append(node)
+		elif node is BenchBar.BenchSlot:
+			slots.append(node)
+
+	assert_not_null(plate, "BenchBar built no DeckPlate")
+	assert_eq(plate.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+		"the deck would eat every press meant for the bench")
+	assert_eq(bench.get_child(0), plate,
+		"the deck is drawn over the slots rather than under them")
+
+	assert_eq(rings.size(), GameState.BENCH_SIZE, "not every bench slot got a rope ring")
+	for ring in rings:
+		assert_eq(ring.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+			"a rope ring covers its whole slot and would eat the drag")
+
+	assert_eq(slots.size(), GameState.BENCH_SIZE, "the bench lost slots")
+	for slot in slots:
+		assert_eq(slot.mouse_filter, Control.MOUSE_FILTER_STOP,
+			"a bench slot that ignores the mouse cannot be dragged from")
+
+	bench.free()
+
+
 ## A finger can scroll a panel made of buttons, and scrolling does not press one.
 ##
 ## Godot's own touch scrolling arrives through `gui_input`, so a `Button` — which
@@ -263,6 +308,16 @@ func _drag(at: Vector2, by: Vector2) -> InputEventScreenDrag:
 	event.position = at + by
 	event.relative = by
 	return event
+
+
+## Every Control under a node, the node itself excluded.
+func _every_control(node: Node) -> Array[Control]:
+	var out: Array[Control] = []
+	for child in node.get_children():
+		if child is Control:
+			out.append(child)
+		out.append_array(_every_control(child))
+	return out
 
 
 func _collect_blockers(node: Node, path: String, into: PackedStringArray) -> void:

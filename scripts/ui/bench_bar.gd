@@ -3,6 +3,13 @@ extends PanelContainer
 
 ## The deck: nine bench slots and the sell zone.
 ##
+## It is drawn as a ship's deck rather than as another blue panel, because this
+## is the one panel holding *your* crew rather than the world — `DeckPlate`
+## paints the planking, every slot is a rope ring the pirate standing there is
+## seated in, and the sell zone is the water past the gunwale. None of it is an
+## asset. See `DeckPlate` for why it is a plain child rather than
+## `show_behind_parent`, and why nothing added in here may take a click.
+##
 ## Dragging uses Godot's own drag-and-drop rather than a hand-rolled one, so a
 ## drop target only has to answer "can I take this?" and "here it is". The
 ## payload is a dictionary: `{ "kind": "unit"|"item", ... }`.
@@ -27,16 +34,23 @@ var _sell_zone: SellZone = null
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UITheme.panel_style(UITheme.PANEL, UITheme.LINE, 8))
+	add_theme_stylebox_override("panel",
+		UITheme.panel_style(UITheme.DECK_TIMBER, UITheme.ROPE_DARK, 8))
 
 	var compact := Layout.compact()
+
+	# First child, so the planking is drawn under the slots standing on it.
+	add_child(DeckPlate.new())
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4 if compact else 5)
 	add_child(row)
 
 	if not compact:
-		row.add_child(UITheme.heading("Deck"))
+		var heading := UITheme.heading("Deck")
+		# Reads as part of the ship rather than as another sea-blue caption.
+		heading.add_theme_color_override("font_color", UITheme.ROPE)
+		row.add_child(heading)
 
 	# One row of nine on a desktop; two rows of five on a phone, where nine
 	# across would put every slot below a comfortable touch target.
@@ -98,13 +112,23 @@ class BenchSlot extends PanelContainer:
 	var unit: RosterUnit = null
 
 	var _view: UnitView = null
+	var _ring: SlotRing = null
 
 	func _init() -> void:
 		var slot := Layout.bench_slot()
 		custom_minimum_size = slot
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		# Translucent on purpose. An opaque slot covers the planking it is
+		# standing on, and nine of them across the bench leave the deck showing
+		# only in the margins — which is the whole thing this is for.
 		add_theme_stylebox_override("panel",
-			UITheme.panel_style(Color("0a1a24"), Color("17323f"), 7))
+			UITheme.panel_style(Color(UITheme.DECK_HATCH, 0.55),
+				Color(UITheme.ROPE_DARK, 0.6), 7))
+
+		# Added before the pirate, so the ring is under their feet rather than
+		# over their head: a CanvasItem paints its children in order.
+		_ring = SlotRing.new()
+		add_child(_ring)
 
 		_view = UnitView.new()
 		# The pirate is drawn at a fixed size, so a smaller slot needs a smaller
@@ -126,6 +150,7 @@ class BenchSlot extends PanelContainer:
 
 	func show_unit(next: RosterUnit) -> void:
 		unit = next
+		_ring.set_crewed(next != null)
 		_view.visible = next != null
 		if next != null:
 			_view.bind_roster(next)
@@ -185,9 +210,11 @@ class SellZone extends PanelContainer:
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(52, 0) if Layout.compact() else Vector2(96, 64)
+		# Water, not another panel: this is the far side of the rail. The rope
+		# border is the gunwale you would be dropping someone over.
 		add_theme_stylebox_override("panel",
-			UITheme.panel_style(Color("1a0a0e"), Color("5e2a34"), 7))
-		_label = UITheme.label("DROP\nTO SELL", UITheme.FONT_TINY, Color("a95a68"))
+			UITheme.panel_style(UITheme.OVERBOARD, UITheme.ROPE_DARK, 7))
+		_label = UITheme.label(_idle_text(), UITheme.FONT_TINY, Color("a95a68"))
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		add_child(_label)
@@ -212,5 +239,58 @@ class SellZone extends PanelContainer:
 
 	func _reset() -> void:
 		_armed = false
-		_label.text = "DROP\nTO SELL"
+		_label.text = _idle_text()
 		_label.add_theme_color_override("font_color", Color("a95a68"))
+
+	## The flavour is only affordable where the zone is 96 points wide. On a
+	## phone it is 52, and the instruction is the half that has to survive.
+	func _idle_text() -> String:
+		return "DROP\nTO SELL" if Layout.compact() else "THE PLANK\nDROP TO SELL"
+
+
+
+# =============================================================================
+
+## The rope ring a pirate stands in, drawn under them in every bench slot.
+##
+## An empty slot is a dark hatch with a faint ring; a crewed one lights the rope
+## and picks out the seizings. That is the whole "these nine are yours" signal —
+## the slots themselves are identical, so without it the bench reads as storage
+## rather than as a deck with people on it.
+##
+## `MOUSE_FILTER_IGNORE`, because it covers the whole slot and the slot is the
+## thing a drag has to be able to start on.
+class SlotRing extends Control:
+	## Ring radius as a fraction of the slot's short side.
+	const RADIUS := 0.46
+	## Below this the seizings are one indistinct pixel each; only the ring is
+	## drawn. Same trade `Pose.detail` makes on the board.
+	const DETAIL_RADIUS := 11.0
+
+	var _crewed: bool = false
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func set_crewed(crewed: bool) -> void:
+		if crewed == _crewed:
+			return
+		_crewed = crewed
+		queue_redraw()
+
+	func _draw() -> void:
+		var radius := minf(size.x, size.y) * RADIUS
+		if radius < 4.0:
+			return
+		var centre := size * 0.5
+		var rope := UITheme.ROPE if _crewed else Color(UITheme.ROPE_DARK, 0.55)
+		draw_arc(centre, radius, 0.0, TAU, 28, rope, 1.5, true)
+		if radius < DETAIL_RADIUS:
+			return
+		# Four seizings across the ring, offset so none sits on an axis and
+		# turns into a stray horizontal.
+		for i in 4:
+			var angle := TAU * (float(i) / 4.0) + PI * 0.25
+			var out := Vector2(cos(angle), sin(angle))
+			draw_line(centre + out * (radius - 2.0), centre + out * (radius + 2.0),
+				rope, 1.0)
