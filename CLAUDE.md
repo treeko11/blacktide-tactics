@@ -22,7 +22,7 @@ that needs no engine, and say plainly in the commit message that code is
 
 | Tool | What it is for |
 |---|---|
-| `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd` |
+| `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
 | `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
@@ -735,6 +735,11 @@ refers to the JavaScript at all, and only in a comment.
 ## Testing policy
 
 - The suite must be green before a commit.
+- **While working, run the files the change touches, not all thirteen.**
+  `Test.bat tooltip` is a second; the whole suite is a minute of waiting for
+  an answer about something else. Run the lot once, before the commit — that
+  is the point at which a test in an unrelated file failing is information.
+  `Test.bat` exits non-zero on a failure, so it can be chained.
 - **A test that asserts nothing did not pass.** The runner fails any test that
   made no assertions, because a GDScript runtime error abandons a method and
   returns to the runner as if it had finished.

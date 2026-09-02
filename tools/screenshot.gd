@@ -42,6 +42,10 @@ extends "res://tools/tool_script.gd"
 var _out := "user://shot.png"
 var _scene: Node = null
 
+## Where the last scripted hover put the pointer, so a failure can tell whether
+## it is still there. -1 means nothing has hovered yet.
+var _hover_home := Vector2(-1.0, -1.0)
+
 
 func setup() -> void:
 	_out = arg("out", _out)
@@ -202,9 +206,9 @@ func _stock_shop(game: Node, ids: PackedStringArray) -> void:
 ## case worth calling out, because it is otherwise indistinguishable.
 func fail(message: String) -> void:
 	if _hover_home.x >= 0.0 and root.get_mouse_position().distance_to(_hover_home) > 2.0:
-		super("%s
-           (the pointer was moved during the run — this tool "
-			% message + "drives the real cursor, so run it on an idle machine)")
+		super(message
+			+ "\n           (the pointer was moved during the run — this "
+			+ "tool drives the real cursor, so run it on an idle machine)")
 	else:
 		super(message)
 
@@ -245,11 +249,6 @@ func _touch_up(at: Vector2) -> void:
 ## `emulate_mouse_from_touch` sends the button but not the move, so a scripted
 ## touch on its own never opens one — and a test of "does the inspector close
 ## again" that never opened one passes for the wrong reason.
-## Where the last scripted hover put the pointer, so a failure can tell whether
-## it is still there. -1 means nothing has hovered yet.
-var _hover_home := Vector2(-1.0, -1.0)
-
-
 func _hover_at(at: Vector2) -> void:
 	# The pointer is actually moved, not merely told about: the inspector closes
 	# itself when `get_viewport().get_mouse_position()` leaves its owner, and that
@@ -665,6 +664,12 @@ func _press_and_hold(game: Node, what: String) -> void:
 ## longest of those is nine pirates over five costs.
 func _check_inspector_fits() -> void:
 	var tip: Control = _scene.tooltip
+	# An inspector that never opened has a stale size and position, and measuring
+	# those reports "it runs off the screen" on top of the real failure, which is
+	# that the hold pinned nothing. `fail()` does not abort, so that one has
+	# already been recorded by the time we get here.
+	if not tip.visible:
+		return
 	var screen: Vector2 = tip.get_viewport_rect().size
 	var rect := Rect2(tip.global_position, tip.size)
 	print("  inspector %.0f x %.0f at %.0f, %.0f in %.0f x %.0f"

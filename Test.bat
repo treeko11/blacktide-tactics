@@ -33,6 +33,7 @@ rem backtrace for each. The ERROR line itself is kept - that is real signal - bu
 rem its continuation lines are stripped.
 set "LOG=%TEMP%\blacktide_tests.txt"
 "%GODOT%" --headless --path "%~dp0." --script res://tools/run_tests.gd -- %* > "%LOG%" 2>&1
+set "RESULT=%ERRORLEVEL%"
 
 findstr /V /B /C:"   at: " /C:"   GDScript backtrace" /C:"       [" "%LOG%"
 
@@ -47,9 +48,16 @@ if not errorlevel 1 (
     echo.
     findstr /B /C:"SCRIPT ERROR" "%LOG%"
     echo.
+    set "RESULT=1"
 )
 
 del "%LOG%" >nul 2>&1
 
 echo.
 pause
+
+rem Everything above this line only prints. Without the exit code the runner's
+rem own non-zero result was discarded by the last findstr, and the SCRIPT ERROR
+rem branch said "the run is failed here instead" while still exiting 0 - so a red
+rem suite was green to anything chaining off it.
+exit /b %RESULT%

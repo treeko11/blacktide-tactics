@@ -17,6 +17,14 @@ func _tooltip() -> Tooltip:
 	return tip
 
 
+## The carrier tests below start a run and then seat a pirate, and the autoload
+## they do it in is shared by every file after this one — `test_wiki` renders
+## pages that read `GameState.board_traits()` and the player's items. Leaving a
+## Kelpar on the board is a fixture leaking into somebody else's test.
+func after_each() -> void:
+	state().start_game()
+
+
 ## The one that matters: health falling during a fight has to reach the panel.
 func test_a_live_stat_block_follows_the_pirate_it_describes() -> void:
 	var sim := battle(
