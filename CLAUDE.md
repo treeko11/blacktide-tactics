@@ -128,7 +128,8 @@ scripts/core/items/                one file per item (20)
 scripts/ui/                        UITheme, Layout, BoardView, UnitView,
                                    UnitArt, UnitPortrait, Ocean, FxLayer,
                                    ShopBar, BenchBar, SidePanels, TopBar,
-                                   Tooltip, ToastLayer, Modals, Wiki, DpsPanel
+                                   Tooltip, ToastLayer, Modals, Wiki, DpsPanel,
+                                   TouchScroll
 shaders/                           ocean.gdshader
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 scripts/dev/                       DEV BUILD ONLY - the log and the dev menu
@@ -343,6 +344,21 @@ Each of these cost a debugging session or settles a design argument.
   that reads as "dz0a" on screen, and one `test_glyphs` passes because U+01F3
   *is* drawable. Write the emoji itself, the way every `.tres` icon does.
 
+- **Godot only scrolls a panel with a finger where the finger can reach the
+  panel.** Its touch scrolling arrives through `gui_input`, and a `Button` is
+  `MOUSE_FILTER_STOP` — so on a phone the only draggable part of the almanac's
+  fifty-one pirate list was the two points of separation between the rows, and
+  the forge chart, whose cells are STOP so the item inspector can open on them,
+  could not be scrolled at all. `TouchScroll.attach(scroll)` reads the gesture in
+  `_input` instead, where it arrives before any of that. It **marks a scrolling
+  drag handled**, or a drag begun in one of those gaps would be counted twice and
+  travel twice as far as the finger; and it **cancels nothing**, because changing
+  a live press is what left the GUI an event behind once already — instead
+  `TouchScroll.dragged()` reports the gesture and the handler declines, which is
+  why `Wiki._open_entry` and the dev menu's buttons ask it. A button acts on
+  release, so the verdict has to survive that release and be cleared by the next
+  press. Attached to the almanac's two panes, the dialog scroll and the dev menu;
+  a panel of `Label`s is IGNORE and already scrolls.
 - **Press-and-hold is the touch inspector, and it lives in Main.** A finger has
   no hover. Main watches real `InputEventScreenTouch` — never the emulated mouse,
   which cannot be told from a real one, and a mouse held still for a third of a
@@ -713,6 +729,14 @@ refers to the JavaScript at all, and only in a comment.
   follows every cross-link in every one of them. Both ways a reference rots are
   silent: a champion added to `data/` and never listed, and a link to an id that
   was renamed. Neither throws and neither shows up in a screenshot.
+- `test_hud.gd` and `test_wiki.gd` between them hold drag-to-scroll: that a
+  swipe moves the list, that the gesture it counted as a scroll does not also
+  open the row it started on, and that a panel with nothing to scroll leaves the
+  gesture alone. The runner has no frame to give the deferred layout that sizes a
+  scrollbar, so both tell the bar what a long list would have told it.
+  `screenshot.gd --sequence=almanac` is the end-to-end half: a real swipe down
+  the rows at every layout, and then the shared tail that checks the shop still
+  buys on the first tap afterwards.
 - `test_dps.gd` checks that the meter's counters are actually fed. A DPS meter
   is the panel that renders perfectly while reporting nothing, and neither the
   suite nor a screenshot can tell that from an honest zero — so the assertions

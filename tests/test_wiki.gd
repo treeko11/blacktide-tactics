@@ -155,3 +155,53 @@ func test_a_champion_entry_is_headed_by_its_figure() -> void:
 	assert_true(wiki._page_portrait.visible, "a monster's entry drew no figure")
 
 	wiki.free()
+## Scrolling the list does not open whatever the thumb was resting on.
+##
+## Every row is a Button acting on release, and a finger that has just dragged
+## the list is still on the row it started from — so before this, scrolling a
+## phone's list of fifty-one pirates opened an entry every time. The rows and the
+## page's cross-links both come through `_open_entry`, which is where the gesture
+## is asked about.
+func test_scrolling_the_list_does_not_open_an_entry() -> void:
+	var wiki := Wiki.new()
+	Engine.get_main_loop().root.add_child(wiki)
+	wiki.open(&"pirates")
+	wiki._open_entry(&"pirates", &"sirene")
+
+	var scroll: ScrollContainer = wiki._list.get_parent()
+	var driver: TouchScroll = scroll.get_node("TouchScroll")
+	assert_not_null(driver, "the almanac's list cannot be dragged at all")
+
+	# The sort that sizes the scrollbar is deferred and the runner has no frame
+	# to give it; a fifty-one row list would have said this much.
+	scroll.position = Vector2(20, 20)
+	scroll.size = Vector2(200, 300)
+	var bar := scroll.get_v_scroll_bar()
+	bar.visible = true
+	bar.max_value = 1400.0
+	bar.page = 300.0
+
+	var at := Vector2(120, 200)
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = at
+	driver._input(down)
+
+	var swipe := InputEventScreenDrag.new()
+	swipe.index = 0
+	swipe.position = at + Vector2(0, -60)
+	swipe.relative = Vector2(0, -60)
+	driver._input(swipe)
+	assert_gt(scroll.scroll_vertical, 0, "the swipe did not scroll the list")
+
+	# What a row's press does when the finger comes off.
+	wiki._open_entry(&"pirates", &"barnaby")
+	assert_eq(wiki._entry, &"sirene", "the scroll opened the row it started on")
+
+	# The verdict on a gesture is one flag for the whole game, so the finger is
+	# put down again to clear it rather than left standing for the next test.
+	driver._input(down)
+	assert_false(TouchScroll.dragged(), "the gesture outlived the test")
+
+	wiki.free()

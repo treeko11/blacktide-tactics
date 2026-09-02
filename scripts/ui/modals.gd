@@ -64,6 +64,9 @@ func _ready() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	stack.add_child(scroll)
+	# The forge chart fills this with cells that are STOP so the inspector can
+	# open on them, which leaves a phone no bare pixel to drag.
+	TouchScroll.attach(scroll)
 
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 10)

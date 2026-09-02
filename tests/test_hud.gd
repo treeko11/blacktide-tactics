@@ -133,6 +133,76 @@ func test_the_ocean_cannot_swallow_a_click_on_the_board() -> void:
 	board.free()
 
 
+## A finger can scroll a panel made of buttons, and scrolling does not press one.
+##
+## Godot's own touch scrolling arrives through `gui_input`, so a `Button` — which
+## is STOP — eats the drag that starts on it. The almanac's list is rows with two
+## points between them, so on a phone the only draggable part of the whole
+## reference was the hairlines, and the forge chart has no gaps at all.
+##
+## The layout that would size the scrollbar is deferred to the end of a frame and
+## the runner has no frame to give it, so the bar is told here what a tall list
+## would have told it.
+func test_a_finger_scrolls_a_panel_of_buttons_without_pressing_one() -> void:
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(40, 40)
+	scroll.size = Vector2(200, 200)
+	Engine.get_main_loop().root.add_child(scroll)
+
+	var bar := scroll.get_v_scroll_bar()
+	bar.visible = true
+	bar.max_value = 800.0
+	bar.page = 200.0
+
+	var driver := TouchScroll.attach(scroll)
+	var at := Vector2(140, 140)
+
+	driver._input(_press(at, true))
+	assert_false(TouchScroll.dragged(), "a finger that has only just landed has not scrolled")
+
+	driver._input(_drag(at, Vector2(0, -4)))
+	assert_false(TouchScroll.dragged(), "four points of wobble counted as a scroll")
+	assert_eq(scroll.scroll_vertical, 0, "the list moved under a tap")
+
+	driver._input(_drag(at, Vector2(0, -36)))
+	assert_true(TouchScroll.dragged(), "a forty point drag did not scroll the list")
+	# 36 rather than 40: the wobble that had not yet passed the slop is spent
+	# deciding this is a scroll, so the list never jumps to catch up with it.
+	assert_eq(scroll.scroll_vertical, 36, "the list did not follow the finger")
+
+	# A button acts on release, so the verdict has to survive it — and be gone by
+	# the time the next tap asks.
+	driver._input(_press(at, false))
+	assert_true(TouchScroll.dragged(),
+		"the release cleared the verdict the button was about to ask for")
+	driver._input(_press(at, true))
+	assert_false(TouchScroll.dragged(), "the next press did not clear it")
+
+	# A tap somewhere that cannot scroll belongs to whatever is under it.
+	bar.visible = false
+	driver._input(_press(at, true))
+	driver._input(_drag(at, Vector2(0, -40)))
+	assert_false(TouchScroll.dragged(), "a panel with nothing to scroll claimed the gesture")
+
+	scroll.free()
+
+
+func _press(at: Vector2, down: bool) -> InputEventScreenTouch:
+	var event := InputEventScreenTouch.new()
+	event.index = 0
+	event.pressed = down
+	event.position = at
+	return event
+
+
+func _drag(at: Vector2, by: Vector2) -> InputEventScreenDrag:
+	var event := InputEventScreenDrag.new()
+	event.index = 0
+	event.position = at + by
+	event.relative = by
+	return event
+
+
 func _collect_blockers(node: Node, path: String, into: PackedStringArray) -> void:
 	for child in node.get_children():
 		var where := "%s/%s" % [path, child.get_class()]

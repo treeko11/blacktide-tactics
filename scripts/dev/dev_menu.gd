@@ -223,6 +223,9 @@ func _build_panel() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size = Vector2(0, minf(420.0, _screen().y * 0.62))
 	stack.add_child(scroll)
+	# The page below is nothing but buttons, and a Button eats the drag that
+	# starts on it, so a phone had only the gaps between them to scroll by.
+	TouchScroll.attach(scroll)
 
 	_scroll = scroll
 
@@ -347,7 +350,7 @@ func _build_champion_page() -> void:
 		var button := UITheme.button("%d%s" % [star, UITheme.STAR], UITheme.FONT_SMALL)
 		if star == _spawn_star:
 			button.add_theme_color_override("font_color", UITheme.GOLD_BRIGHT)
-		button.pressed.connect(func() -> void:
+		_acts(button, func() -> void:
 			_spawn_star = star
 			_rebuild())
 		stars.add_child(button)
@@ -378,7 +381,7 @@ func _build_champion_page() -> void:
 		button.disabled = left < _copies_for(_spawn_star)
 		button.add_theme_color_override("font_color",
 			UITheme.cost_color(def.cost))
-		button.pressed.connect(func() -> void: _spawn(def.id))
+		_acts(button, func() -> void: _spawn(def.id))
 		grid.add_child(button)
 
 
@@ -397,7 +400,7 @@ func _build_item_page() -> void:
 			var button := UITheme.button("%s %s" % [def.icon, def.display_name],
 				UITheme.FONT_TINY)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			button.pressed.connect(func() -> void: _grant(def.id))
+			_acts(button, func() -> void: _grant(def.id))
 			grid.add_child(button)
 
 
@@ -425,6 +428,18 @@ func _section(title: String) -> VBoxContainer:
 	return box
 
 
+## Wires a button that lives inside the scrolling page.
+##
+## A finger that has just scrolled the menu is still resting on whatever it
+## started from, and a button acts on release — so without this, dragging the
+## list of pirates on a phone spawns one.
+func _acts(button: Button, action: Callable) -> void:
+	button.pressed.connect(func() -> void:
+		if TouchScroll.dragged():
+			return
+		action.call())
+
+
 ## One wrapping row of buttons, each `[label, Callable]`.
 func _row(into: VBoxContainer, entries: Array) -> void:
 	var row := HFlowContainer.new()
@@ -434,7 +449,7 @@ func _row(into: VBoxContainer, entries: Array) -> void:
 	for entry in entries:
 		var button := UITheme.button(entry[0], UITheme.FONT_SMALL)
 		var action: Callable = entry[1]
-		button.pressed.connect(func() -> void:
+		_acts(button, func() -> void:
 			action.call()
 			# Every action changes something the header reports, and several
 			# change what the page should offer next.
@@ -446,7 +461,7 @@ func _row(into: VBoxContainer, entries: Array) -> void:
 func _back_row(title: String) -> void:
 	var row := HBoxContainer.new()
 	var back := UITheme.button("« BACK", UITheme.FONT_SMALL)
-	back.pressed.connect(func() -> void: _go(&"root"))
+	_acts(back, func() -> void: _go(&"root"))
 	row.add_child(back)
 	row.add_child(UITheme.label(title, UITheme.FONT_SMALL, UITheme.GOLD))
 	_content.add_child(row)

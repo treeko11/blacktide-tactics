@@ -199,6 +199,10 @@ func _build_list_pane() -> Control:
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(scroll)
+	# Every row is a Button, and a Button swallows the drag that starts on it.
+	# Without this the only part of a fifty-one pirate list a finger could scroll
+	# was the two points of separation between rows.
+	TouchScroll.attach(scroll)
 
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 2)
@@ -217,6 +221,9 @@ func _build_page_pane() -> Control:
 	_page_scroll = ScrollContainer.new()
 	_page_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(_page_scroll)
+	# A page is a RichTextLabel, which is STOP so its links can be clicked, so it
+	# needs the same help as the list.
+	TouchScroll.attach(_page_scroll)
 
 	# A column rather than the label alone, so a champion's entry can be headed
 	# by the figure the board draws. Everything else in the almanac — a trait, an
@@ -288,7 +295,16 @@ func _open_section(section: StringName) -> void:
 	_render()
 
 
+## Opens an entry, unless the tap that asked for it was really a scroll.
+##
+## A row and a link both act on release, and a finger that has just dragged the
+## list is still resting on whatever it started from — so without this, scrolling
+## a phone's list opened whichever pirate the thumb happened to land on. Asked
+## here rather than at each `pressed`, because both the rows and the page's
+## cross-links arrive through this one door.
 func _open_entry(section: StringName, entry: StringName) -> void:
+	if TouchScroll.dragged():
+		return
 	_push()
 	_section = section
 	_entry = entry

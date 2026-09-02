@@ -356,17 +356,36 @@ func _browse_the_almanac() -> void:
 	wiki.open(&"pirates")
 	await _frames(8)
 
+	# A finger dragged down the rows themselves, which is the part of the list a
+	# phone could not scroll at all: every row is a Button, a Button is STOP, and
+	# Godot's own touch scrolling only ever saw the two points of separation
+	# between them. Fifty-one pirates, so this list scrolls at every layout.
+	var list_scroll: ScrollContainer = wiki._list.get_parent()
+	var was_entry: StringName = wiki._entry
+	var swipe_row: Control = _first_row(wiki)
+	if swipe_row == null:
+		fail("the almanac's list has no rows to swipe")
+		return
+	await _swipe(_centre_of(swipe_row), Vector2(0, -90.0))
+	print("  after a swipe down the rows: scroll 0 -> %d, entry=%s"
+		% [list_scroll.scroll_vertical, wiki._entry])
+	if list_scroll.scroll_vertical <= 0:
+		fail("swiping the list of pirates did not scroll it")
+	if wiki._entry != was_entry:
+		fail("the swipe opened '%s' — a scroll must not press the row it started on"
+			% wiki._entry)
+	# Everything below taps a measured coordinate, so the list goes back to where
+	# those coordinates were measured.
+	list_scroll.scroll_vertical = 0
+	await _frames(2)
+
 	# The tabs are in SECTIONS order; index 2 is TRAITS.
 	await _touch(_centre_of(wiki._tabs.get_child(2)), 0.05)
 	if wiki._section != &"traits":
 		fail("tapping the TRAITS tab left the almanac on '%s'" % wiki._section)
 	print("  after tapping a tab: section=%s" % wiki._section)
 
-	var row: Control = null
-	for child in wiki._list.get_children():
-		if child is Button:
-			row = child
-			break
+	var row: Control = _first_row(wiki)
 	if row == null:
 		fail("the almanac's list has no rows to tap")
 		return
@@ -394,6 +413,40 @@ func _browse_the_almanac() -> void:
 		fail("tapping outside the almanac did not close it")
 	else:
 		print("  tapping outside closed it")
+
+
+## The first tappable row of the almanac's list, past any group heading.
+func _first_row(wiki: Node) -> Control:
+	for child in wiki._list.get_children():
+		if child is Button:
+			return child
+	return null
+
+
+## Drags a finger across the screen: down, a run of real `InputEventScreenDrag`
+## a frame apart, then up.
+##
+## Spread over frames rather than sent as one big jump, because that is what
+## decides whether the gesture is a scroll or a tap — a drag is only a scroll
+## once it has travelled far enough, and one enormous relative would say nothing
+## about where that line is.
+func _swipe(from: Vector2, by: Vector2, steps: int = 6) -> void:
+	_touch_down(from)
+	await _frames(2)
+
+	var step := by / float(steps)
+	var at := from
+	for i in steps:
+		at += step
+		var drag := InputEventScreenDrag.new()
+		drag.index = 0
+		drag.position = at
+		drag.relative = step
+		Input.parse_input_event(drag)
+		await _frames(1)
+
+	_touch_up(at)
+	await _frames(4)
 
 
 ## Opens one champion's almanac entry and checks it came up with a figure on it.
