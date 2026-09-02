@@ -4,7 +4,7 @@ A pirate-themed auto battler. Godot 4.7.2 stable, GDScript.
 
 Eight captains, one shared champion pool. Buy pirates, position them on a hex
 board, and the fight resolves itself. Ported from a vanilla-JavaScript build that
-still lives in `js/` and `index.html` — see **The port** below.
+is now **retired** — see **The retired JavaScript build** below.
 
 ## Environment
 
@@ -517,18 +517,23 @@ gives the bots the shopping turns for every round it passes, so the opponents ar
 not still fielding a stage-1 board, but nobody fights. Good for looking at a late
 board and its economy, no use for judging a matchup.
 
-## The port
+## The retired JavaScript build
 
-`js/`, `css/` and `index.html` are the original build, kept working and still
-playable while the Godot version reaches parity. Both directories carry a
-`.gdignore` so the engine leaves them alone. **Retire them once the Godot build
-is ahead**, and update the play link in the README when that happens.
+`js/`, `css/` and `index.html` are the original prototype. They are **frozen**:
+no feature, no fix and no balance change goes into them ever again. Do not read
+them for a spec either — where the two builds disagree, the Godot build is right,
+because everything since parity has landed only here. Both directories carry a
+`.gdignore` so the engine leaves them alone, and they stay in the tree only
+because the repository root still serves the prototype to anyone who wants a
+build that loads instantly rather than pulling ~50 MB of WebAssembly. The play
+link in the README points at `/web/`.
 
-`tools/generate_content.gd` holds the champion, trait and item tables ported from
-`js/data/*.js`, and **overwrites every .tres it produces**. It is a one-time
-bootstrap, not something to re-run after balancing — a number tuned in the
-inspector is lost. Balance in the `.tres` from here on; come back to the
-generator only to add something new.
+`tools/generate_content.gd` holds the champion, trait and item tables originally
+ported from `js/data/*.js`, and **overwrites every .tres it produces**. It is a
+one-time bootstrap, not something to re-run after balancing — a number tuned in
+the inspector is lost. Balance in the `.tres` from here on; come back to the
+generator only to add something new. It is now the last thing in the project that
+refers to the JavaScript at all, and only in a comment.
 
 ## Testing policy
 
