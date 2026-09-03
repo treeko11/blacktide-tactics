@@ -35,8 +35,9 @@ extends "res://tools/tool_script.gd"
 ##   --sequence=forge replay the reported lock-up: read the forge chart, close
 ##                    it, then try to buy from the shop
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
+##                    with it, holds a dead pirate's last numbers, and still
+##                    answers after VICTORY. Needs two or more in --units=
 ##   --overtime       run a fight into overtime and prove the HUD says so
-##                    with it without the cursor moving again
 ##   --shop=<ids>     comma-separated champion ids to seat in the shop
 ##   --sea=<id>       put the run on its weather round with that sea running,
 ##                    and assert the board marked the water and the top bar
@@ -821,11 +822,8 @@ func _watch_a_fight(game: Node) -> void:
 		return
 
 	var board = _scene.board
-	var at: Vector2 = board.global_position + unit.pos * board.board_scale + board.board_offset
-	var motion := InputEventMouseMotion.new()
-	motion.position = _to_window(at)
-	motion.global_position = _to_window(at)
-	Input.parse_input_event(motion)
+	var at: Vector2 = _board_point(board, unit.pos)
+	_point_at(at)
 	await _frames(4)
 
 	if not _scene.tooltip.visible:
@@ -843,13 +841,109 @@ func _watch_a_fight(game: Node) -> void:
 		fail("the inspector froze: it still reads %s" % _line_with(before, "Health"))
 	_capture()
 
-	# And it closes itself when the pirate it describes is killed, which on a
-	# touchscreen is the only way a pinned one ever finds out.
+	# **A pirate that dies keeps its stat block, marked.** It used to close, on
+	# the grounds that the subject was gone — but the numbers a pirate had when
+	# it went down are the last ones there will be, and are what somebody
+	# watching it die is reading the panel for. Emptying it there is the panel
+	# giving up mid-read, which on a phone is a pinned inspector vanishing.
 	unit.alive = false
 	await _frames(20)
-	print("  after the pirate died: inspector visible=%s" % str(_scene.tooltip.visible))
-	if _scene.tooltip.visible:
-		fail("the inspector stayed open over a dead pirate")
+	var fallen: String = _scene.tooltip._body.text
+	print("  after the pirate died: visible=%s, %s"
+		% [str(_scene.tooltip.visible), _line_with(fallen, "Health")])
+	if not _scene.tooltip.visible:
+		fail("the inspector closed over a pirate that died while it was being read")
+	elif not fallen.contains("Fallen"):
+		fail("the inspector kept the dead pirate's numbers without saying it had fallen")
+
+	await _read_after_the_fight(game, board)
+
+
+## The reported bug: every tooltip on the board stops answering once VICTORY or
+## DEFEAT comes up.
+##
+## Two separate failures, and both of them look like the game ignoring you. The
+## inspector that was open when the bell went was closed by the phase change —
+## and the cursor has not moved, so nothing was ever going to re-open it. And a
+## fresh hover afterwards got an empty string, because the text builder read
+## "not COMBAT" as "this pirate is gone", when in fact it is still standing on
+## the board being looked at for the whole result phase.
+##
+## Ended by hand rather than fought out: which side wins and how long it takes
+## are not what is under test, and waiting for a real fight to finish makes the
+## frame budget here a coin toss.
+func _read_after_the_fight(game: Node, board: Node) -> void:
+	var sim = game.sim
+	var ours = null
+	for u in sim.units:
+		if u.team == 1:
+			u.alive = false
+		elif u.alive and ours == null:
+			ours = u
+	if ours == null:
+		fail("none of ours is left standing to inspect — pass --units= with more than one pirate")
+		return
+
+	# Rest the cursor on a survivor while the fight is still running, so what is
+	# tested afterwards is the inspector surviving the result rather than a fresh
+	# hover doing the work.
+	var at: Vector2 = _board_point(board, ours.pos)
+	_point_at(at)
+	await _frames(6)
+	if not _scene.tooltip.visible:
+		fail("hovering a survivor opened no inspector")
+		return
+
+	# Waited out rather than counted in frames: the result phase is 2.6 seconds
+	# long and then the round moves on, so a fixed wait long enough to be safe at
+	# one end overshoots at the other.
+	var waited := 0
+	while game.phase == game.Phase.COMBAT and waited < 300:
+		await _frames(2)
+		waited += 2
+	if game.phase != game.Phase.RESULT:
+		fail("the fight did not reach the result phase (it is in %d), so there was nothing to read a tooltip after"
+			% game.phase)
+		return
+
+	print("  after the bell: phase=%d, inspector visible=%s"
+		% [game.phase, str(_scene.tooltip.visible)])
+	if not _scene.tooltip.visible:
+		fail("the inspector open when the fight ended was closed by the result")
+
+	# And a fresh hover after the result, which is what a player actually does:
+	# the banner comes up and they go looking at what survived. Off the unit
+	# first — an un-hover is what closes the one that is already open — and then
+	# back onto it.
+	_point_at(board.global_position + Vector2(4.0, 4.0))
+	await _frames(4)
+	_point_at(at)
+	await _frames(6)
+	var after: String = _scene.tooltip._body.text
+	print("  hovering a survivor after the result: %s" % _line_with(after, "Health"))
+	if not _scene.tooltip.visible or after.strip_edges() == "":
+		fail("hovering a pirate after the fight opened nothing — the reported bug")
+	elif not after.contains(ours.def.display_name):
+		fail("the inspector after the fight described something other than the pirate under it")
+	_capture()
+
+
+## Where a unit standing at `board_pos` is on screen.
+func _board_point(board: Node, board_pos: Vector2) -> Vector2:
+	return board.global_position + board_pos * board.board_scale + board.board_offset
+
+
+## Reports the cursor at a point without moving the real pointer.
+##
+## Unlike `_hover_at`, which warps: an inspector opened on the *board* is passed
+## no owning control, so it never asks where the pointer physically is and a
+## parsed motion is the whole story. That keeps `--live` runnable on a machine
+## somebody is using, which the hold and sequence checks are not.
+func _point_at(at: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = _to_window(at)
+	motion.global_position = _to_window(at)
+	Input.parse_input_event(motion)
 
 
 func _line_with(text: String, needle: String) -> String:

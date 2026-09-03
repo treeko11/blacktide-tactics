@@ -30,8 +30,14 @@ extends PanelContainer
 ## held still to read it, and a pinned one on a phone never changed at all. So a
 ## caller hands over a `refresh` Callable that rebuilds the text from the live
 ## object, and the tooltip calls it a few times a second. A refresh returning ""
-## means the thing is gone (sold, merged, dead, the fight over) and closes the
-## inspector, which is the only way a pinned one on a touchscreen finds out.
+## means the thing is gone (sold, merged, or belonging to a fight the round has
+## moved on from) and closes the inspector, which is the only way a pinned one on
+## a touchscreen finds out.
+##
+## **Gone is not the same as finished.** A pirate that died, and a fight that has
+## ended, both still have a last set of numbers, and those are exactly what the
+## panel is being read for at that moment — so those keep their text and say what
+## happened rather than emptying the panel. See `Main._sim_unit_text`.
 
 signal sell_requested(unit: RosterUnit)
 
@@ -359,6 +365,15 @@ static func champion_text(champion: ChampionDef, star: int,
 			trait_names.append("%s %s" % [def.icon, def.display_name])
 	if not trait_names.is_empty():
 		lines.append("[color=#a9c4d4]%s[/color]" % "   ".join(trait_names))
+
+	# A pirate that went down keeps its stat block — the numbers it had when it
+	# died are the last ones there will be, and are what somebody who just
+	# watched it die is reading the panel for — but it has to say so. A block
+	# frozen at the moment of death and not marked is indistinguishable from a
+	# live one that has stopped updating, which is the complaint the whole
+	# re-reading inspector exists to answer.
+	if live != null and not live.alive:
+		lines.append("[color=#ff6b7d]Fallen[/color]")
 
 	lines.append("")
 	# Live numbers during a fight, base numbers outside one — a unit with items

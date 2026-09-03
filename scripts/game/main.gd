@@ -518,8 +518,17 @@ func _set_preview(text: String) -> void:
 	_preview.text = text
 
 
+## **The result phase is the one that does not close the inspector.** Every other
+## change of phase throws away what the panel was describing — PLAN rebuilds the
+## board out of roster units, COMBAT swaps them for a battle, ARMOURY opens a
+## modal over the lot — so the inspector goes with them. The end of a fight
+## changes none of that: the same board is still on screen, showing the same
+## units, and the cursor has not moved, so a tooltip closed here is one nothing
+## will ever re-open. That was half of "tooltips stop working after victory";
+## `_sim_unit_text` was the other half.
 func _on_phase_changed(phase: int) -> void:
-	tooltip.hide_now()
+	if phase != GameState.Phase.RESULT:
+		tooltip.hide_now()
 	match phase:
 		GameState.Phase.PLAN:
 			board.show_roster(GameState.board)
@@ -647,8 +656,18 @@ func _on_sim_unit_hovered(unit: SimUnit, at: Vector2) -> void:
 ## filling, a shield appearing and going again. This is the tooltip that most
 ## needed re-reading — the board only reports a hover when the cursor *moves*, so
 ## holding still to read a stat block was what froze it.
+##
+## **Gone means the fight is gone, not that it is over.** This used to return ""
+## — the signal that closes the inspector — for a pirate that had died and for
+## any phase but COMBAT, which meant every tooltip on the board stopped answering
+## the instant VICTORY came up: the survivors are still standing there for the
+## whole result phase, and hovering one showed nothing at all. A pirate that went
+## down, and a fight that has ended, both still have numbers, and they are the
+## last ones there will ever be — which is exactly what somebody who just watched
+## the fight wants to read. So the only thing that closes this inspector is the
+## round moving on, which disposes the battle these units belong to.
 func _sim_unit_text(unit: SimUnit) -> String:
-	if not unit.alive or GameState.phase != GameState.Phase.COMBAT:
+	if GameState.sim == null or not GameState.sim.units.has(unit):
 		return ""
 	return Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
 

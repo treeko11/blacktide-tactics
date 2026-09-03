@@ -52,12 +52,42 @@ func test_a_live_stat_block_follows_the_pirate_it_describes() -> void:
 	tip.queue_free()
 
 
+## A pirate that died keeps its numbers, and says so.
+##
+## The reported bug was "tooltips stop working after victory/defeat": the board
+## text builder treated a dead pirate and a finished fight as a subject that had
+## gone, so the inspector emptied itself the moment the fight it was reading
+## ended — with the survivors still standing on the board being looked at. The
+## last numbers a pirate had are the ones somebody who just watched it die is
+## reading the panel for. The marker is the other half: a frozen block with
+## nothing to say why is indistinguishable from one that stopped updating.
+func test_a_dead_pirate_keeps_its_last_numbers() -> void:
+	var sim := battle(
+		[entry(&"ashmore", Vector2i(3, 5))],
+		[entry(&"brine", Vector2i(3, 1))])
+	var unit: SimUnit = sim.units[0]
+	unit.hp = 340.0
+
+	var alive_text := Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
+	assert_false(alive_text.contains("Fallen"), "a living pirate was marked as fallen")
+
+	unit.alive = false
+	var fallen := Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
+	assert_true(fallen.contains("Fallen"), "a dead pirate's block did not say it had fallen")
+	assert_true(fallen.contains("340"),
+		"a dead pirate's block lost the health it had when it went down")
+	assert_true(fallen.contains(unit.def.display_name),
+		"a dead pirate's block lost the pirate's name")
+
+
 ## An empty refresh means the subject is gone, and closes the inspector.
 ##
 ## This is the only way a *pinned* one on a touchscreen ever finds out: nothing
-## un-hovers a finger, so a pirate that dies mid-fight, or is sold or merged
-## between fights, would otherwise leave a panel describing something that is no
-## longer on the board.
+## un-hovers a finger, so a pirate sold or merged between fights, or one from a
+## fight the round has moved on from, would otherwise leave a panel describing
+## something that is no longer on the board. A pirate that merely *died* is not
+## that — it keeps its last numbers; see the test above — so the refresh here is
+## the tooltip's contract being exercised rather than the board's rule.
 func test_an_inspector_closes_when_its_subject_is_gone() -> void:
 	var sim := battle(
 		[entry(&"ashmore", Vector2i(3, 5))],

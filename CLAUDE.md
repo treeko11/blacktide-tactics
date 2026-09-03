@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them**, or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `fight_pacing.gd` | How long fights actually last. `--runs=` measures real runs; `--matched` fights boards built to the same budget, which is the only way to tell a bad curve from an honest blowout; `--isolate` moves unit count, stars and items one at a time; `--blowouts` reports what the quickest fights looked like from the inside; `--creep` fights the monster waves with one *seeded* run's fleets, which is the only way to compare two builds on the same boards |
@@ -583,13 +583,29 @@ Each of these cost a debugging session or settles a design argument.
   hand `show_text` and `pin` a `refresh` Callable instead, built by the
   `_*_text` functions in Main, and the tooltip calls it ten times a second,
   assigning the label only when the string differs. A refresh returning `""`
-  means the subject is gone — sold, merged into a star-up, killed, the fight
-  over — and closes the inspector, which is the only way a *pinned* one on a
-  touchscreen ever finds out. The refresh is dropped on close, because one for a
-  fight is a lambda holding a SimUnit and that is exactly what `Sim.dispose()`
-  exists to break. `screenshot.gd --live` hovers a pirate mid-fight, changes its
-  health without touching the mouse again, and fails if the panel does not
-  follow.
+  means the subject is gone — sold, merged into a star-up, or belonging to a
+  fight the round has moved on from — and closes the inspector, which is the
+  only way a *pinned* one on a touchscreen ever finds out. The refresh is
+  dropped on close, because one for a fight is a lambda holding a SimUnit and
+  that is exactly what `Sim.dispose()` exists to break. `screenshot.gd --live`
+  hovers a pirate mid-fight, changes its health without touching the mouse
+  again, and fails if the panel does not follow.
+- **Gone is not the same as finished, and the board read them as the same
+  thing.** `Main._sim_unit_text` returned `""` — the signal that empties the
+  inspector — for a pirate that had died and for any phase but COMBAT, so every
+  tooltip on the board stopped answering the moment VICTORY or DEFEAT came up:
+  the survivors stand there for the whole result phase and hovering one showed
+  nothing, and the panel that was already open was closed by the phase change
+  with the cursor not having moved, so nothing was ever going to re-open it. A
+  dead pirate and a finished fight both still have numbers, and they are the
+  last ones there will be — which is exactly what somebody who just watched the
+  fight is reading the panel for. So the only thing that empties a board
+  inspector now is the round moving on, `_on_phase_changed` leaves it alone on
+  the way into RESULT, and `champion_text` marks a dead unit **Fallen**, because
+  a frozen stat block with nothing saying why is indistinguishable from one that
+  stopped updating. `screenshot.gd --live` carries all three: it kills the
+  pirate it is reading, ends the fight under the cursor, and hovers a survivor
+  after the bell.
 
 ### The art
 
