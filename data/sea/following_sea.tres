@@ -9,7 +9,6 @@ display_name = "Following Sea"
 icon = "💨"
 herald = "A following sea. The current runs true down the marked lane."
 description = "Every {interval} seconds, anyone standing in the marked lane gains {attack_speed}% Attack Speed for {duration} seconds."
-weight = 7
 earliest_stage = 2
 marks_cells = true
 boon = true

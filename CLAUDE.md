@@ -263,6 +263,15 @@ Each of these cost a debugging session or settles a design argument.
   goes in the log at the top of that round's planning phase, and the player has
   the whole phase to answer it. That is the point of the system: it is the only
   thing in the game that makes anybody rebuild a formation they already built.
+- **The seas are dealt from a shuffled bag, not rolled each stage.** Rolled
+  independently, a seven-stage run can be fog three times and never once a
+  following sea, and a captain who has met one sea has not met the system — they
+  have met that sea. `_refill_sea_bag` shuffles every sea the run has reached and
+  `_roll_sea` deals off the back, so the order is different every run and the
+  spread is not. The **seam** is the one place a bag can still repeat, so a fresh
+  hand swaps its first card when it matches the one the last hand ended on.
+  `SeaDef` has no `weight`: with a bag it would decide nothing, and an exported
+  field that decides nothing is a lie waiting to be believed.
 - **It never lands on a monster round.** Those are a floor anything on the board
   should clear, and a fog bank over 3-3 makes that untrue. `rounds_until_sea()`
   asks what `SEA_ROUND` *will be* rather than what this round is, which is why
@@ -286,6 +295,14 @@ Each of these cost a debugging session or settles a design argument.
   `marks_cells` drives a wash on the board, and `boon` decides its shape:
   "stand here" and "do not stand here" cannot look the same at a glance, and on
   a phone a glance is all it gets.
+- **The almanac carries the seas in their own section**, grouped into hazards
+  and fair winds, with the schedule on the SAILING page that links to it. Six
+  tabs is safe because `_build_tabs` is an `HFlowContainer` and wraps — the rule
+  that comment records is that a tab off the edge is a section nobody can reach,
+  not that there is a tab budget. `screenshot.gd --almanac=<sea id>` opens one
+  and fails on a page that came up without the sea's own words in it, which is
+  what a section added to `SECTIONS` and never given a `page_for` branch renders
+  as: a blank page that throws nothing.
 - **At least one sea has to be worth standing in.** Every round of weather being
   a tax makes the herald a worse round with a nicer name. A following sea pays
   the lane, which is the opposite-shaped decision to getting out of one, and the

@@ -125,6 +125,15 @@ var _last_opponent_index: int = -1
 var sea_id: StringName = &""
 var sea_cells: Array[Vector2i] = []
 
+## The order the remaining seas will arrive in, next one at the back.
+##
+## A bag rather than a weighted draw each stage. Drawing independently, a seven
+## stage run could be fog three times and never once show a following sea — and
+## a player who has met one sea and not the others has not met the system, they
+## have met that sea. Dealing a shuffled hand means every sea is seen before any
+## repeats, and the order is still different every run.
+var _sea_bag: Array[StringName] = []
+
 var armoury_offer: Array[StringName] = []
 var log_lines: Array[Dictionary] = []
 
@@ -181,6 +190,7 @@ func start_game() -> void:
 	bench.resize(BENCH_SIZE)
 
 	bots = Bot.make_lobby(7, content, rng)
+	_sea_bag.clear()
 	_roll_sea()
 
 	shop.clear()
@@ -759,35 +769,56 @@ func round_type(at_round: int = -1) -> StringName:
 
 # --- the sea -----------------------------------------------------------------
 
-## Draws this stage's weather, and the hexes it will touch.
+## Takes this stage's weather off the bag, and draws the hexes it will touch.
 ##
-## Both come out of the run's own generator, so a seeded run gets the same sea
-## in the same lanes. The cells are drawn *now*, not when the fight is built,
-## because the board has to show the player the same hexes the fight will use —
-## and there are seven fights that round, all of which have to agree.
+## Both come out of the run's own generator, so a seeded run gets the same seas
+## in the same order in the same lanes. The cells are drawn *now*, not when the
+## fight is built, because the board has to show the player the same hexes the
+## fight will use — and there are seven fights that round, all of which have to
+## agree.
 func _roll_sea() -> void:
+	var previous := sea_id
 	sea_id = &""
 	sea_cells = []
 
-	var candidates: Array[SeaDef] = []
-	var total := 0
-	for def in content.seas():
-		if def.earliest_stage > stage or def.weight <= 0:
-			continue
-		candidates.append(def)
-		total += def.weight
-	if candidates.is_empty():
+	if _sea_bag.is_empty():
+		_refill_sea_bag(previous)
+	if _sea_bag.is_empty():
 		return
 
-	var roll := rng.randi_range(0, total - 1)
-	for def in candidates:
-		roll -= def.weight
-		if roll < 0:
-			sea_id = def.id
-			var effect: Variant = content.sea_effect(def.id)
-			if effect != null:
-				sea_cells = effect.cells(def, rng)
-			return
+	sea_id = _sea_bag.pop_back()
+	var def: SeaDef = content.sea(sea_id)
+	var effect: Variant = content.sea_effect(sea_id)
+	if def != null and effect != null:
+		sea_cells = effect.cells(def, rng)
+
+
+## Shuffles every sea the run has reached into a fresh bag.
+##
+## A sea gated to a later stage joins at the next refill rather than the moment
+## it becomes legal, which is a whole cycle of drift at worst and not worth the
+## bookkeeping to avoid.
+##
+## `previous` is the sea the last bag ended on. Without the swap at the end, a
+## refill can hand out the same weather twice running across the seam — the one
+## thing a bag exists to stop, arriving at the only place it is not looking.
+func _refill_sea_bag(previous: StringName) -> void:
+	_sea_bag.clear()
+	for def in content.seas():
+		if def.earliest_stage <= stage:
+			_sea_bag.append(def.id)
+
+	for i in range(_sea_bag.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var swap := _sea_bag[i]
+		_sea_bag[i] = _sea_bag[j]
+		_sea_bag[j] = swap
+
+	# Dealt off the back, so the last entry is the next one out.
+	if _sea_bag.size() > 1 and _sea_bag[-1] == previous:
+		var last := _sea_bag[-1]
+		_sea_bag[-1] = _sea_bag[0]
+		_sea_bag[0] = last
 
 
 ## Rounds until the weather arrives: 0 on the round being fought in it, and -1

@@ -9,7 +9,6 @@ display_name = "Fog Bank"
 icon = "🌫"
 herald = "A fog bank closes in. Nothing can be seen more than a hex or two out."
 description = "Every attack range on the board is capped at {range} hexes, however far it would otherwise reach."
-weight = 10
 earliest_stage = 2
 marks_cells = false
 boon = false

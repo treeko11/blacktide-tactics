@@ -26,9 +26,6 @@ extends Resource
 ## from `values`.
 @export_multiline var description: String = ""
 
-## Relative chance of being the stage's sea, against the other candidates.
-@export var weight: int = 10
-
 ## The first stage this can be drawn on. Stage 1 never draws at all — it is
 ## monsters and the armoury, and those rounds stay calm water.
 @export var earliest_stage: int = 2
