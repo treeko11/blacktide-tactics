@@ -27,6 +27,24 @@ extends Node2D
 const BODY_RADIUS := 23.0
 const BAR_WIDTH := 52.0
 const BAR_HEIGHT := 5.0
+const MANA_HEIGHT := 4.0
+
+## Everything under the figure is one stack, and the numbers below are the whole
+## of it: health bar, mana bar if the unit casts, then the item pips. They used
+## to be placed independently — the bars from `BODY_RADIUS + 6` and the pips from
+## a hardcoded `BODY_RADIUS + 17` — which put a 14-point pip box across the
+## bottom of the health bar and straight over the whole mana bar, so a unit
+## carrying anything could not be read at a glance during the one phase the bars
+## exist for. Each offset is now measured off the one above it.
+##
+## `BAR_TOP` clears the ground plate rather than the old hit-test disc: the plate
+## and its wake reach y 24.5, so four points below `BODY_RADIUS` is a real gap and
+## buys back some of what the pips moving down costs.
+const BAR_TOP := BODY_RADIUS + 4.0
+const MANA_GAP := 1.0
+const ITEM_GAP := 2.0
+const ITEM_PIP := 14.0
+const ITEM_SPACING := 15.0
 
 ## Seconds each reaction takes to decay, in battle time.
 const SWING_TIME := 0.26
@@ -190,7 +208,7 @@ func _draw() -> void:
 func _draw_bars() -> void:
 	if sim_unit == null:
 		return
-	var top := BODY_RADIUS + 6.0
+	var top := BAR_TOP
 	var left := -BAR_WIDTH * 0.5
 
 	# Health, with any shield laid over the top of it in a lighter colour.
@@ -206,10 +224,10 @@ func _draw_bars() -> void:
 	draw_rect(track, Color(0, 0, 0, 0.6), false, 1.0)
 
 	if sim_unit.casts():
-		var mana_top := top + BAR_HEIGHT + 1.0
-		var mana_track := Rect2(left, mana_top, BAR_WIDTH, 4.0)
+		var mana_top := top + BAR_HEIGHT + MANA_GAP
+		var mana_track := Rect2(left, mana_top, BAR_WIDTH, MANA_HEIGHT)
 		draw_rect(mana_track, Color("0a0f14"))
-		draw_rect(Rect2(left, mana_top, BAR_WIDTH * sim_unit.mana_fraction(), 4.0),
+		draw_rect(Rect2(left, mana_top, BAR_WIDTH * sim_unit.mana_fraction(), MANA_HEIGHT),
 			UITheme.MANA)
 		draw_rect(mana_track, Color(0, 0, 0, 0.6), false, 1.0)
 
@@ -231,27 +249,45 @@ func _draw_stars(fade: float) -> void:
 	draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
 
 
-## Item pips under the body, so what a unit is carrying is visible on the board
+## The middle of the item row, which is the bottom of whatever is above it. A
+## caster carries a mana bar and a non-caster does not, so the row cannot be a
+## fixed offset from the body — that is exactly how it ended up on top of the
+## bars. Between fights there are no bars at all and the pips sit at the feet.
+##
+## Read from `show_bars` and never from `_pose.dead`: a dying unit stops drawing
+## its bars, and pips that slid up the moment a unit died would read as the board
+## twitching rather than as a death.
+func _item_row_y() -> float:
+	if not show_bars or sim_unit == null:
+		return BODY_RADIUS + 4.0
+	var bottom := BAR_TOP + BAR_HEIGHT
+	if sim_unit.casts():
+		bottom += MANA_GAP + MANA_HEIGHT
+	return bottom + ITEM_GAP + ITEM_PIP * 0.5
+
+
+## Item pips under the bars, so what a unit is carrying is visible on the board
 ## rather than only inside a tooltip.
 func _draw_items(fade: float) -> void:
 	if items.is_empty() or _content == null:
 		return
 	var font := UITheme.emoji_font()
 	var size := 12
-	var spacing := 15.0
-	var start := -(items.size() - 1) * spacing * 0.5
-	var y := BODY_RADIUS + (17.0 if show_bars else 4.0)
+	var start := -(items.size() - 1) * ITEM_SPACING * 0.5
+	var y := _item_row_y()
+	var half := Vector2(ITEM_PIP, ITEM_PIP) * 0.5
 
 	for i in items.size():
 		var item: ItemDef = _content.item_def(items[i])
 		if item == null:
 			continue
-		var centre := Vector2(start + i * spacing, y)
+		var centre := Vector2(start + i * ITEM_SPACING, y)
+		var box := Rect2(centre - half, Vector2(ITEM_PIP, ITEM_PIP))
 		var forged := not item.is_component
-		draw_rect(Rect2(centre - Vector2(7, 7), Vector2(14, 14)), Color(0.05, 0.13, 0.19, fade))
+		draw_rect(box, Color(0.05, 0.13, 0.19, fade))
 		var edge := UITheme.GOLD if forged else Color("2f5a72")
 		edge.a = fade
-		draw_rect(Rect2(centre - Vector2(7, 7), Vector2(14, 14)), edge, false, 1.0)
+		draw_rect(box, edge, false, 1.0)
 		var width := font.get_string_size(item.icon, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		draw_string(font, centre + Vector2(-width * 0.5, size * 0.36), item.icon,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, fade))
