@@ -26,7 +26,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac\|reread`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `fight_pacing.gd` | How long fights actually last. `--runs=` measures real runs; `--matched` fights boards built to the same budget, which is the only way to tell a bad curve from an honest blowout; `--isolate` moves unit count, stars and items one at a time; `--blowouts` reports what the quickest fights looked like from the inside; `--creep` fights the monster waves with one *seeded* run's fleets, which is the only way to compare two builds on the same boards |
@@ -648,6 +648,30 @@ Each of these cost a debugging session or settles a design argument.
   `_shop_card_text` returns `""` for an empty slot, which is what closes it. Both
   halves are replayed by `screenshot.gd --sequence=buy`, and each has an act that
   fails without it.
+- **The cursor not leaving is also why no second hover ever arrives.** That is
+  the same asymmetry as the rule above, read the other way round, and it was
+  missed for as long as the first half was known: the tap parks the emulated
+  cursor inside the control it landed on, so a second touch on that *same*
+  control fires no `mouse_entered` and no motion — and a phone browser's
+  synthetic mouse events behave the same way, which is where it was reported
+  from. The inspector is only ever opened by that hover, and the release threw
+  the hover record away, so **the thing just tapped became unreadable**: tapping
+  it showed nothing, and press-and-hold pinned nothing, because `_complete_hold`
+  reads the same record. Touching something else fixed it, which is exactly what
+  it looked like from the outside. So the release now hides the panel and
+  **keeps the record**, and `_begin_hold` reuses it only when the touch lands
+  inside the control that made it — `_hover_owner`, captured off
+  `gui_get_hovered_control()` at hover time rather than taken from the caller,
+  because the panels pass wildly different things as the tooltip's owner and
+  what is wanted is the innermost control. Checked against that control's own
+  rect, not against the record merely existing: a hold on empty water would
+  otherwise pin whatever was last read. The re-show waits a frame and stands
+  down if anything else has claimed the inspector, so a touch that did land on
+  something new does not flash the previous subject over the top of it.
+  `screenshot.gd --sequence=reread` is the check, and it **deliberately does not
+  move the pointer between the two touches** — every other sequence reaches for
+  a different control each time, which is precisely the case that always
+  worked, and is how this hid from all of them.
 - **The tooltip closes itself.** A tooltip opened by a hover and closed only by
   the matching un-hover stays up forever when the panel underneath rebuilds —
   which the shop does on every purchase. It watches its owner every frame.
