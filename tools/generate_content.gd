@@ -321,7 +321,7 @@ const CHAMPIONS := [
 		"ability": "Crimson Flurry",
 		"desc": "Strike four times for {dmg} each. These strikes can critically strike.",
 		"values": { &"dmg": [60, 75, 115] } },
-	{ "id": &"doss", "name": "Deadeye Doss", "icon": "🎯", "cost": 2,
+	{ "id": &"doss", "name": "Deadeye Darcy", "icon": "🎯", "cost": 2,
 		"traits": [&"gunner", &"reaver"],
 		"hp": 560, "ad": 62, "as": 0.65, "armor": 25, "mr": 25, "range": 4, "mana": [40, 80],
 		"ability": "Widow's Round",

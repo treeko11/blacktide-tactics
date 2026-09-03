@@ -1027,7 +1027,7 @@ The shop marks a card [color=#ffd98a]BUY THIS[/color] when buying it completes a
 				% [UITheme.STAR.repeat(2), UITheme.STAR.repeat(3),
 					_link(&"pirates", &"", "pirate's")]
 		&"scaling":
-			# The worked example is read off Doss rather than written into the
+			# The worked example is read off Darcy rather than written into the
 			# prose, so a balance pass that retunes him cannot leave this page
 			# quoting a number the game no longer uses.
 			var doss: ChampionDef = Content.champion(&"doss")
@@ -1042,7 +1042,7 @@ The shop marks a card [color=#ffd98a]BUY THIS[/color] when buying it completes a
 Four pirates read one figure off each in the same cast — %s, %s, %s and %s — which is why the mark sits on the number and not on the ability.
 
 Ability power comes from items (the %s alone is +80), from the %s trait, and mid-fight from Meredine and Nautica, who hand it to the whole fleet permanently every time they cast. Nothing else touches it. A number with no mark scales off nothing at all: a stun lasts as long however you build the pirate casting it.""" \
-				% [_link(&"pirates", &"doss", "Doss"), doss_ad, doss_pct,
+				% [_link(&"pirates", &"doss", "Darcy"), doss_ad, doss_pct,
 					doss_ad * doss_pct / 100, int(SimUnit.BASE_AP),
 					_link(&"pirates", &"corvane", "Corvane"),
 					_link(&"pirates", &"finn", "Finn"),

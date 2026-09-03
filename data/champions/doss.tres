@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_2xcl4")
 id = &"doss"
-display_name = "Deadeye Doss"
+display_name = "Deadeye Darcy"
 icon = "🎯"
 cost = 2
 traits = Array[StringName]([&"gunner", &"reaver"])
