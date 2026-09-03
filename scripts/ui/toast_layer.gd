@@ -68,8 +68,15 @@ func _on_unit_upgraded(champion_id: StringName, star: int) -> void:
 		UITheme.GOLD_BRIGHT)
 
 
-func _on_notice(text: String, _style: StringName) -> void:
-	_push("⚠", text, "", UITheme.WARNING)
+## The style is not decoration. Most notices are a refusal, but the weather round
+## announces a following sea through the same call — and a boon drawn with the
+## warning glyph in warning orange is "do not stand here" written over "stand
+## here", which is the one thing the sea rules say must never look the same.
+func _on_notice(text: String, style: StringName) -> void:
+	if style == &"good":
+		_push("✔", text, "", UITheme.GOOD)
+	else:
+		_push("⚠", text, "", UITheme.WARNING)
 
 
 func _push(icon: String, body: String, heading: String, accent: Color) -> void:
