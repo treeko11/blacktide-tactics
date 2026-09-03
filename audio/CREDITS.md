@@ -8,7 +8,7 @@ Every file in this folder is **CC0 1.0 (public domain)** by Kenney
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | `bong_001`, `confirmation_002`, `confirmation_004`, `error_004`, `error_008`, `glass_005`, `maximize_006`, `open_004`, `pluck_002`, `select_005`, `switch_004`, `tick_002` |
 | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | `impactBell_heavy_002`, `impactMetal_heavy_000`, `impactMetal_heavy_001`, `impactMetal_light_001`, `impactMetal_light_002`, `impactPlank_medium_000`, `impactPlank_medium_001`, `impactPlate_heavy_000`, `impactWood_heavy_001` |
 | [RPG Audio](https://kenney.nl/assets/rpg-audio) | `beltHandle1`, `creak1`, `drawKnife2`, `dropLeather`, `handleCoins`, `knifeSlice`, `knifeSlice2`, `metalLatch` |
-| [Casino Audio](https://kenney.nl/assets/casino-audio) | `card-shuffle`, `chips-handle-2` |
+| [Casino Audio](https://kenney.nl/assets/casino-audio) | `chips-handle-2` |
 
 CC0 asks for nothing, but credit is polite, so it is here.
 

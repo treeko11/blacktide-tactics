@@ -83,7 +83,6 @@ const BANK := {
 	# --- the shop and the economy
 	&"buy":       { "files": ["handleCoins.ogg"],    "db": -7.0,  "pitch": Vector2(0.98, 1.04) },
 	&"sell":      { "files": ["chips-handle-2.ogg"], "db": -9.0,  "pitch": Vector2(0.98, 1.04) },
-	&"roll":      { "files": ["card-shuffle.ogg"],   "db": -13.0, "pitch": Vector2(0.98, 1.04) },
 	&"lock":      { "files": ["switch_004.ogg"],     "db": -12.0, "pitch": Vector2(1.0, 1.0) },
 	# Four XP a purchase, so this is the most-played cue in the shop by a wide
 	# margin. It is a tick under the coins, not a second sound beside them.
@@ -345,7 +344,6 @@ func _connect_bus() -> void:
 	Events.unit_bought.connect(func(_id): play(&"buy"))
 	Events.unit_sold.connect(func(_id, _value): play(&"sell"))
 	Events.unit_upgraded.connect(func(_id, _star): play(&"star_up"))
-	Events.shop_rolled.connect(func(_ids): play(&"roll"))
 	Events.shop_locked_changed.connect(func(_locked): play(&"lock"))
 	Events.level_changed.connect(_on_level_changed)
 
