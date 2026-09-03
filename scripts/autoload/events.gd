@@ -25,6 +25,15 @@ signal game_over(place: int)
 signal plan_time_warning(seconds_left: float)
 signal plan_timer(seconds_left: float, fraction: float)
 
+## The fight the player is watching has entered overtime: from here every hit
+## lands harder and every heal lands softer until somebody goes down.
+##
+## Fires only for the watched fight. The six that resolve unseen enter overtime
+## on the same clock and say nothing, the same way they draw nothing — a signal
+## per fight would announce six battles nobody is looking at over the top of the
+## one they are.
+signal combat_overtime()
+
 ## The run is holding at the line. The opening planning phase does not start its
 ## clock until the player closes the almanac it opens behind or presses SET SAIL,
 ## so the first thing a new player sees is not a countdown they did not ask for.

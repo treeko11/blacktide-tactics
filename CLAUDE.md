@@ -24,9 +24,10 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--overtime`, all of which assert |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
+| `fight_pacing.gd` | How long fights actually last. `--runs=` measures real runs; `--matched` fights boards built to the same budget, which is the only way to tell a bad curve from an honest blowout; `--isolate` moves unit count, stars and items one at a time; `--blowouts` reports what the quickest fights looked like from the inside; `--creep` fights the monster waves with one *seeded* run's fleets, which is the only way to compare two builds on the same boards |
 | `art_sheet.gd` | Draws **every champion**, or every body in every animation state (`--poses`). Must run **without** `--headless`. The only check that a polygon still triangulates |
 | `assign_art.gd` | Stamps `ArtTable` into `data/champions/*.tres`. Idempotent, and preserves balance where `generate_content.gd` would not |
 | `crop.gd` | Magnifies a region of a PNG, nearest-neighbour, for looking at the art |
@@ -222,6 +223,21 @@ Each of these cost a debugging session or settles a design argument.
   half-run. Nothing about the outcomes changes — the same pairings, the same seeds
   drawn in the same order — only when the work happens. `soak.gd` reports the
   worst frame of every round, which is how that is kept honest.
+- **A fight that cannot end is ended for it.** Nothing in the sim forced a
+  resolution, so a battle neither side could close ran the full `TIME_LIMIT` and
+  was handed to whoever had more health left — a result nobody watched happen.
+  Measured over 1,600 even fights, one in six ended that way, and one in three
+  once both boards were three-star. From `Sim.OVERTIME_START` every hit lands
+  harder and every heal and shield lands softer, reaching full strength at
+  `OVERTIME_FULL`. It is symmetric and runs off the fight's own clock, so it
+  removes the stalemate without picking the winner, and it is invisible to a
+  fight that was going to end anyway — the count of fights resolving under eight
+  seconds did not move at all when it went in. **Announced, not silent**: it is
+  the sea's rule again, since a board that was holding and suddenly is not, with
+  nothing on screen to say why, is indistinguishable from the game cheating.
+  `GameState._announce_overtime` watches the *watched* fight and says so once;
+  the six nobody sees enter overtime on the same clock and stay quiet, the same
+  way they draw nothing.
 - **`Sim.dispose()` must be called on a finished fight.** A battle builds
   reference cycles — `target` points at another unit, every hook is a lambda that
   captured its unit, every pending delayed call captured the caster — and
@@ -697,6 +713,21 @@ these; they are the reason several things are where they are.
   `creep_balance.gd` after touching a wave or a monster's stats; the naive
   player it drives should win every wave, and the only fleets losing should be
   bots with almost nothing on the board.
+- **Resistances scale with the star, at the rate attack damage does.**
+  `HP_PER_STAR` is 1.8 and `AD_PER_STAR` is 1.55, and armour and magic resist
+  used to be flat — so every star-up handed a board more health and more damage
+  and left mitigation exactly where it was, pulling offence and defence apart a
+  little further every time anybody upgraded anything. `RES_PER_STAR` is 1.55
+  deliberately: the same curve as the damage it mitigates, so a board of
+  three-stars fights another board of three-stars at the pace one-stars fight
+  at. Measured on `fight_pacing.gd --matched`, it cut fights ending under eight
+  seconds at the late tiers by about a third and left every one-star tier
+  untouched, which is the point — a one-star board has no star curve to correct.
+- **A fast fight is not automatically a broken one.** In fights that ended under
+  eight seconds the winner kept 8.3 of 9 units and the loser still dealt 31% of
+  the damage — those boards were outmatched in the shop, and the sim is
+  reporting that honestly. `--blowouts` is the check; reach for a curve change
+  only when the losing board was trading and still died that fast.
 - **Losing pays the same streak bonus as winning.** A captain being beaten every
   round has to be able to fund the rebuild that gets them back in.
 
@@ -899,6 +930,12 @@ refers to the JavaScript at all, and only in a comment.
   each is asserted on the board or on the numbers. `screenshot.gd --sea=<id>`
   is the other half: it puts the run on the weather round and fails if the board
   did not mark the water or the bar did not name it.
+- `test_pacing.gd` holds the overtime ramp and the star curve, both of which
+  fail silently. A ramp applied cleanly that changes no number is
+  indistinguishable from one that works — the DPS meter problem again — so every
+  assertion is on a number, and the one that matters most fights two boards of
+  healers and fails if they reach the time limit. That test genuinely fails with
+  the ramp turned off: the fight runs to exactly 42.000s.
 - `test_economy.gd` checks that **no champion copies are lost** over forty rounds
   of bot shopping. A card rolled and neither bought nor returned drains the
   shared pool silently, and the shop slowly stops offering that champion to
