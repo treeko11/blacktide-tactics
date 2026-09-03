@@ -13,3 +13,11 @@ desktop.ini
 # Screenshots written by tools/screenshot.gd
 shot_*.png
 fx_*.png
+
+# Local machine paths - never commit these. An absolute path in a public repo
+# names the machine, and usually whoever owns it. The .bat launchers read it.
+godot_path.txt
+
+# Names and addresses tools/hooks/pre-commit watches for. Untracked because
+# the file itself is the personal information.
+private_patterns.txt

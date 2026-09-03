@@ -2,23 +2,32 @@
 rem ---------------------------------------------------------------------------
 rem  Double-click to play a whole run headlessly and check nothing stalls.
 rem
-rem  If Godot ever moves, either set a GODOT_BIN environment variable or edit
-rem  the path on the DEFAULT_GODOT line below.
+rem  Godot is found in this order:
+rem    1. a GODOT_BIN environment variable
+rem    2. godot_path.txt beside this file - one line, the full path to the exe.
+rem       That file is gitignored on purpose: an absolute path committed to a
+rem       public repo names the machine, and usually whoever owns it.
+rem    3. godot.exe on PATH
 rem ---------------------------------------------------------------------------
 setlocal
 
-set "DEFAULT_GODOT=F:\Users\Sam\Downloads\Godot_v4.7.2-stable_win64.exe"
-
 set "GODOT=%GODOT_BIN%"
-if "%GODOT%"=="" set "GODOT=%DEFAULT_GODOT%"
+
+if not defined GODOT (
+    if exist "%~dp0godot_path.txt" set /p GODOT=<"%~dp0godot_path.txt"
+)
+
+if not defined GODOT (
+    for %%G in (godot.exe) do set "GODOT=%%~$PATH:G"
+)
 
 if not exist "%GODOT%" (
     echo.
-    echo   Could not find Godot at:
-    echo     %GODOT%
+    echo   Could not find Godot.
     echo.
     echo   Either set a GODOT_BIN environment variable pointing at your Godot
-    echo   executable, or open this file in Notepad and change DEFAULT_GODOT.
+    echo   executable, or create godot_path.txt beside this file containing the
+    echo   full path to it on a single line.
     echo.
     pause
     exit /b 1

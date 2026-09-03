@@ -8,15 +8,17 @@ is now **retired** — see **The retired JavaScript build** below.
 
 ## Environment
 
-The Godot binary is **not on PATH**. On Sam's machine it is at:
+The Godot binary is **not on PATH**, and its location is machine-specific.
+`Test.bat`, `Play.bat`, `Edit.bat` and `Playthrough.bat` in the project root
+find it, in this order: a `GODOT_BIN` environment variable, then a
+`godot_path.txt` beside them holding the full path on one line, then
+`godot.exe` on PATH. **`godot_path.txt` is gitignored, and that is the
+point** — this repository is public, and an absolute path committed to a
+public repository names the machine and usually whoever owns it. Never put
+a real path in a tracked file; it goes in `godot_path.txt`.
 
-```
-F:\Users\Sam\Downloads\Godot_v4.7.2-stable_win64.exe
-```
-
-`Test.bat`, `Play.bat` and `Edit.bat` in the project root find it, or read a
-`GODOT_BIN` environment variable. A session running anywhere else — a container,
-a remote agent, CI — **has no engine and can verify nothing**. There, prefer work
+A session running anywhere else — a container, a remote agent, CI —
+**has no engine and can verify nothing**. There, prefer work
 that needs no engine, and say plainly in the commit message that code is
 **unverified**. Never describe untested code as working.
 
@@ -126,18 +128,56 @@ player, which is exactly what a real bug looks like — the game was fine.
 
 ## Working agreements
 
-- **Claude writes the code; explain it as you go, not afterwards.** Sam is an
-  escalated support SME in a PHP/Laravel/SQL stack with a basic grasp of code —
-  he follows intent and output from context but is not a fluent reader.
+- **Claude writes the code; explain it as you go, not afterwards.** The
+  maintainer works in a PHP/Laravel/SQL stack and has a basic grasp of code —
+  they follow intent and output from context but are not a fluent reader.
 - **Ask before building, not after.** A fork that changes what gets built and is
   not settled by these docs is a question, not a default reported later.
 - **Run routine commands freely** — reads, tests, builds, commits, pushes.
-- **Refactor freely.** Sam would rather existing code be reshaped than worked
-  around.
-- **Sam does not touch git or GitHub at all.** Branches, PRs and cleanup are
-  Claude's job start to finish. On his machine, commit and push straight to
-  `main` as work lands.
+- **Refactor freely.** The maintainer would rather existing code be reshaped
+  than worked around.
+- **The maintainer does not touch git or GitHub at all.** Branches, PRs and
+  cleanup are Claude's job start to finish. On the maintainer's machine, commit
+  and push straight to `main` as work lands.
 - **Keep commit messages short** — subject, then a few lines of what and why.
+
+## The repository is public
+
+Everything committed here is published, and a commit is hard to take back: the
+address on it shows on every commit page, and removing it means rewriting every
+SHA in the history and force-pushing over `main`.
+
+Three things stop that happening by accident. **A fresh clone has none of them**
+- a hook is not cloned and neither is a local config, so a new machine runs:
+
+```
+git config user.email '<id>+<name>@users.noreply.github.com'
+git config core.hooksPath tools/hooks
+```
+
+- **The git identity is the GitHub noreply address**, never a real one. Set
+  globally as well as locally, because the leak is always the repository nobody
+  remembered to configure.
+- **`tools/hooks/pre-commit` refuses a commit carrying personal information**: a
+  real address on the identity or in the change, an absolute path (which names
+  the machine, and usually whoever owns it), or anything matching an untracked
+  `private_patterns.txt`. It reads **added lines only**, so a match already in a
+  file cannot block a change that did not introduce it - which is what keeps a
+  web re-export, rewriting `web/index.js` whole, from tripping over
+  Emscripten's own `/home/web_user`.
+- **A real path lives in `godot_path.txt`**, gitignored, and never in a tracked
+  file. The `.bat` launchers read it.
+
+**Anything naming a person goes in `private_patterns.txt`, never in the hook.**
+The hook is tracked, and therefore public: a name written into it is exactly the
+leak it exists to stop. Same reason the pattern file is gitignored - that file
+*is* the personal information.
+
+Commits made before the guard went in still carry a real address. Rewriting them
+means rewriting every SHA and force-pushing over a public `main`, which orphans
+the merged PRs, so they were deliberately left alone. **Nothing new joins them** -
+do not quietly "fix" the history, and do not turn `--no-verify` into a habit,
+because the habit is how the address gets pushed.
 
 ## Architecture rules (non-negotiable — each is a rewrite if broken)
 
@@ -190,6 +230,7 @@ scripts/dev/                       DEV BUILD ONLY - the log and the dev menu
 scenes/main.tscn                   a bare Control; the HUD is built in code
 tests/                             test_*.gd, discovered automatically
 tools/                             entry points, all extending tool_script.gd
+tools/hooks/                       git hooks, via core.hooksPath. Not Godot
 js/, css/, index.html              the original JavaScript build (see below)
 ```
 
@@ -854,7 +895,7 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
 
 ### What the first playtest asked for
 
-Sam's notes after his first game, and where each landed. Do not quietly undo
+The maintainer's notes after their first game, and where each landed. Do not quietly undo
 these; they are the reason several things are where they are.
 
 | Note | Where |
