@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--overtime`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them**, or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `fight_pacing.gd` | How long fights actually last. `--runs=` measures real runs; `--matched` fights boards built to the same budget, which is the only way to tell a bad curve from an honest blowout; `--isolate` moves unit count, stars and items one at a time; `--blowouts` reports what the quickest fights looked like from the inside; `--creep` fights the monster waves with one *seeded* run's fleets, which is the only way to compare two builds on the same boards |
@@ -112,6 +112,15 @@ player, which is exactly what a real bug looks like — the game was fine.
 - **`content()` and `state()` return `Node`, so anything they return is a
   Variant.** `var x := content().forge(a, b)` will not compile: type it
   explicitly, `var x: StringName = ...`.
+- **Seed the run *before* `start_game()`, never after.** `GameState._ready()`
+  calls `rng.randomize()`, and `start_game()` spends that generator immediately —
+  the seven rival captains, the sea bag shuffle and the opening shop all come out
+  of it. A tool that starts the run and *then* pins `game.rng.seed` has fixed
+  nothing anybody fights with. `fight_pacing.gd --creep` did exactly that, so two
+  invocations of identical code fought different fleets and reported 3-3 at 75%
+  and then at 100% — noise read as signal, which is the one thing that tool
+  exists to spare anybody. Two runs of a properly seeded `--creep` are now
+  byte-identical, which is the only way to tell a change from a roll.
 - **Keep the Godot editor closed** while files are edited externally, or expect
   stale caches.
 
@@ -171,10 +180,10 @@ scripts/core/traits/               one file per trait (13)
 scripts/core/items/                one file per item (20)
 scripts/core/sea/                  one file per sea state (4)
 scripts/ui/                        UITheme, Layout, BoardView, UnitView,
-                                   UnitArt, UnitPortrait, Ocean, FxLayer,
-                                   ShopBar, BenchBar, SidePanels, TopBar,
-                                   Tooltip, ToastLayer, Modals, Wiki, DpsPanel,
-                                   TouchScroll
+                                   UnitArt, UnitPortrait, Ocean, DeckPlate,
+                                   FxLayer, ShopBar, BenchBar, SidePanels,
+                                   TopBar, Tooltip, ToastLayer, Modals, Wiki,
+                                   DpsPanel, TouchScroll
 shaders/                           ocean.gdshader
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 scripts/dev/                       DEV BUILD ONLY - the log and the dev menu
@@ -463,6 +472,23 @@ Each of these cost a debugging session or settles a design argument.
   `× · • ° « »`, en and em dashes, and anything Noto Color Emoji covers —
   including the Dingbats that are emoji, such as `✔`. Confirmed missing:
   Geometric Shapes, and the arrows and dashes outside Latin-1.
+- **A scaling mark goes on the number, not on the ability.** Ability power was
+  invisible: nothing in the HUD named the stat, and no ability said which of its
+  figures grew with it. Four champions — Corvane, Finn, Hookjaw and Selka — read
+  one figure off attack damage and another off ability power *in the same
+  sentence*, so a line underneath saying "scales with both" cannot say which is
+  which. `Ability.SCALING` holds the two stats and how each is marked, an
+  ability's `scaling()` declares `key -> stat`, and `Content.format_description`
+  tags each number as it substitutes it: `230% AD`, `400 AP`. The declaration
+  lives in the **ability**, next to the `scaled()` call that makes it true, and
+  deliberately not in the `.tres` — a champion's resource is edited to retune a
+  number, which is exactly the edit that must not be able to change what that
+  number scales off. Traits and items come through the same function with no
+  caster to scale from, so `scaling` is a parameter that defaults to empty and
+  leaves every number bare. An unknown stat marks nothing, because a mark nobody
+  can decode is worse than no mark. All of it is Latin-1, since this text sits
+  next to every damage figure in the game and the web export has no font for
+  anything cleverer.
 - **A trait badge names every pirate that carries it.** The breakpoint list says
   the trait wants two more and never says *which* two, so the only place that
   answered was the almanac — a full-screen dialog opened over the shop,
@@ -603,6 +629,23 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   (`TURNS_TO_AIM`), and the two drawn from the side flip (`MIRRORS_TO_AIM`). The
   shark was drawn from above first, to match the board; a shark from above is a
   spindle with two fins, which at forty pixels is a leaf.
+- **The bench is a deck, and the deck is the Ocean rule in a smaller place.**
+  Nine blue holes in a blue panel said nothing about whose pirates were standing
+  in them, so `DeckPlate` draws caulked planking with staggered butt joints and
+  nails, every slot is a rope ring lit when it is occupied, and the sell zone is
+  the water past the gunwale. Two things about it are load-bearing rather than
+  decorative. It is **`MOUSE_FILTER_IGNORE`**, because a full-panel Control laid
+  under the slots is an invisible sheet that eats every press meant for the
+  bench — no dragging a pirate out to the board and nothing on screen to say why
+  — and the slot overlays are IGNORE for the same reason; `test_hud.gd` walks it
+  rather than trusting the comment. And it is a **plain child, not
+  `show_behind_parent`**: `Ocean` sits behind its parent because `BoardView`
+  paints the grid in its own `_draw`, but the bench's background is a `StyleBox`
+  that a PanelContainer paints *for* itself, so a plate behind that parent would
+  be covered by it. The slots are translucent on purpose — opaque ones cover the
+  planking they stand on, and nine of them leave the deck showing only in the
+  margins. It repaints on resize only, and its grain and nails stop below
+  `DETAIL_HEIGHT`, which is the trade `Pose.detail` makes on the board.
 - **`Ocean` is a full-panel Control over the board, and `Control` defaults
   `mouse_filter` to STOP.** Left alone that is an invisible sheet that eats every
   press meant for the board — no dragging a pirate, no dropping an item, nothing

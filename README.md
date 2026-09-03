@@ -8,7 +8,9 @@ Eight captains, one shared champion pool, last fleet afloat wins. You buy pirate
 shop, arrange them on your half of a hex board, and they fight automatically against one other
 captain each round. Lose and your **hull** (100 HP) takes damage.
 
-Plays on desktop and on phones — mouse, touch, and a layout that reflows for both.
+Plays on desktop and on phones — mouse, touch, and a separate portrait layout rather than one
+design stretched to fit. The game is played upright; turning the phone deliberately changes
+nothing, because the portrait furniture alone is wider than a landscape phone is tall.
 
 ---
 
@@ -28,7 +30,8 @@ engine ignores them.
 every pirate is a drawn figure that winds up, lunges, recoils and sinks, rather than an emoji in a
 circle. Sound on every action. An almanac of every pirate, trait, item and monster wave. A live DPS
 meter. Shop cards that call out duplicates and star-ups. A forge chart. Rivals that actually collect
-and forge items. And a phone layout that rebuilds itself when you turn the device.
+and forge items. Weather that changes one round of every stage. And a phone layout built for
+the phone rather than scaled down from the desktop.
 
 ---
 
@@ -99,13 +102,15 @@ Hover anything — or press and hold it on a phone — for full details.
 ```
 project.godot                      autoloads, window, input
 scenes/main.tscn                   a bare Control; the HUD is built in code
-data/champions/, traits/, items/   authored .tres definitions — balance lives here
+data/champions/, traits/, items/,
+  sea/                             authored .tres definitions — balance lives here
 audio/                             CC0 sound files + CREDITS.md
 scripts/autoload/                  Events, Content, GameState, Audio
 scripts/core/                      Hex, Sim, SimUnit, Captain, Bot, RosterUnit, the Defs
 scripts/core/abilities/            one file per champion
 scripts/core/traits/               one file per trait
 scripts/core/items/                one file per item
+scripts/core/sea/                  one file per sea state
 scripts/ui/                        the HUD: board, ocean, unit art, shop, panels, almanac
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 tests/                             test_*.gd, discovered automatically
@@ -128,7 +133,8 @@ resolve and are silent — no renderer ever sees them.
 
 ### Tuning knobs
 
-- `scripts/core/sim.gd` — `COMBAT_TIME_LIMIT`, `MOVE_TIME`, `BASE_CRIT`, `ATTACK_SPEED_CAP`
+- `scripts/core/sim.gd` — `TIME_LIMIT`, `MOVE_TIME`, `BASE_CRIT`, `ATTACK_SPEED_CAP`, and the
+  overtime ramp (`OVERTIME_START`, `OVERTIME_FULL`, `OVERTIME_DAMAGE`, `OVERTIME_HEAL_CUT`)
 - `scripts/autoload/game_state.gd` — shop odds, the XP table, planning time, stage damage, waves
 - `scripts/core/bot.gd` — the rivals' target level and their per-stage gold handicap
 - `data/` — every champion, trait and item stat block

@@ -464,8 +464,16 @@ func _summarise(label: String, rows: Array[Dictionary], board: int) -> void:
 func creep() -> void:
 	var game := state()
 	game.instant = true
-	game.start_game()
+
+	# Seeded *before* the run starts, not after. `start_game()` draws the seven
+	# rival captains, shuffles the sea bag and rolls the opening shop, all off
+	# this generator — and `GameState._ready()` has already randomized it. Pinning
+	# the seed afterwards therefore fixed nothing anybody fights with: two
+	# invocations of identical code fought different fleets and reported 3-3 at
+	# 75% and then 100%, which is the exact noise-read-as-signal this tool exists
+	# to replace `creep_balance.gd` for.
 	game.rng.seed = 4242
+	game.start_game()
 	game.speed = 64
 
 	var rows: Array[Dictionary] = []
