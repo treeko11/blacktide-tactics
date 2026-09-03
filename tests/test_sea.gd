@@ -115,6 +115,64 @@ func test_a_monster_round_is_never_fought_in_weather() -> void:
 					% [n, GameState.round_type()])
 
 
+## Every sea is dealt before any of them comes round again.
+##
+## Rolled independently each stage, a seven-stage run could be fog three times
+## and never once a following sea — and a captain who has met one sea has not
+## met the system, they have met that sea. The bag is what makes the order
+## random without making the spread random too.
+func test_every_sea_is_dealt_before_any_repeats() -> void:
+	GameState.start_game()
+	var seas: Array = content().seas()
+	var seen: Array = []
+	for stage in range(2, 2 + seas.size()):
+		GameState.stage = stage
+		GameState._roll_sea()
+		assert_false(seen.has(GameState.sea_id),
+			"%s came round again after only %d stages" % [GameState.sea_id, seen.size()])
+		seen.append(GameState.sea_id)
+	assert_eq(seen.size(), seas.size(), "the hand did not deal every sea")
+
+
+## A fresh hand never opens on the sea the last one closed with.
+##
+## The seam is the one place a bag can still repeat, and it is the only place it
+## would be noticed — two stages running of the same weather is exactly what the
+## bag exists to stop.
+func test_a_fresh_hand_never_repeats_the_last_sea() -> void:
+	var seas: Array = content().seas()
+	for s in 25:
+		GameState.start_game()
+		GameState.stage = 2
+		GameState.rng.seed = s
+		GameState._sea_bag.clear()
+		for i in seas.size():
+			GameState._roll_sea()
+		var last: StringName = GameState.sea_id
+		GameState._roll_sea()
+		assert_ne(GameState.sea_id, last,
+			"seed %d dealt %s twice across the seam" % [s, last])
+
+
+## The same seed deals the same hand in the same order.
+func test_the_same_seed_deals_the_same_order() -> void:
+	var first: Array = _deal(7)
+	var again: Array = _deal(7)
+	assert_eq(first, again, "the same seed dealt two different orders")
+
+
+func _deal(stages: int) -> Array:
+	GameState.start_game()
+	GameState.rng.seed = 4242
+	GameState._sea_bag.clear()
+	var out: Array = []
+	for i in stages:
+		GameState.stage = 2 + i
+		GameState._roll_sea()
+		out.append(GameState.sea_id)
+	return out
+
+
 ## The same run draws the same weather in the same lanes.
 ##
 ## The seven fights of the weather round are seven separate sims handed one set

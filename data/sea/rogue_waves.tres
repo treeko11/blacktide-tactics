@@ -9,7 +9,6 @@ display_name = "Rogue Waves"
 icon = "🌊"
 herald = "The seas churn. Rogue waves are running the marked lanes."
 description = "Every {interval} seconds a wave rolls up the marked lanes and shoves everyone standing in one a hex sideways."
-weight = 10
 earliest_stage = 2
 marks_cells = true
 boon = false

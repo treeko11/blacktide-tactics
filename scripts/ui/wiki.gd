@@ -50,6 +50,7 @@ const SECTIONS := [
 	{ "id": &"traits", "label": "TRAITS" },
 	{ "id": &"items", "label": "ITEMS" },
 	{ "id": &"monsters", "label": "MONSTERS" },
+	{ "id": &"seas", "label": "SEAS" },
 ]
 
 ## The rules, as pages rather than as one wall of text. Splitting them is what
@@ -509,6 +510,17 @@ func entries(section: StringName) -> Array:
 						"group": heading,
 					})
 			return traits
+		&"seas":
+			var seas: Array = []
+			for def in Content.seas():
+				seas.append({
+					"id": def.id, "title": def.display_name, "icon": def.icon,
+					"group": "Fair winds" if def.boon else "Hazards",
+				})
+			# Hazards first: three of the four are, and a reader looking one up
+			# mid-round is far more often looking up the one hurting them.
+			seas.sort_custom(func(a, b): return a["group"] > b["group"])
+			return seas
 		&"items":
 			var items: Array = []
 			for component in Content.components():
@@ -580,6 +592,8 @@ func page_for(section: StringName, entry: StringName) -> String:
 			return _trait_page(entry)
 		&"items":
 			return _item_page(entry)
+		&"seas":
+			return _sea_entry_page(entry)
 	return ""
 
 
@@ -958,25 +972,69 @@ Hover anything to inspect it — including a pirate mid-fight, which is the one 
 	return "%s\n\n%s" % [_title(found["icon"], found["title"]), body]
 
 
-## Every sea state on one page.
+## The rules of the weather, rather than the weather itself.
 ##
-## One page rather than a tab of its own: five tabs is what fits across a phone,
-## and the wave table settled the same question the same way. What a reader wants
-## here is all four side by side — the decision the forecast asks is "which of
-## these am I building against", and that is not a question anybody answers by
-## drilling into one entry at a time.
+## The four seas moved to their own section the moment there was something to
+## say about each of them beyond a line — this page is what a player wants the
+## first time a herald appears, which is "what just happened to my round", not
+## "what is the attack speed on a following sea".
 func _sea_page(found: Dictionary) -> String:
 	var lines := PackedStringArray()
 	lines.append(_title(found["icon"], found["title"]))
 	lines.append("")
-	lines.append("Once a stage, one round is fought in weather. It is announced at the top of that round's planning phase, and the board marks the water it will touch — so the whole phase is yours to answer it. The chip in the top bar counts the rounds down to it.")
+	lines.append("[color=#b9cbd8]Once a stage, one round is fought in weather. It is always [b]round 4[/b], so you can see it coming — the chip beside the round number counts down to it, and names it once it arrives.[/color]")
 	lines.append("")
-	lines.append("It is the same sea for every captain in the lobby, and it never falls on a monster round: those are a floor anything on the board should clear, and a fog bank over one would make that untrue.")
+	lines.append("[color=#b9cbd8]It is announced at the top of that round's planning phase, and the board marks the water it will touch. The whole phase is yours to answer it: move the crew out of a red tide, out of the wave lanes, or into a following sea.[/color]")
+	lines.append("")
+	lines.append(_heading("The same for everybody"))
+	lines.append("[color=#8fa6b5]Every captain in the lobby fights that round in the same sea, in the same lanes. It is weather, not something aimed at you.[/color]")
+	lines.append("")
+	lines.append(_heading("Never on a monster round"))
+	lines.append("[color=#8fa6b5]%s are a floor: field anything and you should win one. Weather never falls on them, and never on the armoury — which is why stage 1 has none at all.[/color]"
+		% _link(&"guide", &"monsters", "Monster waves"))
+	lines.append("")
+	lines.append(_heading("A different order every run"))
+	lines.append("[color=#8fa6b5]The seas are dealt from a shuffled hand rather than rolled fresh each stage, so you meet every one of them before any repeats — in an order you cannot plan for twice.[/color]")
+	lines.append("")
+	lines.append("[color=#8fa6b5]%s lists all of them.[/color]"
+		% _link(&"seas", &"", "The seas section"))
 
-	for def in Content.seas():
+	return "\n".join(lines)
+
+
+## One sea: what it does, where, and how often it does it.
+func _sea_entry_page(id: StringName) -> String:
+	var def: SeaDef = Content.sea(id)
+	if def == null:
+		return ""
+
+	var lines := PackedStringArray()
+	lines.append(_title(def.icon, def.display_name))
+	lines.append("[color=#7c93a4]%s  ·  round 4 of a stage, from stage %d[/color]"
+		% ["Fair wind" if def.boon else "Hazard", def.earliest_stage])
+	lines.append("")
+	lines.append("[color=#b9cbd8][i]%s[/i][/color]" % def.herald)
+	lines.append("")
+	lines.append("[color=#b9cbd8]%s[/color]" % def.text())
+	lines.append("")
+
+	lines.append(_heading("Where"))
+	if def.marks_cells:
+		var where := "The board marks the water before the round starts, and it stays marked through the fight."
+		if def.boon:
+			where += " That is the water you [b]want[/b] to be standing in."
+		lines.append("[color=#8fa6b5]%s[/color]" % where)
+	else:
+		lines.append("[color=#8fa6b5]The whole board. There is nothing to move out of — the answer is where your crew is standing relative to each other, not to the water.[/color]")
+
+	if def.values.has(&"interval"):
 		lines.append("")
-		lines.append("[b]%s %s[/b]" % [def.icon, def.display_name])
-		lines.append("[i]%s[/i]" % def.herald)
-		lines.append(def.text())
+		lines.append(_heading("How often"))
+		lines.append("[color=#8fa6b5]First at %s seconds, then every %s seconds until the fight ends.[/color]"
+			% [SeaDef._num(def.value(&"first")), SeaDef._num(def.value(&"interval"))])
+
+	lines.append("")
+	lines.append("[color=#8fa6b5]%s explains when weather arrives and who it falls on.[/color]"
+		% _link(&"guide", &"sea", "The Sea"))
 
 	return "\n".join(lines)

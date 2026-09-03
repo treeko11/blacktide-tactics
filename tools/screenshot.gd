@@ -27,7 +27,8 @@ extends "res://tools/tool_script.gd"
 ##   --briefing       photograph the opening almanac, and assert the run is
 ##                    holding its clock behind it and starts when it closes
 ##   --sfx            fight a real round and assert sound actually came out of it
-##   --almanac=<id>   open the almanac on one pirate's entry and photograph it,
+##   --almanac=<id>   open the almanac on one pirate's or one sea's entry and
+##                    photograph it,
 ##                    asserting the entry drew its portrait
 ##   --sequence=buy   tap a card to buy it, and prove the inspector that opened
 ##                    on the way in is gone once the finger is off
@@ -527,10 +528,13 @@ func _almanac_entry(id: String) -> void:
 	var wiki: Node = _scene.wiki
 	var section: StringName = &"pirates"
 	var champion = content().champion(StringName(id))
-	if champion == null:
-		fail("no champion called '%s'" % id)
+	var sea: Variant = content().sea(StringName(id))
+	if champion == null and sea == null:
+		fail("nothing in the almanac is called '%s'" % id)
 		return
-	if champion.cost == 0:
+	if champion == null:
+		section = &"seas"
+	elif champion.cost == 0:
 		section = &"monsters"
 
 	wiki.open(section)
@@ -541,6 +545,20 @@ func _almanac_entry(id: String) -> void:
 	if wiki._entry != StringName(id):
 		fail("the almanac opened '%s' rather than '%s'" % [wiki._entry, id])
 		return
+	# A sea has no figure to draw, so what is asserted there is that the page
+	# came up with the sea's own words in it rather than an empty frame — the
+	# failure a section added to `SECTIONS` and never given a `page_for` branch
+	# produces, which renders as a blank page and throws nothing.
+	if section == &"seas":
+		var page: String = wiki.page_for(section, StringName(id))
+		if not page.contains(sea.display_name):
+			fail("the %s page came up without the sea in it" % id)
+		elif not page.contains(sea.herald):
+			fail("the %s page dropped its herald line" % id)
+		else:
+			print("  the almanac opened %s, %d characters" % [id, page.length()])
+		return
+
 	var portrait: Control = wiki._page_portrait
 	if portrait == null:
 		fail("the almanac page has no portrait node at all")
