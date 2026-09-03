@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"following_sea"
+display_name = "Following Sea"
+icon = "💨"
+herald = "A following sea. The current runs true down the marked lane."
+description = "Every {interval} seconds, anyone standing in the marked lane gains {attack_speed}% Attack Speed for {duration} seconds."
+weight = 7
+earliest_stage = 2
+marks_cells = true
+boon = true
+mark_color = Color(0.490196, 1.0, 0.690196, 1)
+values = {
+&"attack_speed": 30.0,
+&"duration": 2.5,
+&"first": 3.0,
+&"interval": 4.0
+}

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"red_tide"
+display_name = "Red Tide"
+icon = "🩸"
+herald = "A red tide blooms along both edges. That water is poison."
+description = "Anything standing in the marked water loses {hp_percent}% of its maximum Health every second."
+weight = 8
+earliest_stage = 2
+marks_cells = true
+boon = false
+mark_color = Color(0.819608, 0.27451, 0.415686, 1)
+values = {
+&"hp_percent": 2.0
+}

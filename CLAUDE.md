@@ -24,7 +24,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, all of which assert |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, all of which assert |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `art_sheet.gd` | Draws **every champion**, or every body in every animation state (`--poses`). Must run **without** `--headless`. The only check that a polygon still triangulates |
@@ -142,10 +142,10 @@ player, which is exactly what a real bug looks like — the game was fine.
    nothing because `Sim.render` is false and `fx()` returns immediately.
 3. **Content is Resources.** `ChampionDef`, `TraitDef`, `ItemDef` as `.tres`.
    Balance is a file edit, not a code change.
-4. **Three things are added by adding a file**: a champion ability, a trait
-   effect, an item effect. `Content` scans the folder through `ScriptDir` and
-   keys each by the `id()` it reports. Nothing enumerates them, because a
-   hand-maintained register of 44 abilities is what goes stale first.
+4. **Four things are added by adding a file**: a champion ability, a trait
+   effect, an item effect, a sea state. `Content` scans the folder through
+   `ScriptDir` and keys each by the `id()` it reports. Nothing enumerates them,
+   because a hand-maintained register of 44 abilities is what goes stale first.
 5. **Cross-system communication goes through the `Events` bus.** The shop does
    not know the HUD exists.
 6. **Main is the only place that mutates GameState.** Panels report what the
@@ -158,15 +158,17 @@ Eighteen units per fight is not that, and readable code wins.
 ## Layout
 
 ```
-data/champions/, traits/, items/   authored .tres definitions
+data/champions/, traits/, items/,
+  sea/                             authored .tres definitions
 audio/                             CC0 sound files + CREDITS.md
 scripts/autoload/                  Events, Content, GameState, Audio
 scripts/core/                      Hex, Sim, SimUnit, Captain, Bot, RosterUnit,
                                    the three *Def resources, ScriptDir, and the
-                                   three extension-point base classes
+                                   four extension-point base classes
 scripts/core/abilities/            one file per champion (44)
 scripts/core/traits/               one file per trait (13)
 scripts/core/items/                one file per item (20)
+scripts/core/sea/                  one file per sea state (4)
 scripts/ui/                        UITheme, Layout, BoardView, UnitView,
                                    UnitArt, UnitPortrait, Ocean, FxLayer,
                                    ShopBar, BenchBar, SidePanels, TopBar,
@@ -235,6 +237,49 @@ Each of these cost a debugging session or settles a design argument.
 - **Opponent boards are mirrored** onto the top half. A test fixture that seats
   both sides at row 6 puts them six hexes apart, and every proximity ability then
   legitimately finds nothing.
+
+### The sea
+
+- **One weather round a stage, on a fixed round, announced when it arrives.**
+  `GameState.SEA_ROUND` is 4. The stage draws its sea when the stage opens, not
+  when the round arrives, so the forecast can name it several rounds out — which
+  is the whole reason for one a stage rather than one a round. The herald line
+  goes in the log at the top of that round's planning phase, and the player has
+  the whole phase to answer it. That is the point of the system: it is the only
+  thing in the game that makes anybody rebuild a formation they already built.
+- **It never lands on a monster round.** Those are a floor anything on the board
+  should clear, and a fog bank over 3-3 makes that untrue. `rounds_until_sea()`
+  asks what `SEA_ROUND` *will be* rather than what this round is, which is why
+  stage 1 — whose fourth round is the armoury — never forecasts weather it is
+  not going to get.
+- **The cells are drawn once, outside the fight, and handed in.** The board has
+  to mark the water during *planning*, before any sim exists, and the seven
+  fights of that round have to agree with the marks and with each other. A sea
+  that picked its own lanes inside `Sim` would mark one set and sweep another,
+  seven different ways. `SeaEffect.cells()` runs at roll time off the run's own
+  generator; `GameState.sea_cells` is the only copy.
+- **The weather is applied after items and traits.** Fog's range cap is a cap,
+  not a suggestion — run before the trait pass, Lyra would still be shooting
+  five hexes through it.
+- **It is the same sea for every captain**, including the six fights nobody
+  watches. Bots cannot reposition for it, which is a real edge to the player and
+  one nothing has measured — the handicap in `Bot` was tuned before items and
+  before this.
+- **An unmarked hazard is a dice roll.** A sea that shoves units around specific
+  hexes and does not say which is indistinguishable from the game cheating, so
+  `marks_cells` drives a wash on the board, and `boon` decides its shape:
+  "stand here" and "do not stand here" cannot look the same at a glance, and on
+  a phone a glance is all it gets.
+- **At least one sea has to be worth standing in.** Every round of weather being
+  a tax makes the herald a worse round with a nicer name. A following sea pays
+  the lane, which is the opposite-shaped decision to getting out of one, and the
+  system needs both to be a system.
+- **The phone's top bar has no slack at all.** It ended with the almanac button
+  hard against the right edge, so the weather chip that fits on a desktop pushed
+  that button off the screen — on the weather round, which is the round somebody
+  is most likely to want to look something up. On a phone the mark goes in the
+  round label instead (`2-4 🩸`), where it costs one glyph and is arguably where
+  it belonged: it is a fact about which round this is.
 
 ### Presentation
 
@@ -829,6 +874,14 @@ refers to the JavaScript at all, and only in a comment.
 - `test_round_start.gd` holds the opening gate: a new run does not run its clock,
   closing the briefing or pressing SET SAIL starts it, and an `instant` run is
   never held, which is what keeps `playthrough.gd` from stalling on 1-1.
+- `test_sea.gd` holds both halves of the weather, which fail in unrelated ways.
+  The **schedule** is silent when it breaks — a stage forecasting a storm it
+  never delivers, or a fog bank landing on a monster round, both look like an
+  ordinary run. And the **effects** are the DPS meter problem again: a sea that
+  applies cleanly and does nothing is indistinguishable from one that works, so
+  each is asserted on the board or on the numbers. `screenshot.gd --sea=<id>`
+  is the other half: it puts the run on the weather round and fails if the board
+  did not mark the water or the bar did not name it.
 - `test_economy.gd` checks that **no champion copies are lost** over forty rounds
   of bot shopping. A card rolled and neither bought nor returned drains the
   shared pool silently, and the shop slowly stops offering that champion to

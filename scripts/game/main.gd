@@ -82,6 +82,7 @@ func _ready() -> void:
 	_build()
 	_connect_panels()
 	_connect_bus()
+	_show_sea()
 	board.show_roster(GameState.board)
 	_open_briefing()
 
@@ -139,6 +140,7 @@ func _rebuild() -> void:
 		board.show_battle(GameState.sim)
 	else:
 		board.show_roster(GameState.board)
+	_show_sea()
 	_open_briefing()
 
 
@@ -476,7 +478,22 @@ func _connect_bus() -> void:
 		if GameState.phase == GameState.Phase.PLAN:
 			board.show_roster(GameState.board))
 	Events.round_resolved.connect(_on_round_resolved)
+	Events.sea_changed.connect(func(_id, _away): _show_sea())
 	Events.game_over.connect(func(place): modals.open_game_over(place))
+
+
+## Pushes this stage's weather at the board and the top bar.
+##
+## Read out of GameState rather than out of the signal's arguments, because a
+## rebuild has to be able to ask for it too — the signal fired at the top of the
+## round, at panels that no longer exist, and a board rebuilt mid-weather with
+## no lanes marked is the exact trap the speed buttons and the shop lock fell
+## into.
+func _show_sea() -> void:
+	var away := GameState.rounds_until_sea()
+	var def := GameState.sea_def()
+	board.show_sea(def if away == 0 else null, GameState.sea_cells)
+	top_bar.show_sea(def, away)
 
 
 func _set_preview(text: String) -> void:

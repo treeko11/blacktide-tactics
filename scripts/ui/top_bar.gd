@@ -24,6 +24,10 @@ var _phase: Label = null
 var _hp: Label = null
 var _gold: Label = null
 var _streak: Label = null
+var _sea_chip: PanelContainer = null
+var _sea_glyph: Label = null
+var _sea_label: Label = null
+var _sea_mark: String = ""
 var _speed_buttons: Array[Button] = []
 var _sound_button: Button = null
 
@@ -50,6 +54,10 @@ func _ready() -> void:
 	_phase = UITheme.label("PLANNING", UITheme.FONT_TINY, UITheme.FOAM)
 	_phase.visible = not compact
 	row.add_child(_phase)
+
+	# Beside the round number, because that is what it is: a fact about which
+	# round this is. Hidden until there is weather to name.
+	_build_sea_chip(row)
 
 	row.add_child(UITheme.spacer())
 
@@ -110,7 +118,7 @@ func _ready() -> void:
 	Events.gold_changed.connect(func(amount, _d): _gold.text = str(amount))
 	Events.health_changed.connect(func(amount, _d): _hp.text = str(amount))
 	Events.phase_changed.connect(_on_phase_changed)
-	Events.round_began.connect(func(stage, number): _stage.text = "%d-%d" % [stage, number])
+	Events.round_began.connect(func(_s, _n): _write_stage())
 	Events.round_resolved.connect(func(_w, _d, _o): refresh())
 	refresh()
 
@@ -146,6 +154,76 @@ func _add_stat_chip(row: HBoxContainer, icon: String, value: String, color: Colo
 	return label
 
 
+## The weather chip. Built like a stat chip but written by `show_sea`, which
+## changes its colour as well as its text — a following sea and a red tide are
+## not the same news and must not be the same green.
+func _build_sea_chip(row: HBoxContainer) -> void:
+	_sea_chip = PanelContainer.new()
+	_sea_chip.visible = false
+	_sea_chip.add_theme_stylebox_override("panel",
+		UITheme.panel_style(Color("0a1c27"), UITheme.LINE, 4))
+	row.add_child(_sea_chip)
+
+	var inner := HBoxContainer.new()
+	inner.add_theme_constant_override("separation", 4)
+	_sea_chip.add_child(inner)
+
+	_sea_glyph = Label.new()
+	_sea_glyph.add_theme_font_override("font", UITheme.emoji_font())
+	_sea_glyph.add_theme_font_size_override("font_size",
+		10 if Layout.compact() else 12)
+	inner.add_child(_sea_glyph)
+
+	_sea_label = UITheme.label("", UITheme.FONT_TINY, UITheme.FOAM)
+	inner.add_child(_sea_label)
+
+
+## This stage's weather, and how far off it is.
+##
+## `rounds_away` is 0 on the round being fought in it and -1 when there is none.
+## A phone never gets the chip at all — see `_write_stage` — so the name only
+## appears where there is width for it; on a phone it is in the toast, the log
+## and the almanac instead.
+func show_sea(def: SeaDef, rounds_away: int) -> void:
+	if def == null or rounds_away < 0:
+		_sea_chip.visible = false
+		_sea_mark = ""
+		_write_stage()
+		return
+
+	if Layout.compact():
+		_sea_chip.visible = false
+		_sea_mark = " %s" % def.icon if rounds_away == 0 else " %s%d" % [def.icon, rounds_away]
+		_write_stage()
+		return
+
+	_sea_mark = ""
+	_write_stage()
+	_sea_chip.visible = true
+	_sea_glyph.text = def.icon
+	_sea_glyph.add_theme_color_override("font_color", def.mark_color)
+	_sea_label.add_theme_color_override("font_color", def.mark_color)
+	_sea_label.text = def.display_name.to_upper() if rounds_away == 0 		else "IN %d" % rounds_away
+
+
+## The round, and on a phone the weather with it.
+##
+## A phone's bar has no slack at all — before this it ended with the almanac
+## button hard against the right edge — so a chip that fits on a desktop pushes
+## that button off the screen entirely, on the weather round, which is the round
+## a player is most likely to want to look something up. The mark goes in the
+## round label instead, where it costs one glyph and is arguably where it
+## belonged anyway: it is a fact about which round this is.
+func _write_stage() -> void:
+	_stage.text = "%d-%d%s" % [GameState.stage, GameState.round_number, _sea_mark]
+
+
+## Whether the weather chip is up. Read by `screenshot.gd --sea=`, which is the
+## only thing that can see this bar at all.
+func sea_shown() -> bool:
+	return _sea_mark != "" or (_sea_chip != null and _sea_chip.visible)
+
+
 ## The bell, crossed out or not. Two emoji rather than a word, so the button
 ## stays the same width in both states and at every layout — and a bell rather
 ## than a speaker because the speaker emoji is drawn black, which on this bar is
@@ -167,7 +245,7 @@ func refresh() -> void:
 	_streak.text = GameState.player.streak_label()
 	_streak.add_theme_color_override("font_color",
 		Color("ffb15c") if absi(GameState.player.streak) >= 3 else UITheme.FOAM)
-	_stage.text = "%d-%d" % [GameState.stage, GameState.round_number]
+	_write_stage()
 
 
 func _on_phase_changed(phase: int) -> void:

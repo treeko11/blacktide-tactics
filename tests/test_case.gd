@@ -85,8 +85,9 @@ func entry(champion_id: StringName, cell: Vector2i, star: int = 1,
 ## Every sim built this way is disposed after the test. A finished fight holds
 ## reference cycles that RefCounted cannot collect, and the runner reports leaked
 ## objects at exit — which would otherwise be noise every suite had to ignore.
-func battle(board_a: Array, board_b: Array, seed_value: int = 12345) -> Sim:
-	var sim := Sim.new(content(), board_a, board_b, false, seed_value)
+func battle(board_a: Array, board_b: Array, seed_value: int = 12345,
+		sea: StringName = &"", sea_hexes: Array[Vector2i] = []) -> Sim:
+	var sim := Sim.new(content(), board_a, board_b, false, seed_value, sea, sea_hexes)
 	_battles.append(sim)
 	return sim
 

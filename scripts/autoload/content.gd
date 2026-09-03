@@ -14,10 +14,12 @@ extends Node
 const CHAMPION_DIR := "res://data/champions"
 const TRAIT_DIR := "res://data/traits"
 const ITEM_DIR := "res://data/items"
+const SEA_DIR := "res://data/sea"
 
 const ABILITY_DIR := "res://scripts/core/abilities"
 const TRAIT_SCRIPT_DIR := "res://scripts/core/traits"
 const ITEM_SCRIPT_DIR := "res://scripts/core/items"
+const SEA_SCRIPT_DIR := "res://scripts/core/sea"
 
 ## How many copies of each cost exist in the shared pool, across all eight
 ## captains. Scarcity is the reason two players cannot both force the same
@@ -39,10 +41,13 @@ var _items: Dictionary = {}          ## id -> ItemDef
 var _components: Array[ItemDef] = []
 var _forged: Array[ItemDef] = []
 var _recipes: Dictionary = {}        ## "blade+lens" -> item id
+var _seas: Dictionary = {}           ## id -> SeaDef
+var _sea_list: Array[SeaDef] = []
 
 var _abilities: Dictionary = {}
 var _trait_effects: Dictionary = {}
 var _item_effects: Dictionary = {}
+var _sea_effects: Dictionary = {}
 
 
 func _ready() -> void:
@@ -50,6 +55,7 @@ func _ready() -> void:
 	_abilities = ScriptDir.load_all(ABILITY_DIR, Ability)
 	_trait_effects = ScriptDir.load_all(TRAIT_SCRIPT_DIR, TraitEffect)
 	_item_effects = ScriptDir.load_all(ITEM_SCRIPT_DIR, ItemEffect)
+	_sea_effects = ScriptDir.load_all(SEA_SCRIPT_DIR, SeaEffect)
 	_verify()
 
 
@@ -74,6 +80,11 @@ func _load_definitions() -> void:
 		else:
 			_forged.append(item)
 			_recipes[item.key()] = item.id
+
+	for def in _load_dir(SEA_DIR):
+		var sea_def: SeaDef = def
+		_seas[sea_def.id] = sea_def
+		_sea_list.append(sea_def)
 
 
 func _load_dir(path: String) -> Array:
@@ -108,6 +119,9 @@ func _verify() -> void:
 	for id in _items:
 		if not _item_effects.has(id):
 			push_error("Content: item '%s' has no effect script" % id)
+	for sea_def in _sea_list:
+		if not _sea_effects.has(sea_def.id):
+			push_error("Content: sea '%s' has no effect script" % sea_def.id)
 
 	var expected := _components.size() * (_components.size() + 1) / 2
 	if _forged.size() != expected:
@@ -210,6 +224,20 @@ func ability(champion_id: StringName) -> Ability:
 
 func trait_effect(trait_id: StringName) -> TraitEffect:
 	return _trait_effects.get(trait_id)
+
+
+func sea(id: StringName) -> SeaDef:
+	return _seas.get(id)
+
+
+## Every sea state, in load order. The almanac lists them; nothing else should
+## need the whole set — a round has one.
+func seas() -> Array[SeaDef]:
+	return _sea_list
+
+
+func sea_effect(sea_id: StringName) -> SeaEffect:
+	return _sea_effects.get(sea_id)
 
 
 func item_effect(item_id: StringName) -> ItemEffect:

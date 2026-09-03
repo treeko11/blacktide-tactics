@@ -70,6 +70,12 @@ var teams: Array = [[], []]
 ## Active traits per team: { "id": StringName, "count": int, "tier": int }
 var active_traits: Array = [[], []]
 
+## The sea state this fight is being fought in, and the hexes it touches. Empty
+## for every round that is not the stage's one weather round. The cells are
+## handed in rather than drawn here — see `SeaEffect` for why.
+var sea_id: StringName = &""
+var sea_cells: Array[Vector2i] = []
+
 ## Effects the renderer has not drawn yet.
 var fx_queue: Array[Dictionary] = []
 
@@ -86,9 +92,12 @@ var _next_uid: int = 1
 ## Team B's formation is mirrored onto the top half here, so both sides author
 ## their board in the same coordinates.
 func _init(content_node: Node, board_a: Array, board_b: Array,
-		should_render: bool = false, seed_value: int = 0) -> void:
+		should_render: bool = false, seed_value: int = 0,
+		sea: StringName = &"", sea_hexes: Array[Vector2i] = []) -> void:
 	content = content_node
 	render = should_render
+	sea_id = sea
+	sea_cells = sea_hexes
 	rng.seed = seed_value if seed_value != 0 else randi()
 
 	for entry in board_a:
@@ -109,6 +118,10 @@ func _init(content_node: Node, board_a: Array, board_b: Array,
 
 	for t in 2:
 		_apply_traits(t)
+
+	# The weather goes on last, so a cap it imposes is a real cap rather than
+	# something a trait bonus can be stacked over the top of.
+	_apply_sea()
 
 	for u in units:
 		u.attack_speed = minf(u.attack_speed, ATTACK_SPEED_CAP)
@@ -188,6 +201,18 @@ func _apply_traits(team_id: int) -> void:
 				"def": def, "team": teams[team_id], "holders": holders,
 				"tier": tier, "count": count, "team_id": team_id,
 			})
+
+
+## Hands the round's sea state its fight, if there is one.
+func _apply_sea() -> void:
+	if sea_id == &"":
+		return
+	var def: Variant = content.sea(sea_id)
+	var effect: Variant = content.sea_effect(sea_id)
+	if def == null or effect == null:
+		push_error("Sim: no sea '%s'" % sea_id)
+		return
+	effect.apply(self, { "def": def, "cells": sea_cells })
 
 
 func traits_of(team_id: int) -> Array:

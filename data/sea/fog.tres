@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"fog"
+display_name = "Fog Bank"
+icon = "🌫"
+herald = "A fog bank closes in. Nothing can be seen more than a hex or two out."
+description = "Every attack range on the board is capped at {range} hexes, however far it would otherwise reach."
+weight = 10
+earliest_stage = 2
+marks_cells = false
+boon = false
+mark_color = Color(0.721569, 0.784314, 0.831373, 1)
+values = {
+&"range": 2.0
+}

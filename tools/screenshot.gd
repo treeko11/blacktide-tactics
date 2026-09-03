@@ -36,6 +36,9 @@ extends "res://tools/tool_script.gd"
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
 ##                    with it without the cursor moving again
 ##   --shop=<ids>     comma-separated champion ids to seat in the shop
+##   --sea=<id>       put the run on its weather round with that sea running,
+##                    and assert the board marked the water and the top bar
+##                    named it
 ##   --modal=dps      fight a real round, open the DPS meter, and assert all
 ##                    three tabs have numbers in them rather than empty frames
 ##   --tab=<which>    which DPS tab to photograph: dealt, taken or healed
@@ -112,6 +115,11 @@ func run() -> void:
 	var counter := arg("shop")
 	if counter != "":
 		_stock_shop(game, counter.split(","))
+
+	if arg("sea") != "":
+		_set_sea(game, StringName(arg("sea")))
+		await _frames(3)
+		_check_sea(game)
 
 	if arg("modal") != "":
 		await _open_modal(arg("modal"), game)
@@ -999,6 +1007,57 @@ func _tap_to_buy(game: Node) -> void:
 		fail("the inspector stayed up over a card that has been bought — it is describing a slot that is now empty")
 	else:
 		print("  a mouse click on a card closed it as well")
+
+
+## Puts the run on its weather round, with a named sea running.
+##
+## Set here rather than played into, because the weather round is 2-4 and
+## reaching it honestly is twenty rounds of a run this tool has no reason to
+## play. Announced through the bus exactly as `_begin_planning` would, so the
+## HUD finds out the way it does in a real game rather than being poked.
+func _set_sea(game: Node, id: StringName) -> void:
+	var def: Variant = content().sea(id)
+	var effect: Variant = content().sea_effect(id)
+	if def == null or effect == null:
+		fail("no sea '%s'" % id)
+		return
+
+	game.stage = 2
+	game.round_number = game.SEA_ROUND
+	game.sea_id = id
+	game.sea_cells = effect.cells(def, game.rng)
+	if not game.sea_active():
+		fail("%s did not land on a round that is fought" % id)
+		return
+	events().round_began.emit(game.stage, game.round_number)
+	events().sea_changed.emit(id, 0)
+
+
+## The weather has to be visible, or it is a dice roll the player never saw.
+##
+## Both halves have failed silently in this project before, in other panels: a
+## board that was never told, and a chip built fresh by a rebuild carrying its
+## own defaults. Asserted on the board's own marks rather than on the pixels,
+## because a mark drawn in the wrong colour is a look and a mark that is not
+## there at all is a bug.
+func _check_sea(game: Node) -> void:
+	var def: Variant = content().sea(game.sea_id)
+
+	if not _scene.top_bar.sea_shown():
+		fail("the round is being fought in %s and the top bar says nothing" % def.id)
+	elif not def.marks_cells:
+		print("  %s named in the top bar; it marks no water" % def.id)
+
+	if not def.marks_cells:
+		return
+
+	var marked: int = _scene.board.sea_cells.size()
+	if marked != game.sea_cells.size():
+		fail("%s touches %d hexes and the board marked %d"
+			% [def.id, game.sea_cells.size(), marked])
+		return
+	print("  %s named in the top bar, %d hexes marked on the board"
+		% [def.id, marked])
 
 
 ## The meter with no fight behind it. It has to say so in words and stay

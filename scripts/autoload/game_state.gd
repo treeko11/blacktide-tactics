@@ -58,6 +58,16 @@ const STAGE_DAMAGE := [0, 0, 2, 3, 5, 7, 9, 11, 14]
 
 ## What the two shop buttons cost. The HUD reads these rather than carrying its
 ## own copies — a price shown on a button and charged somewhere else drifts.
+## The round of every stage that is fought in weather.
+##
+## Fixed rather than rolled, so a captain always knows which round the sea will
+## have an opinion about and can build toward it — the whole payoff of one sea a
+## stage instead of one every round. Stage 1 lands on the armoury and stages 2
+## on land on a captain fight, which is deliberate: monster rounds are a floor
+## anything on the board should clear, and a fog bank over 3-3 turns that floor
+## into a scripted loss.
+const SEA_ROUND := 4
+
 const REROLL_COST := 2
 const XP_COST := 4
 const XP_PER_PURCHASE := 4
@@ -105,6 +115,12 @@ var opponent_name: String = ""
 var opponent_icon: String = ""
 var opponent_bot: Bot = null
 var _last_opponent_index: int = -1
+
+## The sea state drawn for this stage, and the hexes it will touch. Drawn once
+## when the stage opens rather than when the round arrives, so the forecast can
+## name it several rounds out. Empty when the stage drew nothing.
+var sea_id: StringName = &""
+var sea_cells: Array[Vector2i] = []
 
 var armoury_offer: Array[StringName] = []
 var log_lines: Array[Dictionary] = []
@@ -162,6 +178,7 @@ func start_game() -> void:
 	bench.resize(BENCH_SIZE)
 
 	bots = Bot.make_lobby(7, content, rng)
+	_roll_sea()
 
 	shop.clear()
 	_battle_stats.clear()
@@ -720,15 +737,82 @@ func rounds_this_stage() -> int:
 	return 4 if stage == 1 else 6
 
 
-## What this round is: a monster wave, the armoury, or another captain.
-func round_type() -> StringName:
+## What a round is: a monster wave, the armoury, or another captain.
+##
+## Takes a round rather than always reading the current one, because the sea has
+## to know what `SEA_ROUND` will be several rounds before it gets there — in
+## stage 1 that round is the armoury, which is why stage 1 never forecasts
+## weather it is not going to get.
+func round_type(at_round: int = -1) -> StringName:
+	var n := round_number if at_round < 0 else at_round
 	if stage == 1:
-		return &"pve" if round_number <= 3 else &"armoury"
-	if round_number == 3:
+		return &"pve" if n <= 3 else &"armoury"
+	if n == 3:
 		return &"pve"
-	if round_number == 6:
+	if n == 6:
 		return &"armoury"
 	return &"pvp"
+
+
+# --- the sea -----------------------------------------------------------------
+
+## Draws this stage's weather, and the hexes it will touch.
+##
+## Both come out of the run's own generator, so a seeded run gets the same sea
+## in the same lanes. The cells are drawn *now*, not when the fight is built,
+## because the board has to show the player the same hexes the fight will use —
+## and there are seven fights that round, all of which have to agree.
+func _roll_sea() -> void:
+	sea_id = &""
+	sea_cells = []
+
+	var candidates: Array[SeaDef] = []
+	var total := 0
+	for def in content.seas():
+		if def.earliest_stage > stage or def.weight <= 0:
+			continue
+		candidates.append(def)
+		total += def.weight
+	if candidates.is_empty():
+		return
+
+	var roll := rng.randi_range(0, total - 1)
+	for def in candidates:
+		roll -= def.weight
+		if roll < 0:
+			sea_id = def.id
+			var effect: Variant = content.sea_effect(def.id)
+			if effect != null:
+				sea_cells = effect.cells(def, rng)
+			return
+
+
+## Rounds until the weather arrives: 0 on the round being fought in it, and -1
+## when this stage has none coming.
+##
+## A sea only lands on a captain fight. The armoury has no fight to affect, and
+## a monster round is the floor the whole balance rests on — so a stage whose
+## `SEA_ROUND` is either of those has no weather, and never says it has.
+func rounds_until_sea() -> int:
+	if sea_id == &"" or round_number > SEA_ROUND:
+		return -1
+	if round_type(SEA_ROUND) != &"pvp":
+		return -1
+	return SEA_ROUND - round_number
+
+
+## Whether the round being played is the one fought in weather.
+func sea_active() -> bool:
+	return rounds_until_sea() == 0
+
+
+func sea_def() -> SeaDef:
+	return content.sea(sea_id) if sea_id != &"" else null
+
+
+## The sea a fight built this round should be given. Empty on every other round.
+func _sea_for_fight() -> StringName:
+	return sea_id if sea_active() else &""
 
 
 func _set_phase(next: Phase) -> void:
@@ -744,6 +828,21 @@ func _begin_planning() -> void:
 		return
 	_set_phase(Phase.PLAN)
 	Events.round_began.emit(stage, round_number)
+
+	# Announced after the phase, so the board is already up to be marked, and
+	# after `round_began`, so the herald is the last line in the log rather than
+	# the first thing the new round scrolls away.
+	var away := rounds_until_sea()
+	Events.sea_changed.emit(sea_id if away >= 0 else &"", away)
+	if away == 0:
+		var def := sea_def()
+		log_line(def.herald, &"good" if def.boon else &"bad")
+		# The herald says what the sea is doing; this says what that costs. Two
+		# lines because the flavour is what gets read and the numbers are what
+		# gets acted on, and one line carrying both is read as neither.
+		log_line(def.text().replace("[b]", "").replace("[/b]", ""), &"")
+		notify("%s  %s" % [def.icon, def.display_name.to_upper()],
+			&"good" if def.boon else &"warn")
 
 
 ## Starts the run's clock, if it is still holding at the line.
@@ -851,7 +950,8 @@ func _start_combat() -> void:
 		my_board.append(u.to_entry())
 
 	_dispose_sim()
-	sim = Sim.new(content, my_board, enemy_board, true, rng.randi())
+	sim = Sim.new(content, my_board, enemy_board, true, rng.randi(),
+		_sea_for_fight(), sea_cells)
 
 	# The rest of the lobby's fights are built now and stepped alongside this one.
 	# They used to be run in one go the moment this fight ended, which by stage 5
@@ -1000,8 +1100,13 @@ func _open_bot_fights() -> void:
 	while pool_of_bots.size() >= 2:
 		var a: Bot = pool_of_bots.pop_back()
 		var b: Bot = pool_of_bots.pop_back()
+		# The same weather, in the same lanes, as the fight being watched. It is
+		# the sea, so it cannot be only the player's. Bots cannot reposition for
+		# it, which is a real edge to the player and one worth measuring rather
+		# than assuming — see creep_balance.gd and the bot handicap.
 		_bot_fights.append({
-			"sim": Sim.new(content, a.formation(), b.formation(), false, rng.randi()),
+			"sim": Sim.new(content, a.formation(), b.formation(), false, rng.randi(),
+				_sea_for_fight(), sea_cells),
 			"a": a,
 			"b": b,
 		})
@@ -1118,6 +1223,7 @@ func _advance_round() -> void:
 	if round_number > rounds_this_stage():
 		round_number = 1
 		stage += 1
+		_roll_sea()
 
 	var income := player.round_income(stage, round_number)
 	gain_gold(income)

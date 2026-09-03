@@ -31,6 +31,15 @@ signal plan_timer(seconds_left: float, fraction: float)
 ## True the moment a run begins, false the moment it is released.
 signal run_hold_changed(waiting: bool)
 
+## This stage's weather, announced at the top of every planning phase.
+##
+## `sea_id` is empty on any round that is not being fought in it, and
+## `rounds_away` counts down to the one that is (-1 once it has passed), so a
+## panel can show the forecast and the arrival from the same signal. Fires every
+## round rather than only on the weather round: a HUD rebuilt mid-run has to be
+## able to catch up, and state that is only ever pushed once is the trap.
+signal sea_changed(sea_id: StringName, rounds_away: int)
+
 # --- Economy -----------------------------------------------------------------
 
 signal gold_changed(gold: int, delta: int)

@@ -62,6 +62,7 @@ const GUIDE := [
 	{ "id": &"gold", "title": "Gold", "icon": "🪙" },
 	{ "id": &"items", "title": "Items", "icon": "🛠️" },
 	{ "id": &"monsters", "title": "Monster Waves", "icon": "🐙" },
+	{ "id": &"sea", "title": "The Sea", "icon": "🌊" },
 	{ "id": &"controls", "title": "Controls", "icon": "🕹️" },
 ]
 
@@ -939,6 +940,8 @@ At the end of a stage the [b]armoury[/b] offers three finished items and 2 gold;
 They are a [b]floor, not a wall[/b]: field anything at all and you should win. Only an empty board should lose one. Beating a wave pays salvage — a component — rather than the coin a captain pays.
 
 %s lists what is in each one.""" % _link(&"monsters", &"waves", "The wave table")
+		&"sea":
+			return _sea_page(found)
 		&"controls":
 			if Layout.touch():
 				body = """[b]Drag[/b] pirates between the bench and the board, and drag items onto a pirate to equip them.
@@ -953,3 +956,27 @@ They are a [b]floor, not a wall[/b]: field anything at all and you should win. O
 
 Hover anything to inspect it — including a pirate mid-fight, which is the one place an item's effect shows up as a number. The clock beside the shop turns orange with eight seconds left."""
 	return "%s\n\n%s" % [_title(found["icon"], found["title"]), body]
+
+
+## Every sea state on one page.
+##
+## One page rather than a tab of its own: five tabs is what fits across a phone,
+## and the wave table settled the same question the same way. What a reader wants
+## here is all four side by side — the decision the forecast asks is "which of
+## these am I building against", and that is not a question anybody answers by
+## drilling into one entry at a time.
+func _sea_page(found: Dictionary) -> String:
+	var lines := PackedStringArray()
+	lines.append(_title(found["icon"], found["title"]))
+	lines.append("")
+	lines.append("Once a stage, one round is fought in weather. It is announced at the top of that round's planning phase, and the board marks the water it will touch — so the whole phase is yours to answer it. The chip in the top bar counts the rounds down to it.")
+	lines.append("")
+	lines.append("It is the same sea for every captain in the lobby, and it never falls on a monster round: those are a floor anything on the board should clear, and a fog bank over one would make that untrue.")
+
+	for def in Content.seas():
+		lines.append("")
+		lines.append("[b]%s %s[/b]" % [def.icon, def.display_name])
+		lines.append("[i]%s[/i]" % def.herald)
+		lines.append(def.text())
+
+	return "\n".join(lines)

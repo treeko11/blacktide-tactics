@@ -31,6 +31,18 @@ var drop_cell: Vector2i = Vector2i(-1, -1)
 ## Cell the cursor is over, highlighted more softly.
 var hover_cell: Vector2i = Vector2i(-1, -1)
 
+## The hexes this round's sea is going to touch, keyed by `Hex.key` so the draw
+## loop is a lookup rather than a scan of an array eight rows deep.
+##
+## Marked during planning as well as during the fight, which is the entire point
+## of the system: a lane that only lights up once the waves start arriving is a
+## dice roll, not a decision. Set by Main from `Events.sea_changed` and re-read
+## on a rebuild, because a panel built mid-run starts at its own defaults and
+## the signal has already fired at a panel that no longer exists.
+var sea_cells: Dictionary = {}
+var sea_color: Color = UITheme.FOAM
+var sea_boon: bool = false
+
 var units_root: Node2D = null
 var fx: FxLayer = null
 
@@ -284,6 +296,10 @@ func _draw_cell(cell: Vector2i) -> void:
 
 	draw_colored_polygon(points, fill)
 
+	# The weather, over the water and under everything else.
+	if sea_cells.has(Hex.key(cell)):
+		_draw_sea_mark(points, cell)
+
 	# Foam lapping the rim, out of phase cell by cell so it travels across the
 	# board instead of the whole grid pulsing at once.
 	var phase: float = float(cell.x * 3 + cell.y * 5)
@@ -296,6 +312,25 @@ func _draw_cell(cell: Vector2i) -> void:
 	if cell.y == Hex.PLAYER_ROW_MIN:
 		draw_line(points[4], points[5], Color(UITheme.LINE_2.r, UITheme.LINE_2.g,
 			UITheme.LINE_2.b, 0.5), 1.5)
+
+
+## A hex this round's sea will reach.
+##
+## It breathes rather than sitting still, and the phase runs along the lane so
+## the mark reads as water moving through it rather than as a highlighted
+## region. A boon pulses from the inside out and a hazard burns at the rim,
+## because "stand here" and "do not stand here" cannot look the same at a
+## glance — and on a phone a glance is all this gets.
+func _draw_sea_mark(points: PackedVector2Array, cell: Vector2i) -> void:
+	var phase := float(cell.x * 2 + cell.y * 4)
+	var pulse: float = 0.5 + 0.5 * sin(_clock * 2.2 - phase * 0.5)
+
+	if sea_boon:
+		draw_colored_polygon(points, Color(sea_color, 0.14 + pulse * 0.16))
+		draw_polyline(_closed(points), Color(sea_color, 0.45), 1.5)
+	else:
+		draw_colored_polygon(points, Color(sea_color, 0.12 + pulse * 0.14))
+		draw_polyline(_closed(points), Color(sea_color, 0.35 + pulse * 0.45), 2.0)
 
 
 ## Pointy-top hexagon: a vertex straight up, flats on the left and right.
@@ -311,6 +346,22 @@ func _closed(points: PackedVector2Array) -> PackedVector2Array:
 	var out := points.duplicate()
 	out.append(points[0])
 	return out
+
+
+## Tells the board what this round's sea is touching.
+##
+## A null def, or one that marks nothing, clears the board — fog is the whole
+## ocean and has no lane to point at, so marking every hex would say "everywhere
+## is dangerous", which is the same as saying nothing while costing fifty-six
+## extra polygons a frame.
+func show_sea(def: SeaDef, cells: Array[Vector2i]) -> void:
+	sea_cells.clear()
+	if def != null and def.marks_cells:
+		for cell in cells:
+			sea_cells[Hex.key(cell)] = true
+		sea_color = def.mark_color
+		sea_boon = def.boon
+	queue_redraw()
 
 
 # --- units -------------------------------------------------------------------
