@@ -20,7 +20,7 @@ magic_resist = 45.0
 mana_start = 40.0
 mana_max = 85.0
 ability_name = "Gorge"
-ability_desc = "Heal {heal}% of missing Health and smash nearby enemies for {dmg}% Attack Damage."
+ability_desc = "Heal {heal}% of missing Health and smash nearby enemies for {dmg}."
 ability_values = {
 &"dmg": [150, 190, 280],
 &"heal": [30, 38, 60]

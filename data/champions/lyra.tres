@@ -21,7 +21,7 @@ attack_range = 5
 mana_start = 30.0
 mana_max = 75.0
 ability_name = "Piercing Shot"
-ability_desc = "Fire a shot that pierces the whole enemy line for {dmg}% Attack Damage, ignoring {pen}% Armor."
+ability_desc = "Fire a shot that pierces the whole enemy line for {dmg}, ignoring {pen}% Armor."
 ability_values = {
 &"dmg": [230, 285, 460],
 &"pen": [40, 50, 80]

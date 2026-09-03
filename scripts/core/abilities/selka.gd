@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"selka"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad", &"heal": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var pct := v(s, &"dmg") / 100.0
 	var heal := scaled(s, &"heal")

@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"ashmore"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var pct := v(s, &"dmg") / 100.0
 	var reward := v(s, &"ad")

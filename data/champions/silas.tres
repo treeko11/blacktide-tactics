@@ -20,7 +20,7 @@ magic_resist = 45.0
 mana_start = 40.0
 mana_max = 80.0
 ability_name = "Barnacle Skin"
-ability_desc = "Gain a {shield} Health shield, then deal {dmg} magic damage to nearby enemies each second for 3 seconds."
+ability_desc = "Gain a {shield} shield, then deal {dmg} magic damage to nearby enemies each second for 3 seconds."
 ability_values = {
 &"dmg": [70, 105, 190],
 &"shield": [300, 450, 820]

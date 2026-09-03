@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"dredge"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	sim.fx(&"shock", s, null, Color("ff9166"))
 	var damage := scaled(s, &"dmg")

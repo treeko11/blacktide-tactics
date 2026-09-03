@@ -369,6 +369,7 @@ static func champion_text(champion: ChampionDef, star: int,
 		lines.append("Speed [b]%.2f[/b]    Range [b]%d[/b]" % [live.attack_speed, live.attack_range])
 		lines.append("Armour [b]%d[/b]    Resist [b]%d[/b]"
 			% [roundi(live.armor), roundi(live.magic_resist)])
+		lines.append(_power_line(live.ability_power))
 		if live.casts():
 			lines.append("Mana [b]%d[/b] / %d" % [roundi(live.mana), roundi(live.max_mana)])
 		if live.shield > 0.0:
@@ -379,14 +380,20 @@ static func champion_text(champion: ChampionDef, star: int,
 			% [stats["attack_speed"], stats["attack_range"]])
 		lines.append("Armour [b]%d[/b]    Resist [b]%d[/b]"
 			% [stats["armor"], stats["magic_resist"]])
+		lines.append(_power_line(SimUnit.BASE_AP))
 		if champion.casts():
 			lines.append("Mana [b]%d[/b] / %d" % [stats["mana_start"], stats["mana_max"]])
 
 	if champion.ability_name != "":
+		var ability: Ability = Content.ability(champion.id)
+		var scaling: Dictionary = ability.scaling() if ability != null else {}
 		lines.append("")
 		lines.append("[color=#7fe3ff][b]%s[/b][/color]" % champion.ability_name)
 		lines.append("[color=#b9cbd8]%s[/color]" % Content.format_description(
-			champion.ability_desc, champion.ability_values, star))
+			champion.ability_desc, champion.ability_values, star, scaling))
+		var legend := _scaling_legend(scaling)
+		if legend != "":
+			lines.append(legend)
 
 	if not items.is_empty():
 		lines.append("")
@@ -399,6 +406,53 @@ static func champion_text(champion: ChampionDef, star: int,
 			lines.append("[color=#8fa6b5]%s[/color]" % item.description)
 
 	return "\n".join(lines)
+
+
+## Ability power in the stat block, on every champion rather than only on the
+## ones that cast.
+##
+## It is the one stat nothing in the HUD ever showed, and it does not appear on a
+## ChampionDef at all — every pirate starts at exactly SimUnit.BASE_AP and only
+## items, the Siren trait and two abilities move it. Shown even at base, and even
+## on a body that casts nothing, because a stat that only appears once it is
+## already bonused is one nobody learns exists in time to go looking for it.
+##
+## The multiplier is the half that means something: 100 is the baseline the
+## ability numbers are written at, so the figure a player wants is not "180" but
+## "everything this casts hits for 1.8 times what the page says".
+static func _power_line(ability_power: float) -> String:
+	return "Ability Power [b]%d[/b]  [color=#c9a2ff]×%.2f[/color]" % [
+		roundi(ability_power), ability_power / SimUnit.BASE_AP]
+
+
+## What the marks beside the ability numbers mean.
+##
+## One line, and no numbers in it. The figures are already directly above — the
+## stat block carries Attack and Ability Power, which are exactly the two stats
+## a mark can name — and repeating them here would cost three more lines of a
+## panel that is most of the screen on a phone. What is missing without this is
+## only the decoding: what "AP" is short for, and which colour is which.
+##
+## Only the stats this ability uses are listed, so it is one entry for most
+## champions and two for the four hybrids. Tuck, whose ability scales off
+## nothing, gets no line at all rather than a heading with nothing under it.
+static func _scaling_legend(scaling: Dictionary) -> String:
+	# Walked in a fixed order rather than collected and sorted, so a hybrid's two
+	# entries come out the same way round on every champion instead of following
+	# whatever order that ability happened to declare its keys in. Attack damage
+	# first: it is the number an AD figure is a percentage of, and ability power
+	# is the thing that multiplies the rest.
+	var used := PackedStringArray()
+	for stat in [&"ad", &"ap"]:
+		if not scaling.values().has(stat):
+			continue
+		var mark: Dictionary = Ability.SCALING[stat]
+		used.append("[color=#%s]%s[/color] %s"
+			% [mark["colour"], String(mark["tag"]).strip_edges(), mark["name"]])
+	if used.is_empty():
+		return ""
+	return "\n[color=#7c93a4]SCALES WITH[/color]  [color=#8fa6b5]%s[/color]" \
+		% "   ".join(used)
 
 
 static func trait_text(trait_id: StringName, count: int, tier: int) -> String:

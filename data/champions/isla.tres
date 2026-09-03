@@ -19,7 +19,7 @@ magic_resist = 30.0
 mana_start = 10.0
 mana_max = 40.0
 ability_name = "Crimson Flurry"
-ability_desc = "Strike four times for {dmg}% Attack Damage each. These strikes can critically strike."
+ability_desc = "Strike four times for {dmg} each. These strikes can critically strike."
 ability_values = {
 &"dmg": [60, 75, 115]
 }

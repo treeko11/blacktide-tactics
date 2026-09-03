@@ -8,6 +8,10 @@ func id() -> StringName:
 	return &"maelstrom"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	for f in sim.enemies_near(s, 3):
 		sim.pull_to(s, f)

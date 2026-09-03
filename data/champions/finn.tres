@@ -17,7 +17,7 @@ armor = 30.0
 mana_start = 20.0
 mana_max = 50.0
 ability_name = "Gut Hook"
-ability_desc = "Rip the target for {dmg}% Attack Damage as physical damage plus {tr} true damage."
+ability_desc = "Rip the target for {dmg} as physical damage plus {tr} true damage."
 ability_values = {
 &"dmg": [160, 200, 280],
 &"tr": [60, 95, 170]

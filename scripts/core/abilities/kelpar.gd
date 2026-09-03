@@ -6,6 +6,10 @@ func id() -> StringName:
 	return &"kelpar"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap", &"heal": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	for a in sim.living_allies(s.team):
 		sim.heal(s, a, scaled(s, &"heal"))

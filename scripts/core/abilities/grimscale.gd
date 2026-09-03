@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"grimscale"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var t := sim.farthest_enemy(s)
 	if t == null:

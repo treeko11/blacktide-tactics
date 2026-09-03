@@ -10,6 +10,10 @@ func id() -> StringName:
 	return &"rook"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	_strike(sim, s, 0)
 

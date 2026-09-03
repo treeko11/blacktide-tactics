@@ -19,7 +19,7 @@ attack_range = 4
 mana_start = 20.0
 mana_max = 55.0
 ability_name = "Three Barrels"
-ability_desc = "Fire three shots at the current target for {dmg}% Attack Damage each."
+ability_desc = "Fire three shots at the current target for {dmg} each."
 ability_values = {
 &"dmg": [85, 105, 145]
 }

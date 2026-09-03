@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"sirene"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var duration := v(s, &"stun")
 	var per_tick := scaled(s, &"dmg") / 3.0

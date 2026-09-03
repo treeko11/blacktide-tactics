@@ -19,7 +19,7 @@ magic_resist = 40.0
 mana_start = 10.0
 mana_max = 40.0
 ability_name = "Bloodtide"
-ability_desc = "Enter a frenzy: strike six times for {dmg}% Attack Damage, healing for {ov}% of all damage dealt."
+ability_desc = "Enter a frenzy: strike six times for {dmg}, healing for {ov}% of all damage dealt."
 ability_values = {
 &"dmg": [55, 68, 110],
 &"ov": [35, 45, 80]

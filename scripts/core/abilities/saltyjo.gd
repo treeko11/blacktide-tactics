@@ -9,6 +9,10 @@ func id() -> StringName:
 	return &"saltyjo"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var t := sim.pick_target(s)
 	if t == null:

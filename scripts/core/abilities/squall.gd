@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"squall"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	for f in sim.nearest_enemies(s, int(v(s, &"n"))):
 		sim.fx(&"bolt", f, s, Color("8fd4ff"))

@@ -19,7 +19,7 @@ magic_resist = 35.0
 mana_start = 20.0
 mana_max = 60.0
 ability_name = "Blackrose Flourish"
-ability_desc = "Unleash five cuts for {dmg}% Attack Damage each, gaining {crit}% Critical Strike Chance for the rest of combat."
+ability_desc = "Unleash five cuts for {dmg} each, gaining {crit}% Critical Strike Chance for the rest of combat."
 ability_values = {
 &"crit": [10, 15, 30],
 &"dmg": [65, 80, 125]

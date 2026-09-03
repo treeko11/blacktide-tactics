@@ -6,6 +6,10 @@ func id() -> StringName:
 	return &"pip"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var t := sim.lowest_enemy(s.team)
 	if t == null:

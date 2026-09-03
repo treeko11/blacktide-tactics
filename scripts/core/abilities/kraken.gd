@@ -10,6 +10,10 @@ func id() -> StringName:
 	return &"kraken"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var foes := sim.enemies_near(s, 4)
 	sim.fx(&"nova", s, null, Color("7a5fff"))

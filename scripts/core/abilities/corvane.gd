@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"corvane"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad", &"bonus": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var foes := sim.nearest_enemies(s, 4)
 	var pct := v(s, &"dmg") / 100.0

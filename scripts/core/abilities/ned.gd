@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"ned"
 
 
+func scaling() -> Dictionary:
+	return { &"shield": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var resist := v(s, &"res")
 	sim.add_shield(s, scaled(s, &"shield"), 8.0)

@@ -176,3 +176,81 @@ func test_the_carrier_list_marks_what_the_player_owns() -> void:
 	assert_ne(fielded, benched, "seating a pirate did not change how it is listed")
 	assert_true(fielded.contains("✔ %s" % champion.display_name),
 		"a pirate on the board is not marked as one of the ones being counted")
+
+
+# --- ability scaling ---------------------------------------------------------
+#
+# The marks beside the ability numbers are the only thing in the HUD that says
+# what a figure is driven by, and every way they break is silent: a tag that
+# never renders leaves a bare number that looks finished, and a legend built off
+# an empty scaling map leaves a heading with nothing under it. Neither throws.
+
+## An ability power number is marked, and the legend under it decodes the mark.
+func test_an_ability_number_is_marked_with_the_stat_that_drives_it() -> void:
+	var nautica: ChampionDef = content().champion(&"nautica")
+	var text := Tooltip.champion_text(nautica, 1)
+
+	# The whole mark, colour included — that is what actually reaches the label,
+	# and the colour is the half a glance reads before the letters do.
+	assert_true(text.contains(Content.scaling_tag(&"ap")),
+		"the ability power mark is missing from the ability text")
+	assert_true(text.contains("SCALES WITH"), "the legend is missing")
+	assert_true(text.contains("Ability Power"),
+		"the legend did not spell the stat out")
+	assert_false(text.contains(Content.scaling_tag(&"ad")),
+		"an ability that reads nothing off attack damage was marked for it")
+
+
+## A hybrid carries both marks, which is the whole reason they are on the numbers
+## rather than on the ability. Finn deals a percentage of attack damage and a
+## flat true-damage figure in the same sentence.
+func test_a_hybrid_ability_marks_each_number_separately() -> void:
+	var finn: ChampionDef = content().champion(&"finn")
+	var text := Tooltip.champion_text(finn, 1)
+
+	assert_true(text.contains(Content.scaling_tag(&"ad")),
+		"the attack damage mark is missing")
+	assert_true(text.contains(Content.scaling_tag(&"ap")),
+		"the ability power mark is missing")
+	assert_true(text.contains("Attack Damage"), "the legend lost the attack entry")
+	assert_true(text.contains("Ability Power"), "the legend lost the power entry")
+
+
+## An ability that scales off nothing gets no legend at all, rather than a
+## heading with nothing under it. Tuck hands out mana and haste, and both are the
+## same figure however the pirate is built.
+func test_an_unscaled_ability_gets_no_legend() -> void:
+	var tuck: ChampionDef = content().champion(&"tuck")
+	var text := Tooltip.champion_text(tuck, 1)
+	assert_false(text.contains("SCALES WITH"),
+		"an ability that scales off nothing was given a legend")
+
+
+## Ability power is in the stat block on every champion, at its baseline, so it
+## is a stat a player can find before anything has granted them any.
+func test_the_stat_block_always_carries_ability_power() -> void:
+	var missing: Array[String] = []
+	for champion in content().champions():
+		if not Tooltip.champion_text(champion, 1).contains("Ability Power ["):
+			missing.append(String(champion.id))
+	assert_true(missing.is_empty(),
+		"no ability power in the stat block for: %s" % ", ".join(missing))
+
+
+## The live block reports the multiplier the fight is actually using, which is
+## the number that matters — 100 is the baseline the printed figures are written
+## at, so what a player wants is not "180" but "1.8 times the page".
+func test_bonus_ability_power_shows_as_a_multiplier() -> void:
+	var sim := battle(
+		[entry(&"nautica", Vector2i(3, 5))],
+		[entry(&"rat", Vector2i(3, 1))])
+	var unit: SimUnit = sim.units[0]
+
+	var base := Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
+	assert_true(base.contains("×1.00"), "a pirate at base did not read as ×1.00")
+
+	unit.ability_power += 80.0
+	var boosted := Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
+	assert_true(boosted.contains("×1.80"),
+		"+80 ability power did not read as ×1.80")
+	assert_true(boosted.contains("180"), "the stat block lost the raw figure")

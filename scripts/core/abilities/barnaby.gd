@@ -6,6 +6,10 @@ func id() -> StringName:
 	return &"barnaby"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap", &"shield": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	sim.fx(&"shock", s, null, Color("ffb44d"))
 	sim.add_shield(s, scaled(s, &"shield"), 8.0)

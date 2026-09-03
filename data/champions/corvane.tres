@@ -21,7 +21,7 @@ attack_range = 4
 mana_start = 40.0
 mana_max = 90.0
 ability_name = "Broadside"
-ability_desc = "Fire a full broadside at the four nearest enemies for {dmg}% Attack Damage plus {bonus} magic damage."
+ability_desc = "Fire a full broadside at the four nearest enemies for {dmg} plus {bonus} magic damage."
 ability_values = {
 &"bonus": [80, 120, 220],
 &"dmg": [120, 150, 210]

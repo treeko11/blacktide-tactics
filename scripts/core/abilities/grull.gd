@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"grull"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	sim.heal(s, s, (s.max_hp - s.hp) * v(s, &"heal") / 100.0)
 	sim.fx(&"shock", s, null, Color("ffb87a"))

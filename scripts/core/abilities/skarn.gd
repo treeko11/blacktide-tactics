@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"skarn"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var foes := sim.living_enemies(s.team)
 	foes.sort_custom(func(a, b): return sim.distance(s, a) > sim.distance(s, b))

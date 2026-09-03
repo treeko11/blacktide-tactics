@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"sable"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var foes := sim.nearest_enemies(s, 3)
 	sim.add_buff(s, &"attack_speed", 1.0 + v(s, &"as") / 100.0, 4.0)

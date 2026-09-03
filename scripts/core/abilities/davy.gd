@@ -10,6 +10,10 @@ func id() -> StringName:
 	return &"davy"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var damage := scaled(s, &"dmg")
 	for e in sim.living_enemies(s.team):

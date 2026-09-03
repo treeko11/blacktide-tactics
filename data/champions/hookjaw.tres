@@ -20,7 +20,7 @@ magic_resist = 30.0
 mana_start = 20.0
 mana_max = 60.0
 ability_name = "Feeding Frenzy"
-ability_desc = "Leap at the lowest-Health enemy and bite for {dmg}% Attack Damage, healing for {heal} Health."
+ability_desc = "Leap at the lowest-Health enemy and bite for {dmg}, healing for {heal}."
 ability_values = {
 &"dmg": [200, 250, 360],
 &"heal": [180, 270, 480]

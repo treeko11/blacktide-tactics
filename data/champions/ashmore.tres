@@ -21,7 +21,7 @@ attack_range = 3
 mana_start = 30.0
 mana_max = 70.0
 ability_name = "Six Pistols"
-ability_desc = "Draw six pistols and fire at the lowest-Health enemies for {dmg}% Attack Damage each. Kills grant {ad} permanent Attack Damage."
+ability_desc = "Draw six pistols and fire at the lowest-Health enemies for {dmg} each. Kills grant {ad} permanent Attack Damage."
 ability_values = {
 &"ad": [10, 15, 60],
 &"dmg": [110, 135, 400]

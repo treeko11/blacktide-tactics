@@ -16,7 +16,7 @@ attack_speed = 0.75
 mana_start = 20.0
 mana_max = 50.0
 ability_name = "Featherstep"
-ability_desc = "Skip to the lowest-Health enemy and strike for {dmg}% Attack Damage, then gain {as}% Attack Speed for 5 seconds."
+ability_desc = "Skip to the lowest-Health enemy and strike for {dmg}, then gain {as}% Attack Speed for 5 seconds."
 ability_values = {
 &"as": [40, 55, 90],
 &"dmg": [190, 240, 330]

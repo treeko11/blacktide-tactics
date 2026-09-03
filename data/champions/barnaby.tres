@@ -17,7 +17,7 @@ magic_resist = 45.0
 mana_start = 30.0
 mana_max = 70.0
 ability_name = "Keg Slam"
-ability_desc = "Slam a powder keg into the deck, dealing {dmg} magic damage to nearby enemies and gaining a {shield} Health shield."
+ability_desc = "Slam a powder keg into the deck, dealing {dmg} magic damage to nearby enemies and gaining a {shield} shield."
 ability_values = {
 &"dmg": [160, 240, 400],
 &"shield": [180, 300, 550]

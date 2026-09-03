@@ -250,7 +250,19 @@ func item_effect(item_id: StringName) -> ItemEffect:
 ##
 ## With no star, every star's value is shown ("160 / 240 / 400") so a shop card
 ## tells you what the champion becomes. With a star, only that one, emphasised.
-static func format_description(text: String, values: Dictionary, star: int = 0) -> String:
+##
+## `scaling` is an ability's `scaling()` map, and marks each number with the stat
+## that drives it — the reason it is a parameter rather than something read here
+## is that traits and items come through this function too, and neither has a
+## caster to scale off. Passing nothing leaves every number bare, which is what
+## those want.
+##
+## The mark goes on the *number*, not on the ability, because four abilities are
+## hybrids: Corvane, Finn, Hookjaw and Selka each read one figure off attack
+## damage and another off ability power in the same sentence, and a single line
+## underneath saying "scales with both" cannot say which is which.
+static func format_description(text: String, values: Dictionary, star: int = 0,
+		scaling: Dictionary = {}) -> String:
 	var out := text
 	for key in values:
 		var arr: Array = values[key]
@@ -264,8 +276,19 @@ static func format_description(text: String, values: Dictionary, star: int = 0) 
 			for value in arr:
 				parts.append(_num(value))
 			replacement = "[b]%s[/b]" % " / ".join(parts)
+		replacement += scaling_tag(scaling.get(key, &""))
 		out = out.replace("{%s}" % key, replacement)
 	return out
+
+
+## The coloured mark that goes after a number, or "" for one that scales off
+## nothing. An unknown stat is also "": a mark nobody can decode is worse than
+## no mark, and the legend below the description only lists stats it knows.
+static func scaling_tag(stat: StringName) -> String:
+	if not Ability.SCALING.has(stat):
+		return ""
+	var mark: Dictionary = Ability.SCALING[stat]
+	return "[color=#%s]%s[/color]" % [mark["colour"], mark["tag"]]
 
 
 static func _num(value: Variant) -> String:

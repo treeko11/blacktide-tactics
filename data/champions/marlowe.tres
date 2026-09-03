@@ -18,7 +18,7 @@ attack_range = 4
 mana_start = 30.0
 mana_max = 60.0
 ability_name = "Hull-Piercer"
-ability_desc = "Fire a shot for {dmg}% Attack Damage that ignores {pen}% of the target Armor."
+ability_desc = "Fire a shot for {dmg} that ignores {pen}% of the target Armor."
 ability_values = {
 &"dmg": [180, 230, 320],
 &"pen": [50, 60, 85]

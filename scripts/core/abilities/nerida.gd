@@ -6,6 +6,10 @@ func id() -> StringName:
 	return &"nerida"
 
 
+func scaling() -> Dictionary:
+	return { &"heal": &"ap", &"shield": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var a := sim.lowest_ally(s.team)
 	if a == null:

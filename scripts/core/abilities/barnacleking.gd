@@ -8,6 +8,10 @@ func id() -> StringName:
 	return &"barnacleking"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap", &"heal": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	sim.heal(s, s, scaled(s, &"heal"))
 	sim.revive_best(s.team, v(s, &"rev") / 100.0)

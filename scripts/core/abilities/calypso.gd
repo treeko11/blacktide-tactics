@@ -10,6 +10,10 @@ func id() -> StringName:
 	return &"calypso"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap", &"heal": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	for i in 10:
 		sim.delay(i * 0.4, _pulse.bind(sim, s, i))

@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"kessa"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ad" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	sim.add_temp_omnivamp(s, v(s, &"ov") / 100.0, 2.2)
 	var pct := v(s, &"dmg") / 100.0

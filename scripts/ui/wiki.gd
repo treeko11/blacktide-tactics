@@ -59,6 +59,7 @@ const SECTIONS := [
 const GUIDE := [
 	{ "id": &"loop", "title": "The Loop", "icon": "⚓" },
 	{ "id": &"upgrading", "title": "Upgrading", "icon": "⭐" },
+	{ "id": &"scaling", "title": "Ability Scaling", "icon": "🔮" },
 	{ "id": &"traits", "title": "Traits", "icon": "🧭" },
 	{ "id": &"gold", "title": "Gold", "icon": "🪙" },
 	{ "id": &"items", "title": "Items", "icon": "🛠️" },
@@ -667,10 +668,16 @@ func _champion_page(id: StringName) -> String:
 	lines.append(_stat_block(champion))
 
 	if champion.ability_name != "":
+		var ability: Ability = Content.ability(champion.id)
+		var scaling: Dictionary = ability.scaling() if ability != null else {}
 		lines.append("")
 		lines.append("[color=#7fe3ff][b]%s[/b][/color]" % champion.ability_name)
 		lines.append("[color=#b9cbd8]%s[/color]" % Content.format_description(
-			champion.ability_desc, champion.ability_values))
+			champion.ability_desc, champion.ability_values, 0, scaling))
+		var legend := _scaling_legend(scaling)
+		if legend != "":
+			lines.append("")
+			lines.append(legend)
 	elif monster:
 		lines.append("")
 		lines.append("[color=#7c93a4]Casts nothing. It bites, and that is all.[/color]")
@@ -693,6 +700,31 @@ func _champion_page(id: StringName) -> String:
 		lines.append("[color=#8fa6b5]Sells for %s %d at one star, %s %d at three.[/color]"
 			% [UITheme.COIN, champion.sell_value(1), UITheme.COIN, champion.sell_value(3)])
 
+	return "\n".join(lines)
+
+
+## What the marks beside the ability numbers mean, on the reference page.
+##
+## Deliberately not the tooltip's version. The inspector answers "what is this
+## pirate in front of me worth right now" and puts live numbers in its legend;
+## this page shows all three stars at once and has no single unit to read, so a
+## number here would have to pick a star and would be wrong at the other two.
+## What it can do instead is name the stat and point at the page explaining it.
+func _scaling_legend(scaling: Dictionary) -> String:
+	var used := PackedStringArray()
+	for stat in [&"ad", &"ap"]:
+		if not scaling.values().has(stat):
+			continue
+		var mark: Dictionary = Ability.SCALING[stat]
+		used.append("[color=#%s]%s[/color]  %s"
+			% [mark["colour"], String(mark["tag"]).strip_edges(), mark["name"]])
+	if used.is_empty():
+		return ""
+
+	var lines := PackedStringArray()
+	lines.append(_heading("Scales with"))
+	lines.append("   ".join(used))
+	lines.append(_link(&"guide", &"scaling", "How scaling works"))
 	return "\n".join(lines)
 
 
@@ -725,6 +757,10 @@ func _stat_block(champion: ChampionDef) -> String:
 	flat.append("Range [b]%d[/b]" % int(one["attack_range"]))
 	flat.append("Armour [b]%d[/b]" % int(one["armor"]))
 	flat.append("Resist [b]%d[/b]" % int(one["magic_resist"]))
+	# In the flat row rather than the spread above it because that is the fact:
+	# every pirate starts at the same ability power and a star-up does not move
+	# it. What a star moves is the ability's own numbers, which are below.
+	flat.append("Ability Power [b]%d[/b]" % int(SimUnit.BASE_AP))
 	if champion.casts():
 		flat.append("Mana [b]%d[/b] / [b]%d[/b]"
 			% [int(one["mana_start"]), int(one["mana_max"])])
@@ -930,6 +966,30 @@ A star-up roughly doubles health and adds half again to attack, and moves the ab
 The shop marks a card [color=#ffd98a]BUY THIS[/color] when buying it completes an upgrade, and frames one you already own in green.""" \
 				% [UITheme.STAR.repeat(2), UITheme.STAR.repeat(3),
 					_link(&"pirates", &"", "pirate's")]
+		&"scaling":
+			# The worked example is read off Doss rather than written into the
+			# prose, so a balance pass that retunes him cannot leave this page
+			# quoting a number the game no longer uses.
+			var doss: ChampionDef = Content.champion(&"doss")
+			var doss_ad := int(doss.stats_at(1)["ad"])
+			var doss_pct := int(doss.value(&"dmg", 1))
+			body = """An ability's numbers are not fixed. Each one is driven by a stat, and both this page and the inspector mark every figure with which one.
+
+[color=#ffb27a]%% AD[/color] is a percentage of the pirate's own [b]Attack Damage[/b]. %s attacks for [b]%d[/b] at one star and his slug is marked [b]%d[/b][color=#ffb27a]%% AD[/color], so it lands for [b]%d[/b]. Attack damage rises with every star and with the attack items.
+
+[color=#c9a2ff]AP[/color] is multiplied by [b]Ability Power[/b]. Every pirate starts at exactly [b]%d[/b] — the baseline the printed numbers are written at — so one at 180 casts for [b]1.8×[/b] everything its page says. A star-up does [i]not[/i] raise it; what a star raises is the printed number itself.
+
+Four pirates read one figure off each in the same cast — %s, %s, %s and %s — which is why the mark sits on the number and not on the ability.
+
+Ability power comes from items (the %s alone is +80), from the %s trait, and mid-fight from Meredine and Nautica, who hand it to the whole fleet permanently every time they cast. Nothing else touches it. A number with no mark scales off nothing at all: a stun lasts as long however you build the pirate casting it.""" \
+				% [_link(&"pirates", &"doss", "Doss"), doss_ad, doss_pct,
+					doss_ad * doss_pct / 100, int(SimUnit.BASE_AP),
+					_link(&"pirates", &"corvane", "Corvane"),
+					_link(&"pirates", &"finn", "Finn"),
+					_link(&"pirates", &"hookjaw", "Hookjaw"),
+					_link(&"pirates", &"selka", "Selka"),
+					_link(&"items", &"abyssal_prism", "Abyssal Prism"),
+					_link(&"traits", &"siren", "Siren")]
 		&"traits":
 			body = """Every pirate has an [b]Origin[/b] and a [b]Class[/b]. Fielding enough pirates sharing one activates a fleet-wide bonus at a breakpoint — 2, 4, 6, and sometimes higher.
 

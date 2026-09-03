@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"voss"
 
 
+func scaling() -> Dictionary:
+	return { &"shield": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var allies := sim.living_allies(s.team)
 	allies.sort_custom(func(a, b): return a.health_fraction() < b.health_fraction())

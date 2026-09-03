@@ -6,6 +6,10 @@ func id() -> StringName:
 	return &"kade"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var damage := scaled(s, &"dmg")
 

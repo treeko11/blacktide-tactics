@@ -19,7 +19,7 @@ magic_resist = 35.0
 mana_start = 15.0
 mana_max = 45.0
 ability_name = "Dance of Tides"
-ability_desc = "Strike three times for {dmg}% Attack Damage, healing the lowest-Health ally for {heal} with each strike."
+ability_desc = "Strike three times for {dmg}, healing the lowest-Health ally for {heal} with each strike."
 ability_values = {
 &"dmg": [70, 88, 125],
 &"heal": [80, 120, 210]

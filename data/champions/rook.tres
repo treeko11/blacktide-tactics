@@ -19,7 +19,7 @@ magic_resist = 40.0
 mana_start = 20.0
 mana_max = 55.0
 ability_name = "Cutthroat"
-ability_desc = "Vanish and reappear beside the lowest-Health enemy, dealing {dmg}% Attack Damage. If this kills them, immediately do it again."
+ability_desc = "Vanish and reappear beside the lowest-Health enemy, dealing {dmg}. If this kills them, immediately do it again."
 ability_values = {
 &"dmg": [280, 340, 600]
 }

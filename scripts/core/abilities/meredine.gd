@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"meredine"
 
 
+func scaling() -> Dictionary:
+	return { &"heal": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var heal := scaled(s, &"heal")
 	var power := v(s, &"ap")

@@ -7,6 +7,10 @@ func id() -> StringName:
 	return &"nautica"
 
 
+func scaling() -> Dictionary:
+	return { &"dmg": &"ap" }
+
+
 func cast(sim: Sim, s: SimUnit) -> void:
 	var cluster := sim.best_cluster(s.team, 2)
 	if not cluster.is_empty():

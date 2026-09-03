@@ -19,7 +19,7 @@ attack_range = 4
 mana_start = 20.0
 mana_max = 55.0
 ability_name = "Grapeshot"
-ability_desc = "Spray the three nearest enemies with pellets, hitting each for {dmg}% Attack Damage twice."
+ability_desc = "Spray the three nearest enemies with pellets, hitting each for {dmg} twice."
 ability_values = {
 &"dmg": [70, 90, 130]
 }

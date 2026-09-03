@@ -19,7 +19,7 @@ magic_resist = 35.0
 mana_start = 15.0
 mana_max = 50.0
 ability_name = "Wake Cutter"
-ability_desc = "Cut through the three nearest enemies, dealing {dmg}% Attack Damage to each and gaining {as}% Attack Speed for 4s."
+ability_desc = "Cut through the three nearest enemies, dealing {dmg} to each and gaining {as}% Attack Speed for 4s."
 ability_values = {
 &"as": [30, 40, 70],
 &"dmg": [130, 165, 240]
