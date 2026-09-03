@@ -11,6 +11,7 @@ cost = 2
 traits = Array[StringName]([&"siren", &"stormborn"])
 art_body = &"siren"
 art_tint = Color(0.627451, 0.43529412, 0.8392157, 1)
+art_marks = Array[StringName]([&"storm"])
 hp = 580.0
 ad = 40.0
 attack_speed = 0.6

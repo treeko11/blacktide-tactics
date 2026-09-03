@@ -65,7 +65,7 @@ const ART := {
 	&"meredine":  { "body": &"siren",  "tint": "4fc9c0", "marks": [&"tide"] },
 	&"nerida":    { "body": &"siren",  "tint": "5fd6a8", "marks": [&"tide"] },
 	&"coral":     { "body": &"siren",  "tint": "ef7f9d", "marks": [&"tide"] },
-	&"morgause":  { "body": &"siren",  "tint": "a06fd6", "marks": [] },
+	&"morgause":  { "body": &"siren",  "tint": "a06fd6", "marks": [&"storm"] },
 	&"mira":      { "body": &"siren",  "tint": "7fb8f0", "marks": [&"storm"] },
 
 	# --- leviathans: whatever came up from under the hull. The shark is two ---
@@ -107,6 +107,67 @@ const ART := {
 	&"golem":     { "body": &"golem",  "tint": "5c6470", "marks": [] },
 	&"elder":     { "body": &"kraken", "tint": "5a4a7a", "marks": [&"crown"] },
 }
+
+
+## Which bodies each Origin licenses. A champion may be drawn as any body one of
+## its origins licenses; a champion whose origins license nothing falls back to
+## `CREW_BODIES`, which is what "no faction, just crew" looks like.
+##
+## This is the rule that used to live only in a comment, and nine champions
+## drifted through it unnoticed — a Stormborn drawn as a wraith, a Ghost Fleet
+## harpooner drawn as a solid shark, three champions with no origin at all
+## borrowing a Leviathan's fin and two monsters' bodies. Every one of them was a
+## valid body with a unique colour, so nothing in the suite could see it.
+##
+## An empty list is a deliberate statement, not an omission: Stormborn and
+## Tidecaller are callings rather than lineages and have no silhouette of their
+## own. They are carried by `TRAIT_MARKS` instead.
+const ORIGIN_BODIES := {
+	&"navy": [&"officer"],
+	&"corsair": [&"pirate", &"gunner"],
+	&"ghost": [&"ghost"],
+	&"siren": [&"siren"],
+	&"leviathan": [&"shark", &"kraken", &"serpent"],
+	&"stormborn": [],
+	&"tidecaller": [],
+}
+
+## What a champion with no faction is drawn as. Deliberately the two plainest
+## bodies: anything else promises a trait the champion does not have. These are
+## also the only bodies that cannot be read backwards — Corsair licenses both, so
+## a pirate means "not one of the bodied factions" and nothing more.
+const CREW_BODIES: Array[StringName] = [&"pirate", &"gunner"]
+
+## Bodies no champion may use, whatever its traits. Every one is worn by a
+## monster, and a pirate sharing a monster's silhouette reads as a monster.
+const MONSTER_BODIES: Array[StringName] = [&"ship", &"golem", &"crab", &"bird", &"brute"]
+
+## Traits carried by a mark rather than by a body, and whether that mark is
+## theirs alone.
+##
+## `exclusive` false means the mark is a strong hint rather than a promise:
+## every Gunner holds a long gun, but Vance and Voss hold one too and are Royal
+## Navy Navigators. That is deliberate — an admiral with a firearm is not a lie —
+## so the test checks the half that is true and does not invent the other half.
+const TRAIT_MARKS := {
+	&"tidecaller": { "mark": &"tide", "exclusive": true },
+	&"stormborn": { "mark": &"storm", "exclusive": true },
+	&"ghost": { "mark": &"tattered", "exclusive": true },
+	&"gunner": { "mark": &"musket", "exclusive": false },
+}
+
+## Traits with no visual signature at all, and why that is allowed rather than
+## an oversight. Listed explicitly so that adding a fourteenth trait fails the
+## suite until somebody decides which of the three it is.
+##
+## Every one of these is a Class spanning several Origins, and the body is
+## already spoken for by the Origin — Bosun's seven carriers are drawn as three
+## pirates, two wraiths, an officer and a shark, and share no mark between them.
+## A trait that crosses four silhouettes cannot have one. They are read in the
+## manifest panel, which is what it is for.
+const TRAITS_WITHOUT_ART: Array[StringName] = [
+	&"bosun", &"harpooner", &"navigator", &"reaver", &"swash",
+]
 
 
 ## What a champion looks like, or the default. A champion missing from the table

@@ -620,7 +620,7 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   `assign_art.gd`, which loads each resource and sets three fields; **do not use
   `generate_content.gd` for this**, because it overwrites a champion whole and
   throws away every number tuned since the port.
-- **The origin trait owns the silhouette, and nothing checks that it does.**
+- **The origin trait owns the silhouette, and `ArtTable` now says so out loud.**
   `art_table.gd` was grouped by headings written from flavour — "the ghost
   fleet: pale, tattered" — and never read against `traits` in the `.tres`, so
   nine champions ended up wearing a faction they were not in: Squall a
@@ -634,9 +634,22 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   mark `draw_unit` puts over anything, `storm` crackling at the upper corners
   and `tide` taking the bottom of the figure. **Opposite ends on purpose** —
   Calypso and Thalassa are both, so the two have to be able to land on one
-  body. `test_art.gd` checks that a body exists and that the `.tres` matches
-  the table, and cannot catch any of this: every one of those nine was a valid
-  body with a unique colour.
+  body. All of it used to live in this paragraph and in the section headings of
+  `art_table.gd`, which is why it drifted: `test_art.gd` checked that a body
+  exists and that the `.tres` matches the table, and every one of those nine was
+  a valid body with a unique colour. It is now **declared** — `ORIGIN_BODIES`,
+  `CREW_BODIES`, `MONSTER_BODIES`, `TRAIT_MARKS` and `TRAITS_WITHOUT_ART` in
+  `art_table.gd` — and six tests read the declaration rather than a person
+  reading the table. The last of them is the one that matters most: a fourteenth
+  trait added to `data/traits/` fails the suite until somebody has said whether
+  it gets a body, a mark, or neither. **`TRAITS_WITHOUT_ART` is a real answer**,
+  not a bin for undone work: a Class spans several Origins and the body is
+  already spoken for, so Bosun's seven carriers are three pirates, two wraiths,
+  an officer and a shark, share no mark, and are read in the manifest instead.
+  The one deliberate half-rule is `musket`, declared non-exclusive: every Gunner
+  carries one, but so do Vance and Voss, and an admiral with a firearm is not a
+  lie. Only the bodies outside `CREW_BODIES` can be read backwards, because
+  Corsair licenses `pirate` and `gunner` and so does having no faction at all.
 - **A trait mark has to change the outline; there is no room for a badge.**
   Eight tide marks were drawn before one worked, and the seven that failed all
   failed the same way — at the 43-point hex a phone gives a unit, a symbol is
@@ -1018,7 +1031,15 @@ refers to the JavaScript at all, and only in a comment.
   every mark is one it draws, that no two champions sharing a body share a
   colour, and that the `.tres` still agree with `ArtTable` — editing the table
   without re-running `assign_art.gd` changes nothing and looks like it worked.
-  It **cannot check that anything draws**; see the art rules below.
+  It also holds the **visual consistency** rules, which are the ones that read
+  as a game telling lies rather than as a bug: that a champion's body is one its
+  own origins license, that a faction's body is worn by nobody outside it, that
+  no champion wears a monster's, that a trait's mark is on *every* carrier and
+  an exclusive one on nobody else, and that every trait has declared what it
+  looks like. That last one is the anti-drift catch — it caught Morgause, a
+  Stormborn with no storm on her, which had been true since the port and which
+  four rounds of looking at screenshots never noticed. It **cannot check that
+  anything draws**; see the art rules below.
 - `test_glyphs.gd` fails any character the web export could not draw. The rule it
   replaces was "check it in the browser", which means exporting, and which is why
   the game shipped twice with tofu where its prices were.
