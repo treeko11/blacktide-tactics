@@ -141,6 +141,7 @@ func _rebuild() -> void:
 	else:
 		board.show_roster(GameState.board)
 	_show_sea()
+	_show_overtime()
 	_open_briefing()
 
 
@@ -479,6 +480,9 @@ func _connect_bus() -> void:
 			board.show_roster(GameState.board))
 	Events.round_resolved.connect(_on_round_resolved)
 	Events.sea_changed.connect(func(_id, _away): _show_sea())
+	Events.combat_overtime.connect(func():
+		_show_banner("OVERTIME", Color("ff9d5c"))
+		_show_overtime())
 	Events.game_over.connect(func(place): modals.open_game_over(place))
 
 
@@ -496,6 +500,15 @@ func _show_sea() -> void:
 	top_bar.show_sea(def, away)
 
 
+## Whether the fight on screen has entered overtime.
+##
+## Read off GameState for the same reason the weather is: the signal fired once,
+## at a top bar that a rotation may since have thrown away, and a HUD rebuilt
+## mid-fight has to come back still saying so.
+func _show_overtime() -> void:
+	top_bar.show_overtime(GameState.in_overtime())
+
+
 func _set_preview(text: String) -> void:
 	_preview.text = text
 
@@ -509,6 +522,7 @@ func _on_phase_changed(phase: int) -> void:
 		GameState.Phase.COMBAT:
 			board.show_battle(GameState.sim)
 			_show_banner("ENGAGE", UITheme.FOAM)
+			_show_overtime()
 		GameState.Phase.ARMOURY:
 			modals.open_armoury(GameState.armoury_offer)
 

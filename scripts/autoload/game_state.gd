@@ -104,6 +104,9 @@ var sim: Sim = null
 ## round. They are opened when the player's fight starts and read when it ends.
 var _bot_fights: Array = []
 
+## Whether this fight's overtime has been announced yet. One line per fight.
+var _overtime_announced: bool = false
+
 ## The last fight's meter rows and how long it ran, kept after the sim is thrown
 ## away. The player reads the DPS meter in the aftermath and through the planning
 ## phase that follows, and by then `_advance_round` has disposed the battle those
@@ -904,6 +907,7 @@ func _tick_combat(delta: float) -> void:
 			sim.step()
 			_sim_accumulator -= Sim.TICK
 			steps += 1
+		_announce_overtime()
 		if sim.done:
 			_post_combat = 0.0 if instant else POST_COMBAT_SECONDS
 		return
@@ -913,10 +917,25 @@ func _tick_combat(delta: float) -> void:
 		_resolve_combat()
 
 
+## Says once, on the tick the watched fight crosses into overtime.
+##
+## Watched here rather than announced from inside `Sim`, because the sim never
+## touches the bus and six of the seven fights a round have nobody to announce
+## anything to. The flag is cleared by `_start_combat`, not by the phase, so a
+## HUD rebuilt mid-fight cannot re-announce a fight already in overtime.
+func _announce_overtime() -> void:
+	if _overtime_announced or sim.overtime() <= 0.0:
+		return
+	_overtime_announced = true
+	log_line("The tide turns — quarter is spent, and every blow tells.", &"warn")
+	Events.combat_overtime.emit()
+
+
 # --- starting a fight --------------------------------------------------------
 
 func _start_combat() -> void:
 	_sim_accumulator = 0.0
+	_overtime_announced = false
 
 	var kind := round_type()
 	var enemy_board: Array = []
@@ -1036,6 +1055,12 @@ func _resolve_combat() -> void:
 ## happens; the snapshot answers once the round has moved on.
 func battle_stats() -> Array[Dictionary]:
 	return sim.stats() if sim != null else _battle_stats
+
+
+## Whether the fight on screen is in overtime. What the HUD reads back after a
+## rebuild, when the signal that announced it has long since fired.
+func in_overtime() -> bool:
+	return phase == Phase.COMBAT and sim != null and sim.overtime() > 0.0
 
 
 ## How long that fight has been running, for the per-second figures.

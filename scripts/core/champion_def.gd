@@ -14,6 +14,7 @@ extends Resource
 ## because a flat multiplier makes every three-star ability the same shape.
 const HP_PER_STAR := 1.8
 const AD_PER_STAR := 1.55
+const RES_PER_STAR := 1.55
 
 @export var id: StringName = &""
 @export var display_name: String = ""
@@ -68,12 +69,13 @@ func casts() -> bool:
 func stats_at(star: int) -> Dictionary:
 	var hp_mul: float = pow(HP_PER_STAR, star - 1)
 	var ad_mul: float = pow(AD_PER_STAR, star - 1)
+	var res_mul: float = pow(RES_PER_STAR, star - 1)
 	return {
 		"max_hp": roundf(hp * hp_mul),
 		"ad": roundf(ad * ad_mul),
 		"attack_speed": attack_speed,
-		"armor": armor,
-		"magic_resist": magic_resist,
+		"armor": roundf(armor * res_mul),
+		"magic_resist": roundf(magic_resist * res_mul),
 		"attack_range": attack_range,
 		"mana_start": mana_start,
 		"mana_max": mana_max,

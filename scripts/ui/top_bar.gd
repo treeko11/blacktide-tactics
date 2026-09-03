@@ -28,6 +28,8 @@ var _sea_chip: PanelContainer = null
 var _sea_glyph: Label = null
 var _sea_label: Label = null
 var _sea_mark: String = ""
+var _overtime_mark: String = ""
+var _overtime: bool = false
 var _speed_buttons: Array[Button] = []
 var _sound_button: Button = null
 
@@ -215,13 +217,38 @@ func show_sea(def: SeaDef, rounds_away: int) -> void:
 ## round label instead, where it costs one glyph and is arguably where it
 ## belonged anyway: it is a fact about which round this is.
 func _write_stage() -> void:
-	_stage.text = "%d-%d%s" % [GameState.stage, GameState.round_number, _sea_mark]
+	_stage.text = "%d-%d%s%s" % [GameState.stage, GameState.round_number,
+		_sea_mark, _overtime_mark]
+
+
+## Whether this fight has entered overtime.
+##
+## The phase label already says BATTLE and has the width to say something
+## longer, so overtime replaces it rather than arriving as another chip — the
+## bar has no slack for one, which is the whole reason the weather mark lives in
+## the round label. A phone hides the phase label outright, so there it takes
+## the same route the weather does and becomes a glyph on the round.
+func show_overtime(active: bool) -> void:
+	_overtime = active
+	_overtime_mark = " 🔥" if active and Layout.compact() else ""
+	_write_stage()
+	_write_phase()
 
 
 ## Whether the weather chip is up. Read by `screenshot.gd --sea=`, which is the
 ## only thing that can see this bar at all.
 func sea_shown() -> bool:
 	return _sea_mark != "" or (_sea_chip != null and _sea_chip.visible)
+
+
+## Whether the bar is reporting overtime. Read by `screenshot.gd --overtime`,
+## which is the only thing that can see this bar at all — the phase label is
+## hidden on a phone, so the two layouts are asserted through one accessor
+## rather than by the tool knowing which of them it is looking at.
+func overtime_shown() -> bool:
+	if _overtime_mark != "":
+		return true
+	return _phase != null and _phase.visible and _phase.text == "OVERTIME"
 
 
 ## The bell, crossed out or not. Two emoji rather than a word, so the button
@@ -248,15 +275,31 @@ func refresh() -> void:
 	_write_stage()
 
 
+const PHASE_NAMES := {
+	GameState.Phase.PLAN: "PLANNING",
+	GameState.Phase.COMBAT: "BATTLE",
+	GameState.Phase.RESULT: "AFTERMATH",
+	GameState.Phase.ARMOURY: "ARMOURY",
+	GameState.Phase.OVER: "FINISHED",
+}
+
+
 func _on_phase_changed(phase: int) -> void:
-	var names := {
-		GameState.Phase.PLAN: "PLANNING",
-		GameState.Phase.COMBAT: "BATTLE",
-		GameState.Phase.RESULT: "AFTERMATH",
-		GameState.Phase.ARMOURY: "ARMOURY",
-		GameState.Phase.OVER: "FINISHED",
-	}
-	_phase.text = names.get(phase, "")
-	_phase.add_theme_color_override("font_color",
-		Color("ff9d9d") if phase == GameState.Phase.COMBAT else UITheme.FOAM)
+	# Leaving combat drops the mark with it, so the next round does not open
+	# still claiming to be in overtime.
+	if phase != GameState.Phase.COMBAT:
+		_overtime = false
+		_overtime_mark = ""
+	_write_phase(phase)
 	refresh()
+
+
+func _write_phase(phase: int = -1) -> void:
+	var at: int = GameState.phase if phase < 0 else phase
+	if _overtime and at == GameState.Phase.COMBAT:
+		_phase.text = "OVERTIME"
+		_phase.add_theme_color_override("font_color", Color("ff9d5c"))
+		return
+	_phase.text = PHASE_NAMES.get(at, "")
+	_phase.add_theme_color_override("font_color",
+		Color("ff9d9d") if at == GameState.Phase.COMBAT else UITheme.FOAM)

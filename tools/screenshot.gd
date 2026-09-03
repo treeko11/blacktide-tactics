@@ -34,6 +34,7 @@ extends "res://tools/tool_script.gd"
 ##   --sequence=forge replay the reported lock-up: read the forge chart, close
 ##                    it, then try to buy from the shop
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
+##   --overtime       run a fight into overtime and prove the HUD says so
 ##                    with it without the cursor moving again
 ##   --shop=<ids>     comma-separated champion ids to seat in the shop
 ##   --sea=<id>       put the run on its weather round with that sea running,
@@ -166,6 +167,11 @@ func run() -> void:
 
 	if has_flag("live"):
 		await _watch_a_fight(game)
+		finish()
+		return
+
+	if has_flag("overtime"):
+		await _check_overtime(game)
 		finish()
 		return
 
@@ -1271,3 +1277,51 @@ func _open_modal(which: String, game: Node) -> void:
 			_scene._toggle_sheet(true)
 		_:
 			fail("unknown modal '%s'" % which)
+
+
+## Overtime has to be visible, for the reason the weather does.
+##
+## From `Sim.OVERTIME_START` every hit lands harder and every heal lands softer,
+## which is a large thing to do to a fight silently: a board that was holding
+## and suddenly is not, with nothing on screen to say why, is indistinguishable
+## from the game cheating. The phase label carries it on a desktop and the round
+## label carries it on a phone, so this asks the bar rather than either of them.
+func _check_overtime(game: Node) -> void:
+	game.start_combat_now()
+	await _frames(5)
+
+	var sim = game.sim
+	if sim == null:
+		fail("no fight to run into overtime")
+		return
+
+	if _scene.top_bar.overtime_shown():
+		fail("the bar claimed overtime on the first tick of the fight")
+		return
+
+	# Everyone is held, so the clock reaches the ramp with the fight still
+	# running. Stepped by hand rather than waited out, because a fight watched in
+	# real time can be over before it ever gets there — which would pass this
+	# check by never performing it.
+	for u in sim.units:
+		u.stun_time = 999.0
+
+	# `step()` returns without moving the clock once a fight is done, so a loop
+	# waiting on `time` alone never ends. Asked for a fixed number of ticks
+	# instead, and the assertion below is what reports a fight that stopped.
+	var ticks := int((Sim.OVERTIME_START + 0.5) / Sim.TICK)
+	for i in ticks:
+		if sim.done:
+			break
+		sim.step()
+	await _frames(3)
+
+	if sim.overtime() <= 0.0:
+		fail("the fight passed %.1fs and the sim is not in overtime" % Sim.OVERTIME_START)
+		return
+	if not _scene.top_bar.overtime_shown():
+		fail("the fight is in overtime and the top bar says nothing")
+		return
+
+	print("  overtime reached at %.1fs and named in the top bar" % sim.time)
+	_capture()

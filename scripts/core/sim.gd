@@ -18,6 +18,23 @@ extends RefCounted
 
 const TICK := 1.0 / 30.0
 const TIME_LIMIT := 42.0
+
+## Overtime: the pressure that makes a fight end.
+##
+## Nothing else in the sim forces a resolution, so a fight that neither side can
+## close ran to `TIME_LIMIT` and was handed to whoever had more health left — a
+## result nobody watched happen. Measured over even boards, one fight in six
+## ended that way, and one in three once both sides were three-star, because the
+## star curve grows health (x3.24) faster than it grows ability damage (x2.67):
+## the longer a run goes, the harder its fights are to finish.
+##
+## From `OVERTIME_START` every hit lands harder and every heal lands softer,
+## reaching full effect at `OVERTIME_FULL`. It is symmetric, so it decides
+## nothing — it removes the stalemate and leaves the better board winning.
+const OVERTIME_START := 14.0
+const OVERTIME_FULL := 28.0
+const OVERTIME_DAMAGE := 1.5   ## +150% damage at full ramp
+const OVERTIME_HEAL_CUT := 0.9 ## -90% healing and shielding at full ramp
 const BASE_CRIT := 0.25
 const BASE_CRIT_DAMAGE := 1.4
 const MOVE_TIME := 0.34   ## seconds to cross one hex
@@ -486,7 +503,9 @@ func attack_style_for(def: ChampionDef) -> StringName:
 func add_shield(u: SimUnit, amount: float, duration: float) -> void:
 	if not u.alive:
 		return
-	u.shields.append({ "amount": amount, "time": duration, "tide": false })
+	# Shielding is healing by another name as far as a stalemate is concerned.
+	var amt := amount * (1.0 - OVERTIME_HEAL_CUT * overtime())
+	u.shields.append({ "amount": amt, "time": duration, "tide": false })
 	u.recalc_shield()
 
 
@@ -562,7 +581,7 @@ func damage(src: SimUnit, target: SimUnit, amount: float, type: StringName,
 	if target == null or not target.alive or amount <= 0.0:
 		return 0.0
 
-	var amt := amount
+	var amt := amount * (1.0 + OVERTIME_DAMAGE * overtime())
 	if src != null:
 		amt *= 1.0 + src.damage_amp
 		if src.execute_amp > 0.0 and target.health_fraction() < 0.5:
@@ -653,7 +672,7 @@ func execute(src: SimUnit, target: SimUnit) -> void:
 func heal(src: SimUnit, target: SimUnit, amount: float) -> float:
 	if target == null or not target.alive or amount <= 0.0:
 		return 0.0
-	var amt := amount
+	var amt := amount * (1.0 - OVERTIME_HEAL_CUT * overtime())
 	if target.heal_cut_time > 0.0:
 		amt *= 1.0 - target.heal_cut
 	var before := target.hp
@@ -818,6 +837,13 @@ func start_move(u: SimUnit, cell: Vector2i) -> void:
 
 # --- Main loop ---------------------------------------------------------------
 
+## How far into overtime this fight is: 0.0 before it starts, 1.0 at full ramp.
+func overtime() -> float:
+	if time <= OVERTIME_START:
+		return 0.0
+	return clampf((time - OVERTIME_START) / (OVERTIME_FULL - OVERTIME_START), 0.0, 1.0)
+
+
 ## Advances exactly one tick. The only thing that moves the clock.
 func step() -> void:
 	if done:
@@ -965,8 +991,16 @@ func _tick_tide_regen(u: SimUnit, dt: float) -> void:
 		return
 	var amount: float = u.max_hp * u.regen["pct"] * dt
 	var missing: float = u.max_hp - u.hp
-	var healed := heal(u, u, minf(amount, missing))
-	var overflow := amount - healed
+	var spent: float = minf(amount, missing)
+	heal(u, u, spent)
+
+	# Overflow is the part the unit had no room for, measured against what the
+	# regen offered rather than against what the heal actually landed. Those are
+	# the same number until overtime cuts healing — and taking it off the landed
+	# amount would then pour the cut straight into the shield, leaving the one
+	# trait that heals through a stalemate *stronger* in the phase that exists to
+	# break it. The shield pays the same cut the heal did.
+	var overflow := (amount - spent) * (1.0 - OVERTIME_HEAL_CUT * overtime())
 	if overflow <= 0.0:
 		return
 
