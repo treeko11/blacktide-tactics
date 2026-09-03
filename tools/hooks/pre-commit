@@ -1,26 +1,16 @@
 #!/bin/sh
 #
-# Blocks a commit that would put personal information into this repository.
+# Refuses a commit that would put personal information into this public
+# repository. The rules, and why they exist, are in personal-info.sh.
 #
-# The repository is public, so there are two leaks and both are checked here:
+# Anything naming a person goes in an untracked `private_patterns.txt`, NOT in
+# a hook: the hooks are tracked, and therefore public, so a name written into
+# one is exactly the leak it was meant to stop.
 #
-#   the identity  git stamps on the commit. A real address is visible on every
-#                 commit page, forever, and rewriting it later means rewriting
-#                 every SHA in the history.
-#   the content   of the change. An absolute path names the machine, and
-#                 usually whoever owns it.
-#
-# Only ADDED lines are scanned, so a pre-existing match in a file cannot block
-# a commit that did not introduce it. That matters for `web/index.js`, which a
-# re-export rewrites whole.
-#
-# Anything specific to a person - a real name, a handle - goes in an untracked
-# `private_patterns.txt` (one grep -E pattern a line), NOT in this file: this
-# file is public, so a name written here is the leak it was meant to stop.
-#
-# Active because core.hooksPath points at tools/hooks. `git commit --no-verify`
-# skips it, but fix the pattern rather than making that a habit - the habit is
-# how the address gets pushed.
+# Active because core.hooksPath points at tools/hooks. A fresh clone has to set
+# that itself - hooks are not cloned. `git commit --no-verify` skips this, but
+# fix the pattern rather than making that a habit; the habit is how the address
+# gets pushed.
 
 # A commit piped into `head` closes the pipe under this hook mid-report, and a
 # hook killed by SIGPIPE never reaches its `exit 1` - so the commit it had
@@ -28,70 +18,14 @@
 # writes fail and the exit code stand.
 trap '' PIPE
 
-fail=0
+. "$(git rev-parse --show-toplevel)/tools/hooks/personal-info.sh"
 
-flag() {
-    if [ "$fail" -eq 0 ]; then
-        printf '\n  COMMIT BLOCKED - personal information in the change.\n\n'
-        fail=1
-    fi
-    printf '  %s\n' "$1"
-}
+pi_check_email "the author email"    "$(git var GIT_AUTHOR_IDENT    | sed -n 's/.*<\(.*\)>.*/\1/p')"
+pi_check_email "the committer email" "$(git var GIT_COMMITTER_IDENT | sed -n 's/.*<\(.*\)>.*/\1/p')"
 
-show() {
-    printf '%s\n' "$1" | sed 's/^/      /'
-}
+pi_scan "$(git diff --cached -U0 --diff-filter=ACM | grep '^+' | grep -v '^+++')"
 
-# --- the identity on the commit --------------------------------------------
-
-for role in AUTHOR COMMITTER; do
-    email=$(git var "GIT_${role}_IDENT" | sed -n 's/.*<\(.*\)>.*/\1/p')
-    case "$email" in
-        *@users.noreply.github.com|noreply@anthropic.com) ;;
-        *)
-            flag "identity: the $role email <$email> is a real address."
-            flag "  git config user.email '<id>+<name>@users.noreply.github.com'"
-            ;;
-    esac
-done
-
-# --- the content of the change ---------------------------------------------
-
-added=$(git diff --cached -U0 --diff-filter=ACM | grep '^+' | grep -v '^+++')
-
-# An absolute Windows path. The leading boundary keeps ordinary text out:
-# without it, "missing:\nThe" in a JavaScript string reads as a drive letter.
-hits=$(printf '%s\n' "$added" \
-    | grep -E '(^|[^A-Za-z0-9_])[A-Za-z]:[\/][A-Za-z0-9_]' | head -3)
-[ -n "$hits" ] && { flag "absolute path: names the machine it was written on."; show "$hits"; }
-
-# An absolute Unix home path. /home/web_user is Emscripten's own default and
-# is baked into every Godot web export.
-hits=$(printf '%s\n' "$added" \
-    | grep -E '/(home|Users)/[A-Za-z0-9._-]+' \
-    | grep -v '/home/web_user' | head -3)
-[ -n "$hits" ] && { flag "absolute path: names a user account."; show "$hits"; }
-
-# An email address that is not one of the two anonymous ones.
-hits=$(printf '%s\n' "$added" \
-    | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' \
-    | grep -v -E '@users\.noreply\.github\.com$|^noreply@anthropic\.com$' \
-    | sort -u | head -3)
-[ -n "$hits" ] && { flag "email address in the change."; show "$hits"; }
-
-# Whatever the machine's owner has said is personal. `grep -f` has no comment
-# syntax - every line of that file is a pattern - so a `#` line in it matches
-# any line containing a `#`, and a blank line matches everything. Strip both.
-patterns="$(git rev-parse --show-toplevel)/private_patterns.txt"
-if [ -f "$patterns" ]; then
-    pats=$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$patterns")
-    if [ -n "$pats" ]; then
-        hits=$(printf '%s\n' "$added" | grep -E "$pats" | head -3)
-        [ -n "$hits" ] && { flag "matches a pattern in private_patterns.txt."; show "$hits"; }
-    fi
-fi
-
-if [ "$fail" -ne 0 ]; then
+if pi_failed; then
     printf '\n  Nothing was committed. Fix the lines above, or --no-verify if wrong.\n\n'
     exit 1
 fi

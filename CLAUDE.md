@@ -158,19 +158,28 @@ git config core.hooksPath tools/hooks
 - **The git identity is the GitHub noreply address**, never a real one. Set
   globally as well as locally, because the leak is always the repository nobody
   remembered to configure.
-- **`tools/hooks/pre-commit` refuses a commit carrying personal information**: a
-  real address on the identity or in the change, an absolute path (which names
-  the machine, and usually whoever owns it), or anything matching an untracked
-  `private_patterns.txt`. It reads **added lines only**, so a match already in a
-  file cannot block a change that did not introduce it - which is what keeps a
-  web re-export, rewriting `web/index.js` whole, from tripping over
-  Emscripten's own `/home/web_user`.
+- **Two hooks refuse personal information**, and both call the same rules in
+  `tools/hooks/personal-info.sh` - one copy, because two would drift and the
+  half that drifted is the half nobody tests. What they refuse: a real address
+  on the identity or in the change, an absolute path (which names the machine,
+  and usually whoever owns it), or anything matching an untracked
+  `private_patterns.txt`.
+- **`pre-commit` is the convenient gate, `pre-push` is the real one.**
+  `--no-verify` skips a commit hook, and a commit hook never sees work done in
+  another clone or by another tool - but a push is where any of it becomes
+  public, and publishing is the part that cannot be undone. `pre-push` checks
+  every commit that is not already on a remote, so pushing a branch does not
+  re-litigate the history it was cut from.
+- Both read **added lines only**, so a match already sitting in a file cannot
+  block a change that did not introduce it - which is what keeps a web
+  re-export, rewriting `web/index.js` whole, from tripping over Emscripten's own
+  `/home/web_user`.
 - **A real path lives in `godot_path.txt`**, gitignored, and never in a tracked
   file. The `.bat` launchers read it.
 
-**Anything naming a person goes in `private_patterns.txt`, never in the hook.**
-The hook is tracked, and therefore public: a name written into it is exactly the
-leak it exists to stop. Same reason the pattern file is gitignored - that file
+**Anything naming a person goes in `private_patterns.txt`, never in a hook.**
+The hooks are tracked, and therefore public: a name written into one is exactly
+the leak it exists to stop. Same reason the pattern file is gitignored - that file
 *is* the personal information.
 
 Commits made before the guard went in still carry a real address. Rewriting them

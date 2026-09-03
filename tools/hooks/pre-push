@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# The last gate. pre-commit can be skipped with --no-verify, and it never sees
+# a commit made by some other tool or in some other clone - but a push is where
+# any of those become public, and publishing is the part that cannot be undone.
+#
+# Only commits that are NOT already on a remote are checked, so pushing a branch
+# does not re-litigate the history it was cut from.
+#
+# Active because core.hooksPath points at tools/hooks.
+
+trap '' PIPE
+
+. "$(git rev-parse --show-toplevel)/tools/hooks/personal-info.sh"
+
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+
+# stdin is one line per ref being pushed: <local ref> <local sha> <remote ref> <remote sha>
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue          # deleting a ref
+
+    if [ "$remote_sha" = "$zero" ]; then
+        # A new branch. Everything already published is on some remote-tracking
+        # ref, so exclude those rather than walking back to the first commit.
+        revs=$(git rev-list "$local_sha" --not --remotes)
+    else
+        revs=$(git rev-list "$remote_sha..$local_sha")
+    fi
+
+    for rev in $revs; do
+        short=$(git rev-parse --short "$rev")
+        pi_check_email "$short author"    "$(git log -1 --format=%ae "$rev")"
+        pi_check_email "$short committer" "$(git log -1 --format=%ce "$rev")"
+        # A merge has no single diff worth scanning; its content arrives with
+        # the commits being merged, which are in this list too.
+        [ "$(git rev-list --no-walk --count --merges "$rev")" -eq 1 ] && continue
+        pi_scan "$(git show -U0 --format= --diff-filter=ACM "$rev" \
+            | grep '^+' | grep -v '^+++')" "$short"
+    done
+done
+
+if pi_failed; then
+    printf '\n  Nothing was pushed. Fix the commits above, or --no-verify if wrong.\n\n'
+    exit 1
+fi
+
+exit 0
