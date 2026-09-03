@@ -10,6 +10,7 @@ icon = "🧜"
 traits = Array[StringName]([&"siren", &"tidecaller"])
 art_body = &"siren"
 art_tint = Color(0.37254903, 0.8392157, 0.65882355, 1)
+art_marks = Array[StringName]([&"tide"])
 hp = 520.0
 ad = 38.0
 armor = 20.0

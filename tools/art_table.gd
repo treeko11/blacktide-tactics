@@ -62,9 +62,9 @@ const ART := {
 	# --- means the Siren trait and nothing else.                             ---
 	&"sirene":    { "body": &"siren",  "tint": "4fd6c9", "marks": [&"crown"] },
 	&"nautica":   { "body": &"siren",  "tint": "3f8fd6", "marks": [&"crown"] },
-	&"meredine":  { "body": &"siren",  "tint": "4fc9c0", "marks": [] },
-	&"nerida":    { "body": &"siren",  "tint": "5fd6a8", "marks": [] },
-	&"coral":     { "body": &"siren",  "tint": "ef7f9d", "marks": [] },
+	&"meredine":  { "body": &"siren",  "tint": "4fc9c0", "marks": [&"tide"] },
+	&"nerida":    { "body": &"siren",  "tint": "5fd6a8", "marks": [&"tide"] },
+	&"coral":     { "body": &"siren",  "tint": "ef7f9d", "marks": [&"tide"] },
 	&"morgause":  { "body": &"siren",  "tint": "a06fd6", "marks": [] },
 	&"mira":      { "body": &"siren",  "tint": "7fb8f0", "marks": [&"storm"] },
 
@@ -73,17 +73,19 @@ const ART := {
 	&"kraken":    { "body": &"kraken", "tint": "6a3f7a", "marks": [&"horns"] },
 	&"maelstrom": { "body": &"serpent", "tint": "4f6fd6", "marks": [&"storm", &"horns"] },
 	&"dredge":    { "body": &"shark",  "tint": "4a6a52", "marks": [] },
-	&"kelpar":    { "body": &"shark",  "tint": "3f7a5a", "marks": [] },
+	&"kelpar":    { "body": &"shark",  "tint": "3f7a5a", "marks": [&"tide"] },
 
 	# --- Stormborn and Tidecaller are callings rather than lineages: no body ---
-	# --- of their own, so they are crew wearing the weather. Stormborn is    ---
-	# --- the `storm` mark, which `draw_unit` crackles over any body at all.  ---
-	# --- Tidecaller has no mark yet and is the one origin still unreadable.  ---
+	# --- of their own, so they are crew wearing the weather. Each is a mark  ---
+	# --- `draw_unit` puts over any body at all: `storm` above the head and   ---
+	# --- `tide` around the feet, which is what lets Calypso and Thalassa     ---
+	# --- wear both. The other five Tidecallers are filed under their own     ---
+	# --- lineage above and carry `tide` there.                               ---
 	&"kade":      { "body": &"gunner", "tint": "4fa8d6", "marks": [&"storm", &"eyepatch", &"musket"] },
 	&"squall":    { "body": &"gunner", "tint": "7fc9f0", "marks": [&"storm", &"spyglass"] },
-	&"calypso":   { "body": &"gunner", "tint": "7f6bd6", "marks": [&"crown", &"storm", &"plume"] },
-	&"thalassa":  { "body": &"gunner", "tint": "3fb8d6", "marks": [&"storm", &"plume"] },
-	&"selka":     { "body": &"pirate", "tint": "4fc0a0", "marks": [&"dual", &"bandana"] },
+	&"calypso":   { "body": &"gunner", "tint": "7f6bd6", "marks": [&"crown", &"storm", &"tide"] },
+	&"thalassa":  { "body": &"gunner", "tint": "3fb8d6", "marks": [&"storm", &"tide"] },
+	&"selka":     { "body": &"pirate", "tint": "4fc0a0", "marks": [&"dual", &"bandana", &"tide"] },
 
 	# --- no origin trait at all: plain crew, and deliberately so. Each of ---
 	# --- these used to borrow a silhouette that promised a trait it did    ---

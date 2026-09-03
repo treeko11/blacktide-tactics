@@ -11,6 +11,7 @@ cost = 3
 traits = Array[StringName]([&"siren", &"tidecaller"])
 art_body = &"siren"
 art_tint = Color(0.30980393, 0.7882353, 0.7529412, 1)
+art_marks = Array[StringName]([&"tide"])
 hp = 700.0
 ad = 45.0
 attack_speed = 0.6

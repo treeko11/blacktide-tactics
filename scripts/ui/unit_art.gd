@@ -47,7 +47,7 @@ const MARKS: Array[StringName] = [
 	&"tricorn", &"bicorn", &"bandana", &"crown", &"eyepatch", &"beard",
 	&"hook", &"harpoon", &"musket", &"spyglass", &"parrot", &"plume",
 	&"epaulette", &"anchor", &"keg", &"storm", &"lantern", &"tattered",
-	&"dual", &"horns",
+	&"dual", &"horns", &"tide",
 ]
 
 ## Bodies drawn from above, which rotate to point along their aim.
@@ -206,6 +206,8 @@ static func draw_unit(ci: CanvasItem, body: StringName, tint: Color,
 		&"brute": _body_brute(ci, pal, pose, aim, marks)
 		_: _body_pirate(ci, pal, pose, aim, marks)
 
+	if marks.has(&"tide"):
+		_mark_tide(ci, pal, pose)
 	if marks.has(&"storm"):
 		_mark_storm(ci, pal, pose)
 
@@ -1026,6 +1028,43 @@ static func _mark_keg(ci: CanvasItem, pal: Dictionary, at: Vector2) -> void:
 		at + Vector2(-5.0, 0.0)]), pal["wood"])
 	ci.draw_line(at + Vector2(-4.6, -1.6), at + Vector2(4.6, -1.6), pal["metal"], 1.0)
 	ci.draw_line(at + Vector2(-4.6, 1.6), at + Vector2(4.6, 1.6), pal["metal"], 1.0)
+
+
+## Tidecaller, and the other half of why `storm` is drawn out here rather than by
+## a body: Calypso and Thalassa are both, so the two marks have to be able to
+## land on one figure. They do it by sitting at opposite ends of it — the storm
+## crackles above the head, the tide runs around the feet.
+##
+## It is water on the **ground** rather than water up the figure because the
+## ground is the one part every body shares: a shark has no ankles, a wraith has
+## no feet, and a mark that has to be re-aimed per body is a mark that gets
+## forgotten on the next one.
+##
+## The pool is never `detail`-gated. It is the whole mark, and the reason the
+## mark exists at all is that Tidecaller was unreadable on the device with the
+## least detail to spare.
+static func _mark_tide(ci: CanvasItem, pal: Dictionary, pose: Pose) -> void:
+	# Same rule as the ground plate it sits on: in a list row barely taller than
+	# the figure, a puddle under it reads as furniture rather than as weather.
+	if not pose.grounded or pose.dead > 0.9:
+		return
+	var alpha: float = pal["main"].a
+	var swell: float = 0.5 + sin(pose.clock * 1.6) * 0.5
+	var centre := Vector2(0.0, GROUND)
+
+	ci.draw_colored_polygon(_ellipse(centre, 12.0 + swell * 2.0, 4.2 + swell * 0.7),
+		Color(0.28, 0.86, 0.72, 0.26 * alpha))
+
+	if pose.detail < 0.4:
+		return
+	# Two rings running outward half a cycle apart, off `clock` rather than off
+	# `swell`, so they travel instead of breathing — which is what separates a
+	# tide from the wake `_draw_ground` puts under anything that is walking.
+	for i in 2:
+		var phase: float = fmod(pose.clock * 0.45 + float(i) * 0.5, 1.0)
+		ci.draw_polyline(_closed(_ellipse(centre, 11.0 + phase * 11.0,
+			3.8 + phase * 3.8)),
+			Color(0.62, 0.98, 0.86, (1.0 - phase) * 0.5 * alpha), 1.3)
 
 
 ## Drawn outside the body dispatch, so a storm crackles over a siren, a gunner

@@ -614,11 +614,17 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   origin**: `ghost` is Ghost Fleet, `siren` is Siren, `shark`/`kraken`/`serpent`
   is Leviathan, `officer` is Royal Navy, and a champion with no origin trait is
   plain crew — `pirate` or `gunner` and nothing else. Stormborn and Tidecaller
-  are callings rather than lineages and have no body; Stormborn is the `storm`
-  mark, which `draw_unit` crackles over anything. **Tidecaller has no mark and
-  is the one origin still unreadable on the board.** `test_art.gd` checks that a
-  body exists and that the `.tres` matches the table, and cannot catch any of
-  this: every one of those nine was a valid body with a unique colour.
+  are callings rather than lineages and have no body of their own: each is a
+  mark `draw_unit` puts over anything, `storm` crackling above the head and
+  `tide` running around the feet. **Opposite ends of the figure on purpose** —
+  Calypso and Thalassa are both, so the two have to be able to land on one
+  body. The tide is water on the **ground** rather than up the figure because
+  the ground is the one part every body shares: a shark has no ankles and a
+  wraith has no feet. Its pool is never `detail`-gated, since the reason the
+  mark exists is that Tidecaller was unreadable on the device with the least
+  detail to spare. `test_art.gd` checks that a body exists and that the `.tres`
+  matches the table, and cannot catch any of this: every one of those nine was
+  a valid body with a unique colour.
 - **A faction is told apart by its outline, never by its hat.** Royal Navy and
   Corsair were one body in two hats, and a bicorn against a tricorn is two
   pixels of difference at the 21-point hex a phone gives a unit — so the
