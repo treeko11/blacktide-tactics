@@ -45,6 +45,23 @@ const ATTACK_SPEED_CAP := 5.0
 const MANA_PER_ATTACK := 10.0
 const MANA_FROM_DAMAGE_CAP := 42.5
 
+## Floating healing numbers are coalesced per unit.
+##
+## Every regeneration in the game — Hull of the Deep, the Tidecaller tide, the
+## Navy's recovery — pays out through `heal()` once per tick, thirty times a
+## second. One popup per call meant a 4,500 HP three-star under Tidecaller
+## reporting "+6" thirty times a second on one hex: the same healing, drawn as
+## noise, and unreadable next to the damage numbers it is racing. Worse, it was
+## silent below 1 HP a tick, so whether regeneration was visible at all was a
+## fact about the healed unit's max health rather than about the healing.
+##
+## So a heal big enough to read on its own shows at once, and anything smaller
+## is banked until it is worth a number or the window is up — a trickle reports
+## itself around once a second, at the figure it actually healed for.
+const HEAL_POPUP_FRACTION := 0.02 ## a heal worth this much of max HP shows at once
+const HEAL_POPUP_MIN := 8.0       ## ...but never a lower bar than this
+const HEAL_POPUP_WINDOW := 0.8    ## seconds a banked trickle waits to be shown
+
 enum Team { PLAYER = 0, ENEMY = 1 }
 enum Result { DRAW = -1, PLAYER_WIN = 0, ENEMY_WIN = 1 }
 
@@ -680,9 +697,35 @@ func heal(src: SimUnit, target: SimUnit, amount: float) -> float:
 	var done_amount := target.hp - before
 	if src != null:
 		src.healing_done += done_amount
-	if done_amount > 1.0:
-		float_text(target, "+%d" % roundi(done_amount), &"heal")
+	_bank_heal_popup(target, done_amount)
 	return done_amount
+
+
+## Banks healing towards one floating number rather than drawing a number per
+## heal. See `HEAL_POPUP_FRACTION` for why. A heal that carries its own weight
+## shows immediately and takes whatever was banked with it.
+##
+## Nothing in the fight reads any of this, and it is only banked while the sim
+## is being rendered — so the six fights a round that nobody watches pay for it
+## exactly what they pay for `fx()`, which is nothing.
+func _bank_heal_popup(u: SimUnit, amount: float) -> void:
+	if not render or amount <= 0.0:
+		return
+	u.heal_popup += amount
+	if u.heal_popup >= maxf(HEAL_POPUP_MIN, u.max_hp * HEAL_POPUP_FRACTION):
+		_show_heal_popup(u)
+
+
+## Draws what is banked, if it is worth a number. Healing that does not yet
+## round to 1 keeps its bank and restarts the clock instead of being thrown
+## away — a slow trickle should arrive late, not never.
+func _show_heal_popup(u: SimUnit) -> void:
+	u.heal_popup_time = 0.0
+	var shown := roundi(u.heal_popup)
+	if shown < 1:
+		return
+	u.heal_popup = 0.0
+	float_text(u, "+%d" % shown, &"heal")
 
 
 func kill(u: SimUnit, src: SimUnit = null) -> void:
@@ -982,6 +1025,12 @@ func _tick_statuses(u: SimUnit, dt: float) -> void:
 
 	if u.mana_regen > 0.0 and u.casting <= 0.0:
 		u.gain_mana(u.mana_regen * dt)
+
+	# Last, so a tick's own regeneration is part of the number it flushes.
+	if render and u.heal_popup > 0.0:
+		u.heal_popup_time += dt
+		if u.heal_popup_time >= HEAL_POPUP_WINDOW:
+			_show_heal_popup(u)
 
 
 ## Tidecaller regeneration: heals, and pours the overflow into a capped shield

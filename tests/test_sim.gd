@@ -207,3 +207,118 @@ func test_two_units_never_share_a_cell() -> void:
 				return
 			seen[key] = true
 	assert_true(true, "occupancy stayed exclusive for 200 ticks")
+
+
+# --- floating healing numbers ------------------------------------------------
+
+## Every "+N" the sim queued, in order.
+func _heal_popups(sim: Sim) -> Array[int]:
+	var out: Array[int] = []
+	for e in sim.fx_queue:
+		if e.get("kind", &"") == &"text" and e.get("style", &"") == &"heal":
+			var text: String = e.get("text", "")
+			if text.begins_with("+"):
+				out.append(int(text.substr(1)))
+	return out
+
+
+## A wounded unit under steady regeneration, rendered, so the popups are queued.
+func _regenerating_battle(regen_per_second: float) -> Sim:
+	var sim := _frozen_battle()
+	sim.render = true
+	var u := _player(sim)
+	u.hp = u.max_hp * 0.2
+	u.item_regen = regen_per_second
+	return sim
+
+
+## The bug this section exists for. Regeneration pays out once a tick, so a
+## popup per heal is thirty numbers a second on one hex, each worth two or three
+## health — the same healing, drawn as noise.
+func test_regeneration_does_not_draw_a_number_every_tick() -> void:
+	var sim := _regenerating_battle(0.05)
+
+	run_for(sim, 1.0)
+
+	var popups := _heal_popups(sim)
+	assert_gt(popups.size(), 0, "a second of regeneration should say something")
+	assert_lt(popups.size(), 5.0,
+		"a second of regeneration is one or two numbers, not one per tick")
+
+
+## Coalescing must not quietly lose healing: the numbers on screen have to add
+## up to the health that actually came back, or the popups are decoration.
+func test_the_numbers_shown_add_up_to_the_healing_done() -> void:
+	var sim := _regenerating_battle(0.05)
+	var u := _player(sim)
+	var before := u.hp
+
+	run_for(sim, 4.0)
+
+	var total := 0
+	for n in _heal_popups(sim):
+		total += n
+	# Whatever is still banked when the clock stops has not been drawn yet, and
+	# a bank never grows past the bar that flushes it.
+	var banked := maxf(Sim.HEAL_POPUP_MIN, u.max_hp * Sim.HEAL_POPUP_FRACTION)
+	assert_almost_eq(float(total), u.hp - before, banked + 1.0,
+		"the numbers shown should account for the health restored")
+	assert_gt(float(total), (u.hp - before) * 0.5,
+		"most of the healing should have reached the screen")
+
+
+## A heal worth reading on its own is not held back — an ability that saves a
+## unit has to say so on the frame it lands, not up to a window later.
+func test_a_heal_large_enough_to_read_shows_at_once() -> void:
+	var sim := _frozen_battle()
+	sim.render = true
+	var u := _player(sim)
+	u.hp = u.max_hp * 0.2
+
+	sim.heal(u, u, u.max_hp * 0.5)
+
+	assert_eq(_heal_popups(sim).size(), 1, "a big heal shows immediately")
+
+
+## Healing too small to round to a number is banked, not thrown away — a slow
+## trickle should arrive late rather than never.
+func test_healing_below_a_whole_point_is_banked_rather_than_dropped() -> void:
+	var sim := _frozen_battle()
+	sim.render = true
+	var u := _player(sim)
+	u.hp = u.max_hp * 0.5
+
+	for i in 6:
+		sim.heal(u, u, 0.3)
+	assert_eq(_heal_popups(sim).size(), 0, "a third of a point is not a number")
+
+	run_for(sim, Sim.HEAL_POPUP_WINDOW + Sim.TICK)
+
+	var popups := _heal_popups(sim)
+	assert_eq(popups.size(), 1, "the bank is paid out once the window is up")
+	assert_eq(popups[0] if popups.size() > 0 else 0, 2,
+		"three tenths of a point six times over is worth one number, not none")
+
+
+## Presentation is downstream of the sim, and this is presentation: the popups
+## are banked only while rendering, so the six fights a round nobody watches
+## must resolve exactly as the one that is watched.
+func test_watching_a_fight_does_not_change_it() -> void:
+	var watched := battle(
+		[entry(&"barnaby", Vector2i(3, 4), 2)],
+		[entry(&"rat", Vector2i(3, 6))], 4242)
+	watched.render = true
+	_player(watched).item_regen = 0.05
+	var headless := battle(
+		[entry(&"barnaby", Vector2i(3, 4), 2)],
+		[entry(&"rat", Vector2i(3, 6))], 4242)
+	_player(headless).item_regen = 0.05
+
+	run_for(watched, 12.0)
+	run_for(headless, 12.0)
+
+	assert_eq(watched.winner, headless.winner, "the same fight, watched or not")
+	assert_almost_eq(_player(watched).hp, _player(headless).hp, 0.0001,
+		"the regenerating unit should end on the same health either way")
+	assert_almost_eq(_foe(watched).hp, _foe(headless).hp, 0.0001,
+		"and so should the unit it was fighting")
