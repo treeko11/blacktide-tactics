@@ -597,13 +597,37 @@ There is no image asset in this project and there is not going to be one. Every
 pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
 
 - **A champion's appearance is data, like its stats.** `art_body`, `art_tint` and
-  `art_marks` on `ChampionDef`: one of twelve bodies, one colour, and up to three
+  `art_marks` on `ChampionDef`: one of thirteen bodies, one colour, and up to three
   accessories. Fifty-one bespoke silhouettes would be detail nobody can resolve —
   a board hex is 43 points on a phone — and adding a pirate would stop being a
   `.tres` edit. Authored in `tools/art_table.gd` and stamped in by
   `assign_art.gd`, which loads each resource and sets three fields; **do not use
   `generate_content.gd` for this**, because it overwrites a champion whole and
   throws away every number tuned since the port.
+- **The origin trait owns the silhouette, and nothing checks that it does.**
+  `art_table.gd` was grouped by headings written from flavour — "the ghost
+  fleet: pale, tattered" — and never read against `traits` in the `.tres`, so
+  nine champions ended up wearing a faction they were not in: Squall a
+  Stormborn drawn as a wraith, Grimscale a Ghost Fleet harpooner drawn as a
+  perfectly solid shark, Hookjaw and Grull and Sable borrowing a Leviathan's fin
+  and two monsters' bodies while carrying no origin at all. **A body means its
+  origin**: `ghost` is Ghost Fleet, `siren` is Siren, `shark`/`kraken`/`serpent`
+  is Leviathan, `officer` is Royal Navy, and a champion with no origin trait is
+  plain crew — `pirate` or `gunner` and nothing else. Stormborn and Tidecaller
+  are callings rather than lineages and have no body; Stormborn is the `storm`
+  mark, which `draw_unit` crackles over anything. **Tidecaller has no mark and
+  is the one origin still unreadable on the board.** `test_art.gd` checks that a
+  body exists and that the `.tres` matches the table, and cannot catch any of
+  this: every one of those nine was a valid body with a unique colour.
+- **A faction is told apart by its outline, never by its hat.** Royal Navy and
+  Corsair were one body in two hats, and a bicorn against a tricorn is two
+  pixels of difference at the 21-point hex a phone gives a unit — so the
+  faction the whole board is built around was, in practice, unmarked on the
+  device it is played on. The `officer` body is `_human` with `uniform` true:
+  the coat grows tails past the knee, the shoulders square off into boards, and
+  the bicorn becomes the default hat. The first two are silhouette and are
+  **never `detail`-gated**, because trim is the first thing a small figure
+  stops paying for and the outline is the last.
 - **`draw_set_transform` replaces a CanvasItem's draw transform; it does not
   compose with it.** So a figure cannot be positioned by whatever is drawing it —
   only by moving the node it is drawn into. That is why the board gives every

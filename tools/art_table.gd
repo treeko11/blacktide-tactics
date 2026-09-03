@@ -19,61 +19,82 @@ extends RefCounted
 const DEFAULT := { "body": &"pirate", "tint": "4d8fb5", "marks": [] }
 
 const ART := {
-	# --- the Royal Navy and the ships of the line: blue and gold, braid on ---
-	&"vance":     { "body": &"gunner", "tint": "d6b84f", "marks": [&"bicorn", &"epaulette", &"musket"] },
-	&"corvane":   { "body": &"gunner", "tint": "2f5a9e", "marks": [&"bicorn", &"epaulette", &"musket"] },
-	&"marlowe":   { "body": &"gunner", "tint": "3f5f8f", "marks": [&"bicorn", &"musket"] },
-	&"voss":      { "body": &"gunner", "tint": "5a7a8f", "marks": [&"tricorn", &"musket"] },
-	&"tuck":      { "body": &"gunner", "tint": "6a8f4a", "marks": [&"spyglass", &"tricorn"] },
-	&"ned":       { "body": &"pirate", "tint": "7a6a4a", "marks": [&"anchor", &"beard", &"tricorn"] },
-	&"sable":     { "body": &"ship",   "tint": "2f6a8f", "marks": [] },
+	# Grouped by the **origin trait each champion actually carries**, not by
+	# flavour. The headings used to be written by feel — "the ghost fleet: pale,
+	# tattered", "leviathans and whatever else came up from under the hull" — and
+	# nothing checked them against `traits` in the `.tres`, so nine champions
+	# quietly ended up wearing another faction's silhouette: a Stormborn drawn as
+	# a wraith, a Ghost Fleet harpooner drawn as a perfectly solid shark, and two
+	# Tidecallers drawn as mermaids with no Siren trait between them.
 
-	# --- corsairs and swashbucklers: red, gold, too many feathers ---
+	# --- Royal Navy: the `officer` body, which is a different outline rather ---
+	# --- than a different hat. The bicorn and the shoulder boards come from   ---
+	# --- the body now, so neither is listed as a mark.                        ---
+	&"vance":     { "body": &"officer", "tint": "d6b84f", "marks": [&"musket", &"plume"] },
+	&"corvane":   { "body": &"officer", "tint": "2f5a9e", "marks": [&"musket", &"beard"] },
+	&"marlowe":   { "body": &"officer", "tint": "3f5f8f", "marks": [&"musket"] },
+	&"voss":      { "body": &"officer", "tint": "5a7a8f", "marks": [&"musket", &"keg"] },
+	&"tuck":      { "body": &"officer", "tint": "4f86b8", "marks": [&"spyglass", &"parrot"] },
+	&"ned":       { "body": &"officer", "tint": "1f3f66", "marks": [&"anchor", &"beard", &"eyepatch"] },
+
+	# --- Corsairs: the round-shouldered jacket, warm, too many feathers ---
 	&"ashmore":   { "body": &"gunner", "tint": "2b2f38", "marks": [&"beard", &"tricorn", &"musket", &"lantern"] },
 	&"ravenna":   { "body": &"pirate", "tint": "a03f6a", "marks": [&"tricorn", &"plume", &"dual"] },
 	&"isla":      { "body": &"pirate", "tint": "d1443f", "marks": [&"plume", &"dual"] },
-	&"kessa":     { "body": &"pirate", "tint": "b02f4a", "marks": [&"dual", &"bandana"] },
 	&"rook":      { "body": &"pirate", "tint": "3a4450", "marks": [&"parrot", &"eyepatch"] },
 	&"pip":       { "body": &"pirate", "tint": "d69f3f", "marks": [&"parrot", &"plume", &"bandana"] },
 	&"barnaby":   { "body": &"pirate", "tint": "b6642f", "marks": [&"keg", &"bandana"] },
+	&"finn":      { "body": &"pirate", "tint": "4f8f6a", "marks": [&"harpoon", &"bandana"] },
 	&"saltyjo":   { "body": &"gunner", "tint": "c96a3f", "marks": [&"bandana", &"musket"] },
 	&"lyra":      { "body": &"gunner", "tint": "c98a3f", "marks": [&"musket", &"plume"] },
-	&"doss":      { "body": &"gunner", "tint": "6b5236", "marks": [&"eyepatch", &"tricorn", &"musket"] },
-	&"halloway":  { "body": &"gunner", "tint": "3f7f8f", "marks": [&"tricorn", &"musket"] },
-	&"kade":      { "body": &"gunner", "tint": "4fa8d6", "marks": [&"storm", &"eyepatch", &"musket"] },
 
-	# --- harpooners and the rest of the crew that fights up close ---
-	&"bess":      { "body": &"pirate", "tint": "a83f52", "marks": [&"harpoon", &"bandana"] },
-	&"finn":      { "body": &"pirate", "tint": "4f8f6a", "marks": [&"harpoon", &"bandana"] },
-	&"grull":     { "body": &"golem",  "tint": "8a5a3a", "marks": [&"horns"] },
+	# --- the ghost fleet: pale, tattered, lit from inside. Every one of them ---
+	# --- is the `ghost` body, because "Ghost Fleet" that does not look dead   ---
+	# --- is a trait the board cannot be read for.                            ---
+	&"davy":      { "body": &"ghost",  "tint": "8a6fd6", "marks": [&"crown", &"horns", &"tattered"] },
+	&"brine":     { "body": &"ghost",  "tint": "6fd3b8", "marks": [&"tattered"] },
+	&"silas":     { "body": &"ghost",  "tint": "8fd6c0", "marks": [&"tattered", &"beard"] },
+	&"skarn":     { "body": &"ghost",  "tint": "9eb0c0", "marks": [&"tattered", &"horns"] },
+	&"grimscale": { "body": &"ghost",  "tint": "a8d68f", "marks": [&"tattered", &"hook"] },
+	&"barnacleking": { "body": &"ghost", "tint": "5fb894", "marks": [&"crown", &"tattered"] },
 
-	# --- sirens: the one family allowed to be pretty ---
+	# --- sirens: the one family allowed to be pretty. The mermaid silhouette ---
+	# --- means the Siren trait and nothing else.                             ---
 	&"sirene":    { "body": &"siren",  "tint": "4fd6c9", "marks": [&"crown"] },
 	&"nautica":   { "body": &"siren",  "tint": "3f8fd6", "marks": [&"crown"] },
-	&"calypso":   { "body": &"siren",  "tint": "7f6bd6", "marks": [&"crown", &"storm"] },
 	&"meredine":  { "body": &"siren",  "tint": "4fc9c0", "marks": [] },
 	&"nerida":    { "body": &"siren",  "tint": "5fd6a8", "marks": [] },
 	&"coral":     { "body": &"siren",  "tint": "ef7f9d", "marks": [] },
 	&"morgause":  { "body": &"siren",  "tint": "a06fd6", "marks": [] },
 	&"mira":      { "body": &"siren",  "tint": "7fb8f0", "marks": [&"storm"] },
-	&"thalassa":  { "body": &"siren",  "tint": "3fb8d6", "marks": [&"storm"] },
-	&"selka":     { "body": &"siren",  "tint": "6fa8c9", "marks": [] },
 
-	# --- the ghost fleet: pale, tattered, lit from inside ---
-	&"davy":      { "body": &"ghost",  "tint": "8a6fd6", "marks": [&"crown", &"horns", &"tattered"] },
-	&"brine":     { "body": &"ghost",  "tint": "6fd3b8", "marks": [&"tattered"] },
-	&"silas":     { "body": &"ghost",  "tint": "8fd6c0", "marks": [&"tattered", &"beard"] },
-	&"skarn":     { "body": &"ghost",  "tint": "9eb0c0", "marks": [&"tattered", &"horns"] },
-	&"squall":    { "body": &"ghost",  "tint": "7fc9f0", "marks": [&"storm"] },
-	&"barnacleking": { "body": &"golem", "tint": "4e7a5e", "marks": [&"crown", &"horns"] },
-
-	# --- leviathans and whatever else came up from under the hull ---
+	# --- leviathans: whatever came up from under the hull. The shark is two ---
+	# --- of these and nobody else, so a fin on the board means Leviathan.   ---
 	&"kraken":    { "body": &"kraken", "tint": "6a3f7a", "marks": [&"horns"] },
 	&"maelstrom": { "body": &"serpent", "tint": "4f6fd6", "marks": [&"storm", &"horns"] },
-	&"hookjaw":   { "body": &"shark",  "tint": "4a7f9e", "marks": [&"hook"] },
 	&"dredge":    { "body": &"shark",  "tint": "4a6a52", "marks": [] },
-	&"grimscale": { "body": &"shark",  "tint": "6f8f4a", "marks": [&"hook"] },
 	&"kelpar":    { "body": &"shark",  "tint": "3f7a5a", "marks": [] },
+
+	# --- Stormborn and Tidecaller are callings rather than lineages: no body ---
+	# --- of their own, so they are crew wearing the weather. Stormborn is    ---
+	# --- the `storm` mark, which `draw_unit` crackles over any body at all.  ---
+	# --- Tidecaller has no mark yet and is the one origin still unreadable.  ---
+	&"kade":      { "body": &"gunner", "tint": "4fa8d6", "marks": [&"storm", &"eyepatch", &"musket"] },
+	&"squall":    { "body": &"gunner", "tint": "7fc9f0", "marks": [&"storm", &"spyglass"] },
+	&"calypso":   { "body": &"gunner", "tint": "7f6bd6", "marks": [&"crown", &"storm", &"plume"] },
+	&"thalassa":  { "body": &"gunner", "tint": "3fb8d6", "marks": [&"storm", &"plume"] },
+	&"selka":     { "body": &"pirate", "tint": "4fc0a0", "marks": [&"dual", &"bandana"] },
+
+	# --- no origin trait at all: plain crew, and deliberately so. Each of ---
+	# --- these used to borrow a silhouette that promised a trait it did    ---
+	# --- not have — Hookjaw a Leviathan's fin, Grull and Sable a monster's. ---
+	&"bess":      { "body": &"pirate", "tint": "a83f52", "marks": [&"harpoon", &"bandana"] },
+	&"hookjaw":   { "body": &"pirate", "tint": "4a7f9e", "marks": [&"harpoon", &"hook", &"bandana"] },
+	&"grull":     { "body": &"pirate", "tint": "8a5a3a", "marks": [&"beard", &"bandana"] },
+	&"sable":     { "body": &"pirate", "tint": "2f6a8f", "marks": [&"plume", &"dual"] },
+	&"kessa":     { "body": &"pirate", "tint": "b02f4a", "marks": [&"dual", &"bandana"] },
+	&"doss":      { "body": &"gunner", "tint": "6b5236", "marks": [&"eyepatch", &"tricorn", &"musket"] },
+	&"halloway":  { "body": &"gunner", "tint": "3f7f8f", "marks": [&"tricorn", &"musket"] },
 
 	# --- monsters. Drab on purpose: nothing here is in anybody's fleet ---
 	&"rat":       { "body": &"brute",  "tint": "7a6a5a", "marks": [] },

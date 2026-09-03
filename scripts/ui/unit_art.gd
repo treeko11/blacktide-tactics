@@ -9,7 +9,7 @@ extends RefCounted
 ## part that matters — arrives already in pieces, so an arm can swing without
 ## anybody drawing a second frame of it.
 ##
-## **Twelve bodies, not fifty-one.** A champion names one of `BODIES`, a tint and
+## **Thirteen bodies, not fifty-one.** A champion names one of `BODIES`, a tint and
 ## a couple of `MARKS`, and that is its whole appearance. At the size a unit is
 ## actually seen, a bespoke silhouette per champion would be detail nobody can
 ## resolve; a family plus a colour plus one signature accessory is what reads at
@@ -28,6 +28,7 @@ extends RefCounted
 const BODIES: Array[StringName] = [
 	&"pirate",   ## human, cutlass
 	&"gunner",   ## human, firearm
+	&"officer",  ## human, Royal Navy: long-tailed uniform, boards, bicorn
 	&"siren",    ## mermaid
 	&"ship",     ## hull, mast, sail
 	&"shark",    ## finned swimmer, in profile
@@ -192,6 +193,7 @@ static func draw_unit(ci: CanvasItem, body: StringName, tint: Color,
 
 	match body:
 		&"gunner": _body_gunner(ci, pal, pose, aim, marks)
+		&"officer": _body_officer(ci, pal, pose, aim, marks)
 		&"siren": _body_siren(ci, pal, pose, aim, marks)
 		&"ship": _body_ship(ci, pal, pose, aim, marks)
 		&"shark": _body_shark(ci, pal, pose, aim, marks)
@@ -404,11 +406,43 @@ static func _body_gunner(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		_weapon_gun(ci, pal, pose, hand, aim, 10.0)
 
 
+## The Royal Navy. Not a re-hatted gunner: it is `_human` in uniform, which is a
+## different outline — squared shoulders, a narrow waist and a coat flared into
+## tails past the knee, against the corsair's round-shouldered jacket ending at
+## the hip. The hat is the least of it, deliberately. A bicorn against a tricorn
+## is a couple of pixels of difference at the 21-point hex a phone gives a unit,
+## so the faction the whole board is built around was, in practice, unmarked.
+##
+## It carries every weapon rather than only a gun, because the Navy runs from
+## Marlowe at range 4 to Old Anchor Ned swinging an anchor at range 1, and an
+## officer is a rank rather than an attack style.
+static func _body_officer(ci: CanvasItem, pal: Dictionary, pose: Pose,
+		aim: Vector2, marks: Array) -> void:
+	var hand := _hand(pose, aim, Vector2(8.5, -2.0))
+	if marks.has(&"musket") or marks.has(&"spyglass"):
+		hand = Vector2(7.0, -4.0) + aim * REACH * (0.62 + pose.swing * 0.2)
+	_human(ci, pal, pose, aim, marks, hand, true)
+	if marks.has(&"spyglass"):
+		_weapon_spyglass(ci, pal, hand, aim)
+	elif marks.has(&"musket"):
+		_weapon_gun(ci, pal, pose, hand, aim, 17.0)
+	elif marks.has(&"anchor"):
+		_weapon_anchor(ci, pal, hand, aim)
+	else:
+		_weapon_cutlass(ci, pal, hand, aim)
+
+
 ## Legs, coat, arms and head. `hand` is where the weapon arm ends; everything
 ## a champion actually holds is drawn by its caller, after this, so the weapon
 ## is in front of the body and the arm behind it.
+##
+## `uniform` is the Royal Navy. It is not a paint job: the coat grows tails past
+## the knee, the shoulders square off into boards, and the default hat becomes a
+## bicorn. All three are changes to the **outline**, which is the only thing that
+## survives a 21-point hex on a phone — a hat brim there is two pixels, which is
+## why "Navy wears a bicorn, Corsairs wear a tricorn" told nobody anything.
 static func _human(ci: CanvasItem, pal: Dictionary, pose: Pose, aim: Vector2,
-		marks: Array, hand: Vector2) -> void:
+		marks: Array, hand: Vector2, uniform: bool = false) -> void:
 	var stride: float = sin(pose.clock * 11.0) * 3.0 * pose.moving
 	var skin: Color = pal["drowned"] if marks.has(&"tattered") else pal["skin"]
 
@@ -429,12 +463,29 @@ static func _human(ci: CanvasItem, pal: Dictionary, pose: Pose, aim: Vector2,
 	if marks.has(&"keg"):
 		_mark_keg(ci, pal, Vector2(-13.0, 6.0))
 
-	# Coat.
-	_shape(ci, PackedVector2Array([Vector2(-8.5, -9.0), Vector2(8.5, -9.0), Vector2(10.5, 4.0),
-		Vector2(8.0, 7.0), Vector2(-8.0, 7.0), Vector2(-10.5, 4.0)]), pal["main"])
+	# Coat. A uniform is walked as one simple ring — down the right tail, up into
+	# the split at the centre, down the left tail — so the notch between the
+	# tails is concave but never crossed. Every number in it is a constant, which
+	# is the other half of why it cannot fold: nothing here arrives from a sine.
+	var braid := Color("e8b44a", pal["main"].a)
+	if uniform:
+		_shape(ci, PackedVector2Array([Vector2(-8.5, -9.5), Vector2(8.5, -9.5),
+			Vector2(10.0, 2.0), Vector2(12.0, 15.0), Vector2(4.0, 14.0),
+			Vector2(0.0, 7.0), Vector2(-4.0, 14.0), Vector2(-12.0, 15.0),
+			Vector2(-10.0, 2.0)]), pal["main"])
+		# Shoulder boards, never gated: they are what squares off the top of the
+		# silhouette, and a silhouette is what a phone still has.
+		for side in [-1.0, 1.0]:
+			_shape(ci, PackedVector2Array([Vector2(6.0 * side, -10.5),
+				Vector2(12.5 * side, -9.5), Vector2(12.0 * side, -6.0),
+				Vector2(6.0 * side, -7.0)]), braid)
+	else:
+		_shape(ci, PackedVector2Array([Vector2(-8.5, -9.0), Vector2(8.5, -9.0), Vector2(10.5, 4.0),
+			Vector2(8.0, 7.0), Vector2(-8.0, 7.0), Vector2(-10.5, 4.0)]), pal["main"])
 	if pose.detail > 0.45:
+		var placket: Color = braid if uniform else pal["light"]
 		_shape(ci, PackedVector2Array([Vector2(-2.6, -9.0), Vector2(2.6, -9.0), Vector2(2.0, 6.0),
-			Vector2(-2.0, 6.0)]), pal["light"])
+			Vector2(-2.0, 6.0)]), placket)
 		_shape(ci, PackedVector2Array([Vector2(-10.0, 1.5), Vector2(10.0, 1.5), Vector2(10.4, 4.5),
 			Vector2(-10.4, 4.5)]), pal["wood_dark"])
 		ci.draw_rect(Rect2(-2.0, 1.8, 4.0, 2.8), pal["metal"])
@@ -451,13 +502,13 @@ static func _human(ci: CanvasItem, pal: Dictionary, pose: Pose, aim: Vector2,
 	# The weapon arm, in front of the coat so a swing reads as coming forward.
 	_limb(ci, SHOULDER_R, hand, 2.6, 2.0, pal["dark"])
 
-	_draw_head_marks(ci, pal, pose, marks)
+	_draw_head_marks(ci, pal, pose, marks, uniform)
 
 
 ## Hats, hair and everything else worn. Split out because every humanoid body
 ## wants all of it and none of them want it in a different order.
 static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
-		marks: Array) -> void:
+		marks: Array, uniform: bool = false) -> void:
 	if marks.has(&"beard"):
 		_shape(ci, PackedVector2Array([Vector2(-5.0, -15.0), Vector2(5.0, -15.0), Vector2(4.0, -8.0),
 			Vector2(0.0, -5.0), Vector2(-4.0, -8.0)]), pal["deep"])
@@ -476,11 +527,7 @@ static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
 	if marks.has(&"crown"):
 		_mark_crown(ci, pal)
 	elif marks.has(&"bicorn"):
-		_shape(ci, PackedVector2Array([Vector2(-12.0, -20.0), Vector2(-4.0, -27.5), Vector2(4.0, -27.5),
-			Vector2(12.0, -20.0), Vector2(0.0, -18.0)]), pal["deep"])
-		if pose.detail > 0.45:
-			ci.draw_line(Vector2(-6.0, -22.0), Vector2(6.0, -22.0),
-				Color("e8b44a", pal["main"].a), 1.2)
+		_hat_bicorn(ci, pal, pose)
 	elif marks.has(&"bandana"):
 		_shape(ci, PackedVector2Array([Vector2(-6.2, -21.5), Vector2(6.2, -21.5), Vector2(6.4, -17.5),
 			Vector2(-6.4, -17.5)]), pal["main"])
@@ -490,6 +537,9 @@ static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		for side in [-1.0, 1.0]:
 			_curl(ci, Vector2(4.5 * side, -20.0), Vector2(11.0 * side, -27.0),
 				3.0 * side, 2.2, 0.5, pal["bone"])
+	elif uniform:
+		# An officer's default, the other way round from everyone else's.
+		_hat_bicorn(ci, pal, pose)
 	elif not marks.has(&"tattered"):
 		# A tricorn is the default headwear: a pirate without a hat reads as a
 		# civilian, and every body here is in somebody's fleet.
@@ -500,6 +550,16 @@ static func _draw_head_marks(ci: CanvasItem, pal: Dictionary, pose: Pose,
 
 	if marks.has(&"plume"):
 		_curl(ci, Vector2(5.0, -22.0), Vector2(14.0, -29.0), 3.5, 2.4, 0.4, pal["light"])
+
+
+## Wide and flat, worn across. The one hat whose brim reaches past the shoulders,
+## which is what makes it survive being shrunk.
+static func _hat_bicorn(ci: CanvasItem, pal: Dictionary, pose: Pose) -> void:
+	_shape(ci, PackedVector2Array([Vector2(-12.0, -20.0), Vector2(-4.0, -27.5), Vector2(4.0, -27.5),
+		Vector2(12.0, -20.0), Vector2(0.0, -18.0)]), pal["deep"])
+	if pose.detail > 0.45:
+		ci.draw_line(Vector2(-6.0, -22.0), Vector2(6.0, -22.0),
+			Color("e8b44a", pal["main"].a), 1.2)
 
 
 static func _body_siren(ci: CanvasItem, pal: Dictionary, pose: Pose,
@@ -780,6 +840,8 @@ static func _body_ghost(ci: CanvasItem, pal: Dictionary, pose: Pose,
 			ci.draw_circle(Vector2(2.7 * side, -14.0 + drift), 2.8,
 				Color(glow.r, glow.g, glow.b, 0.22 * pal["main"].a))
 
+	if marks.has(&"hook"):
+		_mark_hook(ci, pal, Vector2(-14.0, 7.0 + drift))
 	if marks.has(&"beard"):
 		_shape(ci, PackedVector2Array([Vector2(-4.5, -8.0 + drift), Vector2(4.5, -8.0 + drift),
 			Vector2(2.5, 1.0 + drift), Vector2(0.0, 4.0 + drift),
