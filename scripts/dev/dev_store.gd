@@ -83,6 +83,9 @@ var _wrapped := false
 var _buffer := PackedStringArray()
 var _open := false
 
+## Stamped once when the bank is claimed. See `_write_meta`.
+var _started := ""
+
 
 ## Pass nothing for browser storage. The suite passes its own Callables and
 ## drives the same code against a Dictionary.
@@ -141,6 +144,7 @@ func open() -> void:
 	_head = 0
 	_wrapped = false
 	_buffer.clear()
+	_started = Time.get_datetime_string_from_system(false, true)
 	_open = true
 	_write_meta()
 
@@ -237,11 +241,15 @@ func recover() -> Dictionary:
 #  Keys
 # =============================================================================
 
+## Rewritten at every chunk roll, so nothing in it may be re-derived here: the
+## stamp is taken once in `open()` and carried, or a recovered log would report
+## the time of its last roll as the time the session started — which on a long
+## playtest is a timestamp from minutes before the crash, presented as its start.
 func _write_meta() -> void:
 	_put.call(_meta_key(_live), JSON.stringify({
 		"head": _head,
 		"wrapped": _wrapped,
-		"started": Time.get_datetime_string_from_system(false, true),
+		"started": _started,
 	}))
 
 

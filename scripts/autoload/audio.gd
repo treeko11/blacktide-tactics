@@ -359,9 +359,18 @@ func _connect_bus() -> void:
 	Events.round_resolved.connect(func(won, _damage, _name): play(&"won" if won else &"lost"))
 	Events.health_changed.connect(_on_health_changed)
 
-	# Every notice is the game refusing something — no gold, no room, wrong phase.
-	# The player is being told no, and hearing it is faster than reading it.
-	Events.notice.connect(func(_text, _style): play(&"denied"))
+	# Most notices are the game refusing something — no gold, no room, wrong
+	# phase — and hearing that is faster than reading it. But `notify` carries a
+	# style precisely because not all of them are: the weather round announces a
+	# following sea through the same call, and buzzing at the player for a boon
+	# tells them the opposite of what happened. Only a refusal buzzes.
+	Events.notice.connect(_on_notice)
+
+
+func _on_notice(_text: String, style: StringName) -> void:
+	if style == &"good":
+		return
+	play(&"denied")
 
 
 func _on_level_changed(level: int, _xp: int, _needed: int) -> void:

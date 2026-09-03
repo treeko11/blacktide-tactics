@@ -458,7 +458,12 @@ func _connect_panels() -> void:
 	modals.armoury_chosen.connect(func(item_id): GameState.take_armoury_item(item_id))
 	modals.restart_requested.connect(func():
 		GameState.start_game()
-		board.show_roster(GameState.board))
+		board.show_roster(GameState.board)
+		# A new run holds its clock the same way the first one did, so it needs
+		# the same thing said about it. Without this the restarted run sat on
+		# HOLD with nothing on screen explaining why, and only SET SAIL — which
+		# nobody has been told to press — got it moving.
+		_open_briefing())
 
 
 ## The run's own signals, connected once and never again.
