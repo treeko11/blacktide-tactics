@@ -449,7 +449,7 @@ func _connect_panels() -> void:
 	fleet.captain_unhovered.connect(_unhover)
 
 	# --- the top bar and modals
-	top_bar.speed_changed.connect(func(value): GameState.speed = value)
+	top_bar.speed_changed.connect(func(value): GameState.set_speed(value))
 	top_bar.help_pressed.connect(func(): wiki.open())
 	top_bar.fleet_pressed.connect(func(): _toggle_sheet(_sheet != null and not _sheet.visible))
 	top_bar.dps_pressed.connect(func(): modals.open_dps())
@@ -873,8 +873,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_D: GameState.reroll()
 		KEY_F: GameState.buy_xp()
 		KEY_SPACE: GameState.start_combat_now()
-		KEY_1: GameState.speed = 1
-		KEY_2: GameState.speed = 2
-		KEY_4: GameState.speed = 4
+		# Through the setter, not the field. Assigned directly these changed the
+		# speed of the fight and told the buttons in the top bar nothing, so the
+		# bar sat there claiming 1x over a fight running at 4x.
+		KEY_1: GameState.set_speed(1)
+		KEY_2: GameState.set_speed(2)
+		KEY_4: GameState.set_speed(4)
 		_: return
 	get_viewport().set_input_as_handled()

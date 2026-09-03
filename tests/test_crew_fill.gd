@@ -50,6 +50,25 @@ func _bench(count: int, melee: bool = true) -> Array[RosterUnit]:
 	return out
 
 
+## Puts the run on the weather round with `id`'s water at `cells`.
+func _weather(id: StringName, cells: Array[Vector2i]) -> void:
+	var game := state()
+	game.stage = 2
+	game.round_number = game.SEA_ROUND
+	game.sea_id = id
+	game.sea_cells = cells
+	assert_true(game.sea_active(), "the fixture is not on the weather round")
+
+
+## Every hex on the board, for the case where there is nowhere dry left.
+func _whole_board() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for y in Hex.ROWS:
+		for x in Hex.COLS:
+			out.append(Vector2i(x, y))
+	return out
+
+
 # --- the fill ----------------------------------------------------------------
 
 func test_a_spare_pirate_is_seated_when_the_fight_starts() -> void:
@@ -176,3 +195,72 @@ func test_an_empty_deck_changes_nothing() -> void:
 
 	assert_eq(game.board.size(), 0, "somebody was seated out of an empty deck")
 	assert_eq(notices.size(), 0, "the player was told about a fill with nobody in it")
+
+
+# --- the fill and the weather ------------------------------------------------
+
+## A pirate sent up at the bell is not stood in the hazard.
+##
+## The sea's whole premise is that the player has the planning phase to answer
+## it. A pirate the bosun seats has had no planning phase, so the game was
+## making that call on the player's behalf and then announcing it as help.
+## Witchfire was the sharpest version — its hexes are the middle three columns
+## of row 4, which is exactly the first three seats the fill takes.
+func test_the_bosun_seats_a_spare_pirate_out_of_the_marked_water() -> void:
+	var game := state()
+	game.player.level = 1
+	# The three seats a melee pirate is offered first, all under water.
+	_weather(&"red_tide", [Vector2i(3, 4), Vector2i(2, 4), Vector2i(4, 4)] as Array[Vector2i])
+	var spare := _bench(1, true)
+
+	game._field_spare_crew()
+
+	assert_eq(game.board.size(), 1, "the spare pirate was not fielded at all")
+	assert_true(Hex.is_player_half(spare[0].cell), "seated outside the player's half")
+	assert_false(game.sea_cells.has(spare[0].cell),
+		"the bosun stood the pirate in the red tide, at %s" % spare[0].cell)
+
+
+## Dry water is a preference, never a reason to sail a body down.
+##
+## Sailing a seat short is the failure this whole function exists to prevent, so
+## a board with nothing but marked hexes left still fields the pirate. Written
+## because the obvious implementation — filter the seats, take the first — turns
+## a hazard round into the bug the fill was added to fix.
+func test_a_board_of_nothing_but_hazard_still_fields_the_pirate() -> void:
+	var game := state()
+	game.player.level = 1
+	_weather(&"red_tide", _whole_board())
+	var spare := _bench(1, true)
+
+	game._field_spare_crew()
+
+	assert_eq(game.board.size(), 1,
+		"every hex was hazard, so the pirate was left on the deck instead")
+	assert_true(game.board.has(spare[0]), "somebody other than the deck's first was seated")
+
+
+## A fair wind is not chased.
+##
+## Which pirate is worth standing in one is a positioning decision, and taking
+## it here would mean overriding the melee-forward, ranged-back order — which is
+## already the better answer for a crew nobody placed. So a boon round seats
+## exactly where calm water would have.
+func test_the_bosun_does_not_chase_a_fair_wind() -> void:
+	var game := state()
+	game.player.level = 1
+	var spare := _bench(1, true)
+	game._field_spare_crew()
+	var calm: Vector2i = spare[0].cell
+	assert_true(Hex.on_board(calm), "the calm-water fixture seated nobody")
+
+	game.start_game()
+	game.player.level = 1
+	# A fair wind in the back rank. Chased, it would drag a melee pirate behind
+	# the ranged line; left alone, the seat is the one calm water gave.
+	_weather(&"following_sea", [Vector2i(0, 7)] as Array[Vector2i])
+	var again := _bench(1, true)
+	game._field_spare_crew()
+
+	assert_eq(again[0].cell, calm,
+		"the bosun went looking for the fair wind instead of taking its seat")

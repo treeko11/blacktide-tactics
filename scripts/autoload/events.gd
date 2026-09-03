@@ -81,6 +81,15 @@ signal logged(text: String, style: StringName)
 ## when it builds and listens to this while it lives.
 signal sound_muted_changed(muted: bool)
 
+## The battle speed changed. Same shape of problem as the mute button, and it
+## went wrong the same way: the speed buttons are thrown away and rebuilt
+## whenever the window crosses a breakpoint, so they read `GameState.speed` when
+## they build — but the value can also be changed by the 1/2/4 keys and by the
+## dev menu, neither of which is a button press, and the bar had no way to hear
+## either. A fight running at 4x under buttons reading 1x is the HUD telling the
+## player something untrue about the run.
+signal speed_changed(speed: int)
+
 ## A transient message to put in front of the player — "Not enough gold", "Deck
 ## is full". The old build computed these and dropped them on the floor.
 signal notice(text: String, style: StringName)

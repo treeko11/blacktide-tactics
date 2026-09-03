@@ -357,3 +357,44 @@ func test_a_dialog_fits_the_screen_it_is_opened_on() -> void:
 
 	modals.free()
 	Layout.css_size = was
+
+
+## The speed buttons show the speed the fight is running at, however it changed.
+##
+## `GameState.speed` was a bare field assigned from four places — the top bar's
+## own buttons, the 1/2/4 keys, and the dev menu twice — and only the first told
+## the buttons anything. So tapping 4 ran the fight at 4x under a bar still
+## reading 1x: the HUD stating something untrue about the run, which is the same
+## failure the shop lock and the mute button each have a setter and a signal to
+## avoid. The rebuild path was already fixed; this is the live one.
+##
+## Driven through the bus rather than by building a whole TopBar, because the
+## rule is that the change is *announced* — a test that pressed the button would
+## pass with the announcement removed.
+func test_the_speed_buttons_follow_a_speed_nobody_clicked() -> void:
+	var game := state()
+	game.start_game()
+
+	var bar := TopBar.new()
+	Engine.get_main_loop().root.add_child(bar)
+	assert_eq(_marked_speed(bar), game.speed,
+		"a bar built fresh does not agree with the run it was built for")
+
+	# What KEY_4 and the dev menu's skip both do.
+	game.set_speed(4)
+	assert_eq(_marked_speed(bar), 4,
+		"the fight runs at 4x under buttons still claiming %dx" % _marked_speed(bar))
+
+	game.set_speed(1)
+	assert_eq(_marked_speed(bar), 1, "the buttons did not follow the speed back down")
+
+	bar.free()
+	game.start_game()
+
+
+## Which speed button is pressed, or 0 if somehow none is.
+func _marked_speed(bar: TopBar) -> int:
+	for i in bar._speed_buttons.size():
+		if bar._speed_buttons[i].button_pressed:
+			return bar.SPEEDS[i]
+	return 0

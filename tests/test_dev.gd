@@ -116,6 +116,47 @@ func test_jumping_to_a_stage_lands_in_planning() -> void:
 	game.start_game()
 
 
+## A jump draws the weather of the stage it arrives in.
+##
+## The stage draws its sea when the stage *opens*, and `_advance_round` was the
+## only thing that crossed a stage line — so a jump carried the sea it left with
+## and its lanes forward into a stage that never rolled. Jumping out of stage 1,
+## which draws nothing at all, it carried nothing: the stage you landed on had no
+## weather for the whole of it. Silent both ways, and this button exists to look
+## at a late board, of which the weather is now a third of what there is to see.
+func test_jumping_to_a_stage_draws_that_stage_weather() -> void:
+	var game := state()
+	game.start_game()
+	assert_eq(game.sea_id, &"", "stage 1 should draw no weather to carry forward")
+
+	var menu := DevMenu.new()
+	Engine.get_main_loop().root.add_child(menu)
+	menu._jump_to_stage(4)
+
+	assert_ne(game.sea_id, &"", "stage 4 was jumped into with no weather at all")
+	assert_not_null(content().sea(game.sea_id),
+		"the jump left a sea id nothing defines: %s" % game.sea_id)
+
+	# The forecast has to be live too. A sea id with no lanes behind it marks
+	# nothing on the board, which is the half the player actually reads.
+	#
+	# Guarded rather than dereferenced. A GDScript error abandons the method and
+	# returns to the runner as though it finished, so an unguarded `def.id` here
+	# would skip the teardown below and hand the next test a dev menu still
+	# parented to the root — which is exactly how this failed the first time it
+	# was made to fail on purpose.
+	game.round_number = game.SEA_ROUND
+	var def: SeaDef = game.sea_def()
+	if def != null:
+		assert_true(game.sea_active(), "stage 4 does not report its own weather round")
+		if def.marks_cells:
+			assert_gt(float(game.sea_cells.size()), 0.0,
+				"%s marks water and the jump drew none of it" % def.id)
+
+	menu.free()
+	game.start_game()
+
+
 ## Skipping a fight has to finish it and hand the speed controls back.
 ##
 ## It borrows `instant` and the speed multiplier to fast-forward, and a skip that

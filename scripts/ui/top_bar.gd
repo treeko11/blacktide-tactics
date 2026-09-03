@@ -117,6 +117,7 @@ func _ready() -> void:
 	row.add_child(help)
 
 	Events.sound_muted_changed.connect(show_muted)
+	Events.speed_changed.connect(show_speed)
 	Events.gold_changed.connect(func(amount, _d): _gold.text = str(amount))
 	Events.health_changed.connect(func(amount, _d): _hp.text = str(amount))
 	Events.phase_changed.connect(_on_phase_changed)
@@ -260,9 +261,19 @@ func show_muted(is_muted: bool) -> void:
 	_sound_button.text = "🔕" if is_muted else "🔔"
 
 
-func _select_speed(value: int) -> void:
+## Marks the speed the fight is actually running at.
+##
+## Driven off the bus rather than only by the buttons' own handler, because the
+## speed can be changed without touching them — the 1/2/4 keys and the dev menu
+## both do — and a toggle showing a speed the run is not at is worse than no
+## toggle at all.
+func show_speed(value: int) -> void:
 	for i in _speed_buttons.size():
 		_speed_buttons[i].button_pressed = SPEEDS[i] == value
+
+
+func _select_speed(value: int) -> void:
+	show_speed(value)
 	speed_changed.emit(value)
 
 

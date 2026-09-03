@@ -544,7 +544,7 @@ func _drain_fight() -> void:
 	# post-combat pauses to zero, so this is the next planning phase already.
 	if GameState.phase != GameState.Phase.RESULT:
 		_skipping = false
-		GameState.speed = _saved_speed
+		GameState.set_speed(_saved_speed)
 		GameState.instant = _saved_instant
 		Dev.record(&"DEV", "skip finished")
 
@@ -697,7 +697,10 @@ func _skip_fight() -> void:
 	_saved_speed = GameState.speed
 	_saved_instant = GameState.instant
 	GameState.instant = true
-	GameState.speed = 4
+	# Through the setter, so the top bar's buttons follow the skip and follow it
+	# back again. A cheat panel is allowed to mutate the run; it is not allowed
+	# to leave the HUD describing a different one.
+	GameState.set_speed(4)
 	_toggle(false)
 	_note("skipping the fight")
 
@@ -725,6 +728,13 @@ func _jump_to_stage(target: int) -> void:
 		if GameState.round_number > GameState.rounds_this_stage():
 			GameState.round_number = 1
 			GameState.stage += 1
+			# The stage draws its weather when it opens, and `_advance_round`
+			# is the only other place that crosses a stage line. Without this
+			# a jump carried the old stage's sea and its lanes forward — or,
+			# jumping out of stage 1, carried nothing and left the stage you
+			# landed on with no weather at all. Looking at a late board is what
+			# this button is for, and the weather is part of one.
+			GameState._roll_sea()
 
 		GameState.gain_gold(GameState.player.round_income(
 			GameState.stage, GameState.round_number))

@@ -7,9 +7,11 @@ extends Node
 ## .gd per thing under scripts/core/{abilities,traits,items}/, discovered by
 ## ScriptDir and keyed by the id each reports. Nothing enumerates either list.
 ##
-## A def with no matching behaviour script is a loud failure at startup, not a
-## silent no-op in the middle of a fight. That has to be loud: an ability that
-## quietly does nothing looks exactly like a balance problem.
+## The pairing is checked both ways at startup, and each direction fails
+## differently. A def with no behaviour script is a silent no-op in the middle
+## of a fight, which looks exactly like a balance problem. A script with no def
+## never runs at all: it is a finished feature nobody can reach, and it looks
+## like nothing whatsoever.
 
 const CHAMPION_DIR := "res://data/champions"
 const TRAIT_DIR := "res://data/traits"
@@ -123,10 +125,32 @@ func _verify() -> void:
 		if not _sea_effects.has(sea_def.id):
 			push_error("Content: sea '%s' has no effect script" % sea_def.id)
 
+	# ...and the same question asked backwards, which was the half nobody asked.
+	# A def with no script has always been loud. A *script* with no def was
+	# silent in both places it could have been caught: nothing here looked, and
+	# every content test walks the definitions, so a behaviour file with no
+	# resource beside it is dead code the suite cannot see. Four fully written
+	# sea effects sat in the tree exactly like that, never rolled, never listed
+	# in the almanac, with a green suite over the top of them.
+	_verify_orphans(_abilities, _champions, "ability")
+	_verify_orphans(_trait_effects, _traits, "trait")
+	_verify_orphans(_item_effects, _items, "item")
+	_verify_orphans(_sea_effects, _seas, "sea")
+
 	var expected := _components.size() * (_components.size() + 1) / 2
 	if _forged.size() != expected:
 		push_warning("Content: %d components should forge %d items, found %d"
 			% [_components.size(), expected, _forged.size()])
+
+
+## Behaviour scripts with nothing to attach to.
+##
+## `defs` is keyed by the same id the script reports — a champion id for an
+## ability, the thing's own id for the other three.
+func _verify_orphans(scripts: Dictionary, defs: Dictionary, kind: String) -> void:
+	for id in scripts:
+		if not defs.has(id):
+			push_error("Content: %s script '%s' has no definition" % [kind, id])
 
 
 # --- Champions ---------------------------------------------------------------

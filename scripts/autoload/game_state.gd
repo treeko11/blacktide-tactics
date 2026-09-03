@@ -350,6 +350,20 @@ func set_shop_locked(locked: bool) -> void:
 	Events.shop_locked_changed.emit(locked)
 
 
+## The one door to the battle speed.
+##
+## It used to be a bare field, assigned from four places: the top bar's own
+## buttons, the 1/2/4 keys, and the dev menu twice. Only the first of those told
+## the buttons anything, so tapping 4 ran the fight at 4x under a bar still
+## reading 1x — the same "state the HUD shows but GameState owns" trap the mute
+## button and the shop lock each have a setter and a signal to avoid.
+func set_speed(value: int) -> void:
+	if speed == value:
+		return
+	speed = value
+	Events.speed_changed.emit(value)
+
+
 func buy_xp() -> bool:
 	if phase != Phase.PLAN:
 		return false
@@ -1011,12 +1025,44 @@ func _field_spare_crew() -> void:
 ## The seat a pirate should take: its own rows first and the rest of the
 ## player's half after, each filled from the centre out. Off the board when
 ## there is no room left at all.
+##
+## On a weather round it steps around the marked water first. The whole premise
+## of the sea is that the player gets the planning phase to answer it — and a
+## pirate sent up at the bell has had no planning phase, so a bosun seating one
+## in a wave lane is the game making that call on the player's behalf and then
+## announcing it as help. Witchfire was the sharpest version: its hexes are the
+## middle three columns of row 4, which is exactly the first three seats this
+## fills, so every auto-fielded melee pirate landed in it.
+##
+## It only ever *avoids*. It does not go looking for a fair wind, because which
+## pirate is worth standing in one is a positioning decision, and taking it here
+## would mean overriding the melee-forward, ranged-back order — which is already
+## the better answer for a crew nobody placed.
 func _free_seat(unit: RosterUnit) -> Vector2i:
 	var rows := [4, 5, 7, 6] if unit.champion.attack_range <= 1 else [7, 6, 4, 5]
-	for cell in Hex.seats(rows):
+	var seats := Hex.seats(rows)
+
+	if _seats_avoid_the_sea():
+		for cell in seats:
+			if unit_at(cell) == null and not sea_cells.has(cell):
+				return cell
+
+	# Dry water first, but never a seat short: a board with nothing but marked
+	# hexes left still fields the pirate. Sailing a body down is the worse of
+	# the two, which is the whole reason this function exists.
+	for cell in seats:
 		if unit_at(cell) == null:
 			return cell
 	return Vector2i(-1, -1)
+
+
+## Whether this round's weather is something to seat a spare pirate away from:
+## being fought right now, marking specific hexes, and not a gift.
+func _seats_avoid_the_sea() -> bool:
+	if not sea_active():
+		return false
+	var def := sea_def()
+	return def != null and def.marks_cells and not def.boon
 
 
 func _start_combat() -> void:
