@@ -71,6 +71,14 @@ var shred_mr_time: float = 0.0
 
 var heal_cut: float = 0.0
 var heal_cut_time: float = 0.0
+
+## Healing banked for the next floating number, and how long it has waited.
+## Regeneration heals every tick, so a popup per heal is thirty numbers a second
+## stacked on one hex; `Sim` coalesces them through these. Presentation only —
+## nothing in the fight reads them, and they are only ever filled while the sim
+## is being rendered.
+var heal_popup: float = 0.0
+var heal_popup_time: float = 0.0
 var temp_omnivamp: float = 0.0
 var temp_omnivamp_time: float = 0.0
 

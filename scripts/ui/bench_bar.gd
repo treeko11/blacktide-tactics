@@ -135,6 +135,11 @@ class BenchSlot extends PanelContainer:
 		# pirate or it draws outside its own panel.
 		var view_scale := 0.72 * slot.y / 64.0
 		_view.scale = Vector2(view_scale, view_scale)
+		# The same gate the board and the portraits apply, for the same reason:
+		# a 40-point phone slot draws the figure at 0.45, where a belt buckle and
+		# a row of teeth are a draw call each producing one indistinct pixel —
+		# ten slots over, on the device least able to afford them.
+		_view.detail = clampf(view_scale * 1.2, 0.0, 1.0)
 		add_child(_view)
 
 		resized.connect(_centre_view)
