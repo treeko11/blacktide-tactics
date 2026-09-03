@@ -38,6 +38,10 @@ func run() -> void:
 		blowouts()
 		finish()
 		return
+	if has_flag("creep"):
+		await creep()
+		finish()
+		return
 	var runs := int(arg("runs", "10"))
 	for i in runs:
 		await _play_one()
@@ -448,3 +452,96 @@ func _summarise(label: String, rows: Array[Dictionary], board: int) -> void:
 	var n := float(rows.size())
 	print("  %-10s %3d fights   mean %5.2fs   winner kept %.1f of %d   loser dealt %.0f%% of the damage"
 		% [label, rows.size(), t / n, surv / n, board, 100.0 * share / n])
+
+
+## The monster rounds, fought by the fleets a seeded run actually produces.
+##
+## `creep_balance.gd` rolls fresh fleets every time it runs, so its win rate
+## swings several points between two runs of identical code and cannot answer
+## whether a change moved it. This fixes the run's seed, so two invocations —
+## one with the overtime constants zeroed — fight the *same* fleets against the
+## same waves, and the difference between them is the change and nothing else.
+func creep() -> void:
+	var game := state()
+	game.instant = true
+	game.start_game()
+	game.rng.seed = 4242
+	game.speed = 64
+
+	var rows: Array[Dictionary] = []
+	var frames := 0
+	while frames < MAX_FRAMES:
+		frames += 1
+		await process_frame
+
+		if game.phase == game.Phase.PLAN:
+			if game.round_type() == &"pve":
+				_fight_the_wave(game, rows)
+			_take_a_turn(game)
+			game.start_combat_now()
+		elif game.phase == game.Phase.ARMOURY:
+			if not game.armoury_offer.is_empty():
+				game.take_armoury_item(game.armoury_offer[0])
+		elif game.phase == game.Phase.OVER:
+			break
+
+	rule("Monster waves, one seeded run's fleets")
+	print("  round   fleets   wins    rate    mean     at the 42s wall   losing fleets")
+	var by_round: Dictionary = {}
+	for r in rows:
+		if not by_round.has(r["key"]):
+			by_round[r["key"]] = []
+		by_round[r["key"]].append(r)
+
+	var keys: Array = by_round.keys()
+	keys.sort()
+	for key in keys:
+		var group: Array = by_round[key]
+		var wins := 0
+		var total := 0.0
+		var walls := 0
+		var lost_units := 0
+		var losses := 0
+		for r in group:
+			total += r["time"]
+			if r["won"]:
+				wins += 1
+			else:
+				losses += 1
+				lost_units += r["units"]
+			if r["limit"]:
+				walls += 1
+		print("  %-6s %6d %6d %6.1f%% %7.2fs %13d   %s"
+			% [key, group.size(), wins, 100.0 * wins / group.size(),
+				total / group.size(), walls,
+				"none" if losses == 0 else "%d, averaging %.1f pirates"
+					% [losses, float(lost_units) / losses]])
+
+
+## Every fleet still afloat against this round's wave, off the same board they
+## are about to fight it with.
+func _fight_the_wave(game: Node, rows: Array[Dictionary]) -> void:
+	var key := "%d-%d" % [game.stage, game.round_number]
+	var fleets: Array = []
+	var mine: Array = []
+	for u in game.board:
+		mine.append(u.to_entry())
+	if not mine.is_empty():
+		fleets.append(mine)
+	for b in game.bots:
+		if b.alive:
+			var f: Array = b.formation()
+			if not f.is_empty():
+				fleets.append(f)
+
+	for fleet in fleets:
+		var sim := Sim.new(content(), fleet, game.creep_wave(), false, 9001)
+		sim.run_to_end()
+		rows.append({
+			"key": key,
+			"won": sim.winner == Sim.Result.PLAYER_WIN,
+			"time": sim.time,
+			"limit": sim.time >= Sim.TIME_LIMIT - 0.05,
+			"units": fleet.size(),
+		})
+		sim.dispose()
