@@ -650,18 +650,25 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   bodies, which is what makes it the one Class that could have one.
   Only the bodies outside `CREW_BODIES` can be read backwards, because Corsair
   licenses `pirate` and `gunner` and so does having no faction at all.
-- **A mark whose only difference is length is not a mark.** `musket` was on
-  every Gunner and on nobody else worth mentioning, and it still told a player
-  nothing: `_weapon_gun` drew the same short stock for a musket and for the
-  pistol the same body falls back to, so the two differed by seven units of a
-  1.5-unit metal line — a pixel or two at a 43-point hex. It passed the
-  completeness test and failed the eye. A long gun now carries a **wooden
-  fore-end along two thirds of its barrel and a flared muzzle**, so the
-  difference is thickness and colour rather than length, and neither is
-  `detail`-gated because both are what the mark *is*. The other half was the
-  leak: Vance and Voss carried a musket without the trait, so both were given
-  the spyglass their Navigator class had a better claim to, and `musket` is now
-  declared exclusive — a long gun on the board means Gunner and nothing else.
+- **A firearm is mostly wood with a short metal muzzle, and it has a butt.**
+  `_weapon_gun` drew a brown grip under a long pale barrel, which is a sword —
+  `_weapon_cutlass` is a 16-unit metal shaft out of the fist and the gun was a
+  15-unit one, so the two were the same picture in two colours, and Gunner's
+  whole mark read as "holding a blade". **The first fix failed for a subtle
+  reason worth keeping**: adding a wooden fore-end under the barrel changed
+  nothing, because the metal is drawn last and the top half of the silhouette
+  stayed pale. The wood has to *replace* the barrel over most of the length,
+  not sit beneath it. The other half is the stock: a blade runs straight out of
+  the hand, and a shoulder arm's butt drops back and away from the firing line,
+  which is the one bend no blade in this game has. A pistol gets a grip instead
+  of a stock, deliberately — a shoulder butt on a one-handed gun is what would
+  make Calypso's pistol read as a small musket, and the long gun has to stay
+  Gunner's alone. **The completeness test passed throughout all of this**: the
+  mark was on every carrier and on nobody else the whole time it was unreadable,
+  which is the limit of what `test_art.gd` can see. The leak was real too —
+  Vance and Voss carried a musket without the trait and were given the spyglass
+  their Navigator class had the better claim to, so `musket` is now declared
+  exclusive.
 - **A worn mark is drawn by the body, at the layer the thing is worn at.**
   `storm` and `tide` are drawn by `draw_unit` after the body dispatch, because
   weather goes on top of everything. Bosun's `rope` is a bandolier, so `_human`,

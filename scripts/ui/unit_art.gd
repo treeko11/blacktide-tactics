@@ -979,31 +979,47 @@ static func _weapon_anchor(ci: CanvasItem, pal: Dictionary, hand: Vector2,
 
 static func _weapon_gun(ci: CanvasItem, pal: Dictionary, pose: Pose, hand: Vector2,
 		aim: Vector2, length: float) -> void:
-	# A stock, a lock, and a barrel. A bare pale line is a sword; what says
-	# firearm at this size is the wooden half.
+	# **A firearm is mostly wood with a short metal muzzle.** Drawn the other way
+	# round — a brown grip under a long pale barrel — it is a sword, and that is
+	# exactly what this was: `_weapon_cutlass` is a 16-unit metal shaft out of
+	# the fist and this was a 15-unit one, so the two were the same picture in
+	# two colours. Adding a wooden fore-end *underneath* a barrel that still ran
+	# the full length changed nothing, because the metal is drawn last and the
+	# top half of the silhouette stayed pale.
 	#
-	# **A musket is more wood, not more wire.** The two guns used to differ only
-	# in how far a 1.5-unit metal line ran past the lock — seven units of it,
-	# which is a pixel or two at the 43-point hex a phone gives a unit. So the
-	# mark that carries the whole Gunner class was, in practice, "holding a
-	# stick", the same as the pistol Calypso and Thalassa carry without the
-	# trait. A long gun now gets a wooden fore-end along two thirds of its
-	# barrel and a flared muzzle at the end of it, both of which are silhouette
-	# and neither of which is `detail`-gated.
+	# The other half of it is the butt. A blade runs straight out of the hand; a
+	# shoulder arm has a stock that drops back and away from the firing line, and
+	# that bend is the one part of the shape no blade in this game has.
 	var across := aim.orthogonal()
-	_shape(ci, PackedVector2Array([hand - aim * 8.0 - across * 1.4, hand + aim * 4.0 - across * 2.2,
-		hand + aim * 4.0 + across * 2.2, hand - aim * 6.0 + across * 3.2]), pal["wood"])
-	ci.draw_circle(hand + aim * 3.0, 1.8, pal["metal"])
-	var fore: float = (length - 4.0) * 0.66
-	if fore > 4.0:
-		_limb(ci, hand + aim * 2.5, hand + aim * (2.5 + fore), 2.8, 2.1, pal["wood"])
-	_limb(ci, hand + aim * 2.0, hand + aim * length, 1.5, 1.2, pal["metal"])
-	if length > 13.0:
-		_shape(ci, PackedVector2Array([
-			hand + aim * (length - 2.5) - across * 1.3,
-			hand + aim * (length + 1.4) - across * 2.7,
-			hand + aim * (length + 1.4) + across * 2.7,
-			hand + aim * (length - 2.5) + across * 1.3]), pal["metal"])
+	var shoulder: bool = length > 13.0
+
+	# A pistol gets a grip rather than a stock — a shoulder butt on a one-handed
+	# gun is what would make Calypso's pistol read as a small musket, and the
+	# long gun has to stay Gunner's alone.
+	if shoulder:
+		_limb(ci, hand - aim * 1.0, hand - aim * 9.0 - across * 3.4, 3.2, 5.2,
+			pal["wood"])
+	else:
+		_limb(ci, hand - aim * 0.5, hand - aim * 5.5 - across * 2.4, 2.8, 3.4,
+			pal["wood"])
+
+	# The wooden body, thick, running most of the length.
+	var wood_to: float = length * (0.72 if shoulder else 0.62)
+	_limb(ci, hand - aim * 2.0, hand + aim * wood_to, 3.4, 2.6, pal["wood"])
+
+	# The lock, off to one side. A straight shaft with a bump on it is not a
+	# blade, and this is the cheapest bump going.
+	ci.draw_circle(hand + aim * 2.2 - across * 1.5, 1.7, pal["metal"])
+
+	# And only now the metal, only at the end of it.
+	_limb(ci, hand + aim * (wood_to - 1.0), hand + aim * length, 1.8, 1.4,
+		pal["metal"])
+	_shape(ci, PackedVector2Array([
+		hand + aim * (length - 1.8) - across * 1.4,
+		hand + aim * (length + 1.4) - across * 2.5,
+		hand + aim * (length + 1.4) + across * 2.5,
+		hand + aim * (length - 1.8) + across * 1.4]), pal["metal"])
+
 	if pose.swing > 0.35:
 		# The muzzle flash the fx layer draws is at the target's end of the shot;
 		# this is the other end, and without it a volley has no source.
