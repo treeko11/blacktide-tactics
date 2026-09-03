@@ -205,3 +205,62 @@ func test_scrolling_the_list_does_not_open_an_entry() -> void:
 	assert_false(TouchScroll.dragged(), "the gesture outlived the test")
 
 	wiki.free()
+
+
+## The almanac has to fit inside the screen it is opened on.
+##
+## It sized its box at 88% of `Layout.css_size`, which is the window in CSS
+## pixels and not the space the dialog is laid out in: the wide layout keeps the
+## 1600x900 design and stretches it, so that space is 900 units tall on every
+## monitor. A 1920x1040 window therefore asked for 915 units of it and a
+## 2560x1400 one for 1232 — and a `CenterContainer` given a child taller than
+## itself pins it to the top, so the whole overflow hung off the bottom of the
+## screen. The almanac is the first thing a new run opens, so on a large monitor
+## that was the first thing the game ever showed.
+##
+## The lie told here is the same one a big monitor tells: `css_size` reports a
+## screen half again larger than the space the dialog actually has.
+func test_the_box_fits_the_screen_it_is_opened_on() -> void:
+	var was := Layout.css_size
+	var room: Vector2 = Engine.get_main_loop().root.get_visible_rect().size
+	Layout.css_size = room * 1.6
+
+	var wiki := Wiki.new()
+	Engine.get_main_loop().root.add_child(wiki)
+	wiki.open(&"guide", &"loop")
+
+	var box: Vector2 = wiki._box.custom_minimum_size
+	assert_lt(box.y, wiki.size.y, "the almanac is taller than the screen (%s in %s)"
+		% [str(box), str(wiki.size)])
+	assert_lt(box.x, wiki.size.x, "the almanac is wider than the screen (%s in %s)"
+		% [str(box), str(wiki.size)])
+	# Not just "it fits": a box that shrank to nothing would also fit.
+	assert_gt(box.y, wiki.size.y * 0.5, "the almanac gave up most of the screen")
+
+	wiki.free()
+	Layout.css_size = was
+
+
+## A window resized without crossing a layout breakpoint still resizes the box.
+##
+## Main rebuilds the HUD when the layout mode changes and not otherwise, so a
+## desktop window dragged from 1280x720 to full screen never rebuilds anything —
+## and a box sized once, when it was built, keeps the size the small window gave
+## it. It is the full rect, so the resize notification is the signal.
+func test_a_resize_refits_the_box() -> void:
+	var wiki := Wiki.new()
+	Engine.get_main_loop().root.add_child(wiki)
+	wiki.open(&"guide", &"loop")
+
+	var before: float = wiki._box.custom_minimum_size.y
+	# Off the anchors for the duration: the runner has one window and the rest of
+	# the suite is using it, and what is being checked is that the box follows the
+	# rect it is centred in rather than a number taken once at build time.
+	wiki.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	wiki.size = Vector2(700, 400)
+	assert_lt(wiki._box.custom_minimum_size.y, before,
+		"the box kept the height a bigger window gave it")
+	assert_lt(wiki._box.custom_minimum_size.y, 400.0,
+		"the box is taller than the room it was resized into")
+
+	wiki.free()

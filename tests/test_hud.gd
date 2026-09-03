@@ -326,3 +326,34 @@ func _collect_blockers(node: Node, path: String, into: PackedStringArray) -> voi
 		if child is Control and child.mouse_filter != Control.MOUSE_FILTER_IGNORE:
 			into.append(where)
 		_collect_blockers(child, where, into)
+
+
+## A dialog fits the screen it is opened on, whatever the window reports.
+##
+## `Modals` measured `Layout.css_size` once, which is the window in CSS pixels
+## and not the space a dialog is laid out in — on the wide layout that space is
+## 900 units tall on any monitor, so a 2560x1400 screen had the armoury and the
+## forge chart both asking for 1148 units of it. The overflow hangs off the
+## bottom, and what goes with it is the row of buttons the dialog is dismissed
+## by: a dialog with no way out reads as the game having stopped.
+##
+## `css_size` is set to a screen larger than the one the layer is really in,
+## which is the disagreement the bug lived in.
+func test_a_dialog_fits_the_screen_it_is_opened_on() -> void:
+	var was := Layout.css_size
+	var room: Vector2 = Engine.get_main_loop().root.get_visible_rect().size
+	Layout.css_size = room * 1.6
+
+	var modals := Modals.new()
+	Engine.get_main_loop().root.add_child(modals)
+
+	assert_lt(modals._max_height, modals.size.y,
+		"a dialog may be %.0f units tall in %.0f units of screen"
+			% [modals._max_height, modals.size.y])
+	assert_gt(modals._max_height, modals.size.y * 0.5,
+		"a dialog gave up most of the screen")
+	assert_lt(modals._box.custom_minimum_size.x, modals.size.x,
+		"a dialog is wider than the screen")
+
+	modals.free()
+	Layout.css_size = was

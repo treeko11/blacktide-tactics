@@ -35,6 +35,20 @@ const SHORT_HEIGHT := 460.0
 static var mode: Mode = Mode.WIDE
 
 ## The window in CSS pixels — the compact layout's coordinate space.
+##
+## **It says which layout to build; it does not say how much room anything has.**
+## Those are the same number only while compact. The wide layout keeps the
+## 1600x900 design and stretches it with `expand`, so the space it is laid out in
+## is 900 units tall on every monitor: a 1920x1040 window is 1661x900 and a
+## 2560x1400 one is 1645x900. A panel that sized itself at 88% of `css_size.y`
+## therefore asked for 915 units of a 900-unit viewport, and then 1232 of them —
+## which is how the almanac came up with its bottom edge off the screen on every
+## display larger than the design, and how the DEV chip came to sit 163 units
+## past the right edge of every desktop window that was not exactly 1600x900.
+##
+## Anything sizing or placing itself measures the space it is actually in: a
+## full-rect overlay reads its own `size`, and anything else asks
+## `get_viewport_rect()`.
 static var css_size: Vector2 = Vector2(DESIGN)
 
 ## Device pixels per CSS pixel: 1 on a desktop monitor, 2-3 on a phone.

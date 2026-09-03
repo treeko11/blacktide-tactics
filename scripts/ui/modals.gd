@@ -21,12 +21,18 @@ signal restart_requested()
 signal chart_item_hovered(item_id: StringName, at: Vector2, source: Control)
 signal chart_item_unhovered()
 
+## As wide as a dialog ever gets; past this a line of text is too long to read.
+const MAX_BOX_WIDTH := 520.0
+
 var _scrim: ColorRect = null
 var _box: PanelContainer = null
 var _scroll: ScrollContainer = null
 var _content: VBoxContainer = null
 var _actions: VBoxContainer = null
 var _dismissable: bool = true
+
+## The tallest the scrolling part of a dialog may be, re-measured on every
+## resize. See `_fit_box`.
 var _max_height: float = 0.0
 
 
@@ -50,16 +56,11 @@ func _ready() -> void:
 		UITheme.panel_style(Color("0e2534"), UITheme.LINE, 10))
 	centre.add_child(_box)
 
-	# A dialog wider than the screen is a dialog with its buttons off the edge.
-	var room := Layout.css_size
-	_box.custom_minimum_size = Vector2(minf(520.0, room.x - 24.0), 0)
 	_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 10)
 	_box.add_child(stack)
-
-	_max_height = room.y * 0.82
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -81,7 +82,32 @@ func _ready() -> void:
 	_actions.add_theme_constant_override("separation", 6)
 	stack.add_child(_actions)
 
+	_fit_box()
 	set_process(true)
+
+
+## Sizes the dialog against the room it is actually in, on every resize.
+##
+## It used to measure `Layout.css_size` once, which is the window in CSS pixels
+## and not the space the dialog is laid out in — see the note on that field. On a
+## 2560x1400 monitor that asked for 82% of 1400 units inside a viewport 900 units
+## tall, so the forge chart and the armoury both ran off the bottom of the
+## screen, with the armoury's buttons going with them.
+##
+## A dialog wider than the screen is a dialog with its buttons off the edge, so
+## the width is measured here too.
+func _fit_box() -> void:
+	if _box == null:
+		return
+	# The dialog layer is the full rect, so its own size is the room the box has.
+	var room := size
+	_box.custom_minimum_size = Vector2(minf(MAX_BOX_WIDTH, room.x - 24.0), 0)
+	_max_height = room.y * 0.82
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_fit_box()
 
 
 func _process(_delta: float) -> void:

@@ -34,7 +34,7 @@ extends Control
 ## section's list.
 const LINK := "[color=#7fe3ff][url=%s/%s]%s[/url][/color]"
 
-## Two panes need this much width in CSS pixels. A portrait phone is 375-430 and
+## Two panes need this much room. A portrait phone is 375-430 points wide and
 ## drills down; a landscape phone is 667-932 and does not.
 const TWO_PANE_WIDTH := 620.0
 
@@ -43,6 +43,10 @@ const TWO_PANE_WIDTH := 620.0
 const ROW_HEIGHT := 28.0
 
 const LIST_WIDTH := 224.0
+
+## As wide as the box ever gets. Past this a line of body text is too long to
+## track back to the start of the next one.
+const MAX_BOX_WIDTH := 880.0
 
 const SECTIONS := [
 	{ "id": &"guide", "label": "SAILING" },
@@ -92,6 +96,10 @@ var _history: Array = []
 
 var _page_width: float = 400.0
 
+## The pane shape the panes are currently built as, so `_fit_box` can tell a
+## resize that crossed `TWO_PANE_WIDTH` from one that did not.
+var _showing_two_panes := true
+
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -109,9 +117,6 @@ func _ready() -> void:
 			close())
 	add_child(scrim)
 
-	var room := Layout.css_size
-	var box_width := minf(880.0, room.x - 20.0)
-
 	var centre := CenterContainer.new()
 	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -119,7 +124,6 @@ func _ready() -> void:
 
 	_box = PanelContainer.new()
 	_box.mouse_filter = Control.MOUSE_FILTER_STOP
-	_box.custom_minimum_size = Vector2(box_width, room.y * 0.88)
 	_box.add_theme_stylebox_override("panel",
 		UITheme.panel_style(Color("0e2534"), UITheme.LINE, 10))
 	centre.add_child(_box)
@@ -136,18 +140,69 @@ func _ready() -> void:
 	_panes.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stack.add_child(_panes)
 
-	# The box carries 8 points of panel margin either side; each pane carries 8
-	# more, and a vertical scrollbar eats about 14. Measured out rather than
-	# guessed, because a RichTextLabel given no width wraps every word onto its
-	# own line and a page 40 lines long scrolls forever.
-	var inner := box_width - 16.0
-	var page_width := inner - (LIST_WIDTH + 10.0) if _two_pane() else inner
-	_page_width = page_width - 30.0
+	_fit_box()
 
 	_list_pane = _build_list_pane()
 	_panes.add_child(_list_pane)
 	_page_pane = _build_page_pane()
 	_panes.add_child(_page_pane)
+	_showing_two_panes = _two_pane()
+
+
+## Sizes the box against the room it is actually in, on every resize.
+##
+## Two things were wrong with doing this once, from `Layout.css_size`. The
+## measurement was of the wrong space — see the note on that field — so on any
+## screen larger than the 1600x900 design the box came out taller than the space
+## it is centred in, and a `CenterContainer` cannot centre a child bigger than
+## itself: it pins it to the top and the whole overflow hangs off the bottom. A
+## 1920x1040 window lost 15 units of the dialog and a 2560x1400 one lost a third
+## of it, on the first thing a new run puts on the screen.
+##
+## And a fixed size set at build time goes stale: a desktop window dragged from
+## 1280x720 to full screen never crosses a breakpoint, so Main never rebuilds the
+## HUD, and the box would have kept the size the small window gave it. The Wiki
+## is the full rect, so its own `size` is the room the box has and the resize
+## notification is the one signal that arrives on the web as well.
+##
+## The pane shape is re-fitted here too, and not only the numbers. Reading the
+## width in one place and the shape of the panes in another is how a box 580
+## points wide ends up holding a 224-point list beside a page asked for 570: the
+## two answers have to come out of the same measurement.
+func _fit_box() -> void:
+	if _box == null:
+		return
+	var room := size
+	var box_width := minf(MAX_BOX_WIDTH, room.x - 20.0)
+	var two := room.x >= TWO_PANE_WIDTH
+	_box.custom_minimum_size = Vector2(box_width, room.y * 0.88)
+
+	# The box carries 8 points of panel margin either side; each pane carries 8
+	# more, and a vertical scrollbar eats about 14. Measured out rather than
+	# guessed, because a RichTextLabel given no width wraps every word onto its
+	# own line and a page 40 lines long scrolls forever.
+	var inner := box_width - 16.0
+	var page_width := inner - (LIST_WIDTH + 10.0) if two else inner
+	_page_width = page_width - 30.0
+	if _page != null:
+		_page.custom_minimum_size = Vector2(_page_width, 0)
+
+	if _list_pane == null:
+		return
+	_list_pane.custom_minimum_size = Vector2(LIST_WIDTH if two else 0.0, 0)
+	_list_pane.size_flags_horizontal = (
+		Control.SIZE_FILL if two else Control.SIZE_EXPAND_FILL)
+	# Which pane is showing is `_render`'s answer, and it is a different answer
+	# either side of the line — a drilled-in phone shows one pane and hides the
+	# other, and a box that has just become wide enough must show both.
+	if two != _showing_two_panes:
+		_showing_two_panes = two
+		_render()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_fit_box()
 
 
 func _build_header() -> Control:
@@ -261,8 +316,13 @@ func _portrait_size() -> Vector2:
 	return Vector2(92.0, 106.0) if _page_width >= 360.0 else Vector2(74.0, 86.0)
 
 
+## Whether the list sits beside the page rather than being drilled into.
+##
+## The room the almanac has, not `Layout.css_size`: what decides this is the
+## width the panes are laid out in, and on the wide layout those are different
+## numbers — see the note on `Layout.css_size`.
 func _two_pane() -> bool:
-	return Layout.css_size.x >= TWO_PANE_WIDTH
+	return size.x >= TWO_PANE_WIDTH
 
 
 # =============================================================================
