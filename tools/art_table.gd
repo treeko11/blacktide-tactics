@@ -35,7 +35,7 @@ const ART := {
 	&"marlowe":   { "body": &"officer", "tint": "3f5f8f", "marks": [&"musket"] },
 	&"voss":      { "body": &"officer", "tint": "5a7a8f", "marks": [&"musket", &"keg"] },
 	&"tuck":      { "body": &"officer", "tint": "4f86b8", "marks": [&"spyglass", &"parrot"] },
-	&"ned":       { "body": &"officer", "tint": "1f3f66", "marks": [&"anchor", &"beard", &"eyepatch"] },
+	&"ned":       { "body": &"officer", "tint": "1f3f66", "marks": [&"anchor", &"beard", &"rope"] },
 
 	# --- Corsairs: the round-shouldered jacket, warm, too many feathers ---
 	&"ashmore":   { "body": &"gunner", "tint": "2b2f38", "marks": [&"beard", &"tricorn", &"musket", &"lantern"] },
@@ -43,7 +43,7 @@ const ART := {
 	&"isla":      { "body": &"pirate", "tint": "d1443f", "marks": [&"plume", &"dual"] },
 	&"rook":      { "body": &"pirate", "tint": "3a4450", "marks": [&"parrot", &"eyepatch"] },
 	&"pip":       { "body": &"pirate", "tint": "d69f3f", "marks": [&"parrot", &"plume", &"bandana"] },
-	&"barnaby":   { "body": &"pirate", "tint": "b6642f", "marks": [&"keg", &"bandana"] },
+	&"barnaby":   { "body": &"pirate", "tint": "b6642f", "marks": [&"keg", &"rope"] },
 	&"finn":      { "body": &"pirate", "tint": "4f8f6a", "marks": [&"harpoon", &"bandana"] },
 	&"saltyjo":   { "body": &"gunner", "tint": "c96a3f", "marks": [&"bandana", &"musket"] },
 	&"lyra":      { "body": &"gunner", "tint": "c98a3f", "marks": [&"musket", &"plume"] },
@@ -53,10 +53,10 @@ const ART := {
 	# --- is a trait the board cannot be read for.                            ---
 	&"davy":      { "body": &"ghost",  "tint": "8a6fd6", "marks": [&"crown", &"horns", &"tattered"] },
 	&"brine":     { "body": &"ghost",  "tint": "6fd3b8", "marks": [&"tattered"] },
-	&"silas":     { "body": &"ghost",  "tint": "8fd6c0", "marks": [&"tattered", &"beard"] },
+	&"silas":     { "body": &"ghost",  "tint": "8fd6c0", "marks": [&"tattered", &"beard", &"rope"] },
 	&"skarn":     { "body": &"ghost",  "tint": "9eb0c0", "marks": [&"tattered", &"horns"] },
 	&"grimscale": { "body": &"ghost",  "tint": "a8d68f", "marks": [&"tattered", &"hook"] },
-	&"barnacleking": { "body": &"ghost", "tint": "5fb894", "marks": [&"crown", &"tattered"] },
+	&"barnacleking": { "body": &"ghost", "tint": "5fb894", "marks": [&"crown", &"tattered", &"rope"] },
 
 	# --- sirens: the one family allowed to be pretty. The mermaid silhouette ---
 	# --- means the Siren trait and nothing else.                             ---
@@ -72,7 +72,7 @@ const ART := {
 	# --- of these and nobody else, so a fin on the board means Leviathan.   ---
 	&"kraken":    { "body": &"kraken", "tint": "6a3f7a", "marks": [&"horns"] },
 	&"maelstrom": { "body": &"serpent", "tint": "4f6fd6", "marks": [&"storm", &"horns"] },
-	&"dredge":    { "body": &"shark",  "tint": "4a6a52", "marks": [] },
+	&"dredge":    { "body": &"shark",  "tint": "4a6a52", "marks": [&"rope"] },
 	&"kelpar":    { "body": &"shark",  "tint": "3f7a5a", "marks": [&"tide"] },
 
 	# --- Stormborn and Tidecaller are callings rather than lineages: no body ---
@@ -90,9 +90,9 @@ const ART := {
 	# --- no origin trait at all: plain crew, and deliberately so. Each of ---
 	# --- these used to borrow a silhouette that promised a trait it did    ---
 	# --- not have — Hookjaw a Leviathan's fin, Grull and Sable a monster's. ---
-	&"bess":      { "body": &"pirate", "tint": "a83f52", "marks": [&"harpoon", &"bandana"] },
+	&"bess":      { "body": &"pirate", "tint": "a83f52", "marks": [&"harpoon", &"bandana", &"rope"] },
 	&"hookjaw":   { "body": &"pirate", "tint": "4a7f9e", "marks": [&"harpoon", &"hook", &"bandana"] },
-	&"grull":     { "body": &"pirate", "tint": "8a5a3a", "marks": [&"beard", &"bandana"] },
+	&"grull":     { "body": &"pirate", "tint": "8a5a3a", "marks": [&"beard", &"rope"] },
 	&"sable":     { "body": &"pirate", "tint": "2f6a8f", "marks": [&"plume", &"dual"] },
 	&"kessa":     { "body": &"pirate", "tint": "b02f4a", "marks": [&"dual", &"bandana"] },
 	&"doss":      { "body": &"gunner", "tint": "6b5236", "marks": [&"eyepatch", &"tricorn", &"musket"] },
@@ -154,6 +154,7 @@ const TRAIT_MARKS := {
 	&"stormborn": { "mark": &"storm", "exclusive": true },
 	&"ghost": { "mark": &"tattered", "exclusive": true },
 	&"gunner": { "mark": &"musket", "exclusive": false },
+	&"bosun": { "mark": &"rope", "exclusive": true },
 }
 
 ## Traits with no visual signature at all, and why that is allowed rather than
@@ -166,7 +167,7 @@ const TRAIT_MARKS := {
 ## A trait that crosses four silhouettes cannot have one. They are read in the
 ## manifest panel, which is what it is for.
 const TRAITS_WITHOUT_ART: Array[StringName] = [
-	&"bosun", &"harpooner", &"navigator", &"reaver", &"swash",
+	&"harpooner", &"navigator", &"reaver", &"swash",
 ]
 
 

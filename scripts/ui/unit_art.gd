@@ -47,7 +47,7 @@ const MARKS: Array[StringName] = [
 	&"tricorn", &"bicorn", &"bandana", &"crown", &"eyepatch", &"beard",
 	&"hook", &"harpoon", &"musket", &"spyglass", &"parrot", &"plume",
 	&"epaulette", &"anchor", &"keg", &"storm", &"lantern", &"tattered",
-	&"dual", &"horns", &"tide",
+	&"dual", &"horns", &"tide", &"rope",
 ]
 
 ## Bodies drawn from above, which rotate to point along their aim.
@@ -492,6 +492,11 @@ static func _human(ci: CanvasItem, pal: Dictionary, pose: Pose, aim: Vector2,
 			Vector2(-10.4, 4.5)]), pal["wood_dark"])
 		ci.draw_rect(Rect2(-2.0, 1.8, 4.0, 2.8), pal["metal"])
 
+	# Over the coat, under the weapon arm below and under whatever the body
+	# draws after this — which is how the anchor ends up in front of it.
+	if marks.has(&"rope"):
+		_mark_rope(ci, pal, pose)
+
 	# Head and neck.
 	_shape(ci, PackedVector2Array([Vector2(-2.5, -12.0), Vector2(2.5, -12.0), Vector2(2.5, -8.5),
 		Vector2(-2.5, -8.5)]), skin)
@@ -688,6 +693,10 @@ static func _body_shark(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		Vector2(14.0, 1.8), Vector2(13.0, 4.0), Vector2(2.0, 7.0),
 		Vector2(-8.0, 6.0), Vector2(-14.0, 2.5)]), pal["light"])
 
+	# Before the fins, so the strap passes under them rather than over.
+	if marks.has(&"rope"):
+		_mark_rope_girth(ci, pal, pose)
+
 	_shape(ci, PackedVector2Array([Vector2(-1.0, -8.5), Vector2(4.0, -19.0), Vector2(7.0, -7.5)]),
 		pal["dark"])
 	_shape(ci, PackedVector2Array([Vector2(7.0, 4.0), Vector2(4.0, 14.0), Vector2(13.0, 5.5)]),
@@ -830,6 +839,8 @@ static func _body_ghost(ci: CanvasItem, pal: Dictionary, pose: Pose,
 		robe.append(Vector2(x, hem + (5.5 if i % 2 == 0 else -3.5)))
 	robe.append(Vector2(-13.0, 7.0 + drift))
 	_shape(ci, PackedVector2Array(robe), sheet)
+	if marks.has(&"rope"):
+		_mark_rope(ci, pal, pose, Vector2(0.0, drift))
 
 	var hollow: Color = pal["ink"]
 	hollow.a = pal["main"].a * 0.9
@@ -1066,6 +1077,59 @@ static func _mark_tide(ci: CanvasItem, pal: Dictionary, pose: Pose) -> void:
 	_shape(ci, poly, Color(0.19, 0.75, 0.74, 0.55 * alpha))
 	# The foam is what actually does the reading, so it is never detail-gated.
 	ci.draw_polyline(crest, Color(0.82, 1.0, 0.96, 0.95 * alpha), 1.5)
+
+
+## Bosun — a coil of rope worn as a bandolier.
+##
+## **Drawn by each body rather than by `draw_unit`, and that is the whole point
+## of it.** `storm` and `tide` are drawn after the body dispatch because they are
+## weather and belong on top of everything; a bandolier is worn, so it sits over
+## the coat and *under* the arm that swings and under whatever the champion is
+## holding. Old Anchor Ned's anchor passes in front of it. A strap painted on top
+## of the finished figure is a sticker, not a thing the pirate is wearing.
+##
+## Diagonal is most of why it reads at a 43-point hex: it is the one direction
+## nothing else in the game uses, so it cannot be taken for the belt, the tide's
+## crest or the storm's bolts, which are all horizontal or vertical.
+##
+## `offset` exists for the wraith, whose whole body drifts on the clock — a
+## bandolier that ignored the drift would swim about on the robe.
+static func _mark_rope(ci: CanvasItem, pal: Dictionary, pose: Pose,
+		offset: Vector2 = Vector2.ZERO) -> void:
+	var alpha: float = pal["main"].a
+	if alpha <= 0.02:
+		return
+	var hemp := Color(0.82, 0.72, 0.48, 0.97 * alpha)
+	var shade := Color(0.46, 0.38, 0.24, 0.9 * alpha)
+	var top: Vector2 = Vector2(9.0, -11.0) + offset
+	var hip: Vector2 = Vector2(-7.5, 4.5) + offset
+	_limb(ci, top, hip, 2.5, 2.2, hemp)
+	ci.draw_arc(hip + Vector2(-1.8, 1.8), 3.0, 0.0, TAU, 12, hemp, 1.7)
+	if pose.detail > 0.45:
+		for i in 4:
+			var at: Vector2 = top.lerp(hip, 0.18 + float(i) * 0.22)
+			ci.draw_line(at + Vector2(-1.2, -1.0), at + Vector2(1.2, 1.0), shade, 0.8)
+
+
+## The same rope on a body with no shoulder to sling it over. A shark wears it
+## round the girth, under the fins, the way a working animal wears a harness.
+## The sash was tried here first and a diagonal band across a fish drawn in
+## profile is a loaf strapped to it: the shark's long axis is horizontal, so the
+## one direction that reads as "worn" on a standing figure reads as cargo here.
+static func _mark_rope_girth(ci: CanvasItem, pal: Dictionary, pose: Pose) -> void:
+	var alpha: float = pal["main"].a
+	if alpha <= 0.02:
+		return
+	var hemp := Color(0.82, 0.72, 0.48, 0.97 * alpha)
+	var shade := Color(0.46, 0.38, 0.24, 0.9 * alpha)
+	var top := Vector2(4.5, -8.0)
+	var belly := Vector2(2.0, 6.6)
+	_limb(ci, top, belly, 2.4, 2.2, hemp)
+	if pose.detail > 0.45:
+		for i in 4:
+			var at: Vector2 = top.lerp(belly, 0.15 + float(i) * 0.23)
+			ci.draw_line(at + Vector2(-1.3, -0.8), at + Vector2(1.3, 0.8), shade, 0.8)
+		ci.draw_circle(Vector2(3.7, -1.6), 1.5, shade)
 
 
 ## Drawn outside the body dispatch, so a storm crackles over a siren, a gunner

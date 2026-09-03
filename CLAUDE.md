@@ -644,12 +644,27 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   trait added to `data/traits/` fails the suite until somebody has said whether
   it gets a body, a mark, or neither. **`TRAITS_WITHOUT_ART` is a real answer**,
   not a bin for undone work: a Class spans several Origins and the body is
-  already spoken for, so Bosun's seven carriers are three pirates, two wraiths,
-  an officer and a shark, share no mark, and are read in the manifest instead.
+  already spoken for, so Harpooner, Navigator, Reaver and Swashbuckler are read
+  in the manifest and nowhere else. Bosun was on that list and came off it — a
+  mark that is *worn* rather than drawn near the figure survives crossing four
+  bodies, which is what makes it the one Class that could have one.
   The one deliberate half-rule is `musket`, declared non-exclusive: every Gunner
   carries one, but so do Vance and Voss, and an admiral with a firearm is not a
   lie. Only the bodies outside `CREW_BODIES` can be read backwards, because
   Corsair licenses `pirate` and `gunner` and so does having no faction at all.
+- **A worn mark is drawn by the body, at the layer the thing is worn at.**
+  `storm` and `tide` are drawn by `draw_unit` after the body dispatch, because
+  weather goes on top of everything. Bosun's `rope` is a bandolier, so `_human`,
+  `_body_ghost` and `_body_shark` each draw it themselves: over the coat, under
+  the arm that swings, and under whatever the champion is holding — Old Anchor
+  Ned's anchor passes in front of it, Bess's harpoon and Grull's cutlass over
+  it, and the shark's fins over the strap. Drawn last instead it is a sticker on
+  a finished picture rather than something the pirate has put on. The wraith
+  passes its `drift` in, because a bandolier that ignored the drift swims about
+  on the robe. And **the shark gets a different shape, not a different position**:
+  a sash is diagonal, which is what makes it read as worn on a standing figure
+  and what makes it a loaf strapped to a fish drawn in profile, so a shark wears
+  the rope round its girth instead.
 - **A trait mark has to change the outline; there is no room for a badge.**
   Eight tide marks were drawn before one worked, and the seven that failed all
   failed the same way — at the 43-point hex a phone gives a unit, a symbol is
