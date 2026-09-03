@@ -631,16 +631,25 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   is Leviathan, `officer` is Royal Navy, and a champion with no origin trait is
   plain crew — `pirate` or `gunner` and nothing else. Stormborn and Tidecaller
   are callings rather than lineages and have no body of their own: each is a
-  mark `draw_unit` puts over anything, `storm` crackling above the head and
-  `tide` running around the feet. **Opposite ends of the figure on purpose** —
+  mark `draw_unit` puts over anything, `storm` crackling at the upper corners
+  and `tide` taking the bottom of the figure. **Opposite ends on purpose** —
   Calypso and Thalassa are both, so the two have to be able to land on one
-  body. The tide is water on the **ground** rather than up the figure because
-  the ground is the one part every body shares: a shark has no ankles and a
-  wraith has no feet. Its pool is never `detail`-gated, since the reason the
-  mark exists is that Tidecaller was unreadable on the device with the least
-  detail to spare. `test_art.gd` checks that a body exists and that the `.tres`
-  matches the table, and cannot catch any of this: every one of those nine was
-  a valid body with a unique colour.
+  body. `test_art.gd` checks that a body exists and that the `.tres` matches
+  the table, and cannot catch any of this: every one of those nine was a valid
+  body with a unique colour.
+- **A trait mark has to change the outline; there is no room for a badge.**
+  Eight tide marks were drawn before one worked, and the seven that failed all
+  failed the same way — at the 43-point hex a phone gives a unit, a symbol is
+  five pixels. A wave glyph on the brow read as ski goggles; a pool inside the
+  cost rim and two swells at the ankles were too quiet to find; a crest either
+  side of the body read as wings; a curling wave read as a tentacle; a scallop
+  shell wanted a hand-placed position per body and still landed mid-flank on
+  the shark. What works is the same thing that makes the `officer` read: the
+  figure is a **different shape**. A Tidecaller stands in surf — a band of
+  water across the lower body with a foam crest, translucent so the cost rim,
+  the boots and a siren's tail stay legible through it. Nothing above the head
+  was ever available either: `_draw_stars` puts the star rating at y -34,
+  directly over the tallest hat.
 - **A faction is told apart by its outline, never by its hat.** Royal Navy and
   Corsair were one body in two hats, and a bicorn against a tricorn is two
   pixels of difference at the 21-point hex a phone gives a unit — so the

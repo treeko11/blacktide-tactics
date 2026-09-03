@@ -1031,40 +1031,41 @@ static func _mark_keg(ci: CanvasItem, pal: Dictionary, at: Vector2) -> void:
 
 
 ## Tidecaller, and the other half of why `storm` is drawn out here rather than by
-## a body: Calypso and Thalassa are both, so the two marks have to be able to
-## land on one figure. They do it by sitting at opposite ends of it — the storm
-## crackles above the head, the tide runs around the feet.
+## a body: Calypso and Thalassa are both, so the two have to be able to land on
+## one figure. The storm crackles at the upper corners; this takes the bottom of
+## the figure, and the two never meet.
 ##
-## It is water on the **ground** rather than water up the figure because the
-## ground is the one part every body shares: a shark has no ankles, a wraith has
-## no feet, and a mark that has to be re-aimed per body is a mark that gets
-## forgotten on the next one.
+## **It is a change to the outline rather than a badge, and that is the point.**
+## Seven smaller marks were tried first and every one failed the same way: at the
+## 43-point hex a phone gives a unit there is no room for a symbol. A wave glyph
+## on the brow read as ski goggles, a pool inside the cost rim and two swells at
+## the ankles were too quiet to find, a crest either side of the body read as
+## wings, a curling wave read as a tentacle, and a scallop shell needed a
+## hand-placed position per body and still landed mid-flank on the shark.
+## Silhouette is the one channel this project has actually proved survives that
+## size - it is why the `officer` reads - so the mark is a Tidecaller standing in
+## water rather than wearing a picture of it.
 ##
-## The pool is never `detail`-gated. It is the whole mark, and the reason the
-## mark exists at all is that Tidecaller was unreadable on the device with the
-## least detail to spare.
+## Translucent on purpose. The cost rim `_draw_ground` puts under every unit, the
+## boots, and a siren's tail all have to stay legible through it; the first pass
+## at 0.88 buried all three.
 static func _mark_tide(ci: CanvasItem, pal: Dictionary, pose: Pose) -> void:
-	# Same rule as the ground plate it sits on: in a list row barely taller than
-	# the figure, a puddle under it reads as furniture rather than as weather.
-	if not pose.grounded or pose.dead > 0.9:
-		return
 	var alpha: float = pal["main"].a
-	var swell: float = 0.5 + sin(pose.clock * 1.6) * 0.5
-	var centre := Vector2(0.0, GROUND)
-
-	ci.draw_colored_polygon(_ellipse(centre, 12.0 + swell * 2.0, 4.2 + swell * 0.7),
-		Color(0.28, 0.86, 0.72, 0.26 * alpha))
-
-	if pose.detail < 0.4:
+	if alpha <= 0.02:
 		return
-	# Two rings running outward half a cycle apart, off `clock` rather than off
-	# `swell`, so they travel instead of breathing — which is what separates a
-	# tide from the wake `_draw_ground` puts under anything that is walking.
-	for i in 2:
-		var phase: float = fmod(pose.clock * 0.45 + float(i) * 0.5, 1.0)
-		ci.draw_polyline(_closed(_ellipse(centre, 11.0 + phase * 11.0,
-			3.8 + phase * 3.8)),
-			Color(0.62, 0.98, 0.86, (1.0 - phase) * 0.5 * alpha), 1.3)
+	var crest := PackedVector2Array()
+	for i in 13:
+		crest.append(Vector2(lerpf(-16.5, 16.5, float(i) / 12.0),
+			9.0 + sin(float(i) * 1.15 + pose.clock * 2.0) * 2.2))
+	# Walked across the crest left to right and back along a floor well below the
+	# lowest any crest can dip, so a ring whose top edge comes out of a sine can
+	# never close on itself. Same rule as the shark's underside band.
+	var poly := PackedVector2Array(crest)
+	poly.append(Vector2(16.5, 18.5))
+	poly.append(Vector2(-16.5, 18.5))
+	_shape(ci, poly, Color(0.19, 0.75, 0.74, 0.55 * alpha))
+	# The foam is what actually does the reading, so it is never detail-gated.
+	ci.draw_polyline(crest, Color(0.82, 1.0, 0.96, 0.95 * alpha), 1.5)
 
 
 ## Drawn outside the body dispatch, so a storm crackles over a siren, a gunner
