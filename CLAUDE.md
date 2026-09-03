@@ -366,6 +366,18 @@ Each of these cost a debugging session or settles a design argument.
   timeout. `instant` runs are never held, which is the whole reason `playthrough.gd`
   and `creep_balance.gd` do not stall on 1-1, and the shop clock reads `HOLD`
   rather than a frozen `32`, which reads as broken.
+- **Nobody sails a seat short by accident.** A pirate bought and never dragged
+  off the deck does not fight, and the only thing saying so is a crew count in
+  the corner of the shop with eight seconds on the clock, so a round was
+  routinely fought a body down for no decision anybody made.
+  `GameState._field_spare_crew` fills every empty seat from the bench at the
+  **bell**, not when the round opens — the start of the fight is the only place
+  that catches a purchase made in the last seconds of planning. First off the
+  bench, first seated; the seat matches the pirate the way `Bot.formation` does,
+  melee forward and ranged behind, and a pirate the player placed is never
+  moved. It is **announced**, in the log and in a toast: a board that
+  rearranges itself with nothing on screen to say why is indistinguishable from
+  a bug, which is the rule the sea marks its water under.
 - **The phone layout is measured in CSS pixels, and the wide one is not.** The
   project ships a 1600x900 design stretched with `canvas_items` + `expand`. On a
   375-point phone that resolves to a 0.23x scale and a 1600x3466 viewport: a

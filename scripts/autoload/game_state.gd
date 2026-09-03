@@ -964,9 +964,68 @@ func _announce_overtime() -> void:
 
 # --- starting a fight --------------------------------------------------------
 
+## Seats spare bench pirates in any empty crew slot, at the bell.
+##
+## A pirate bought and never dragged out of the deck does not fight, and the
+## only thing that says so is a crew count nobody is reading with eight seconds
+## on the clock — so a round was routinely fought a body down for no decision
+## anybody made. It runs when the fight starts rather than when the round opens,
+## which is the only place that catches a purchase made in the last seconds of
+## planning, and it takes the deck in order: first off the bench, first seated.
+##
+## The seat matches the pirate the way `Bot.formation` does, melee forward and
+## ranged behind, because a bombardier dropped into the front rank is a worse
+## answer than the empty seat was. And it is **announced** — a board that
+## rearranges itself with nothing on screen to say why is indistinguishable
+## from a bug, which is the same rule the sea marks its water under.
+func _field_spare_crew() -> void:
+	var fielded: Array[String] = []
+	for slot in BENCH_SIZE:
+		if board.size() >= player.board_capacity():
+			break
+		var unit := bench[slot]
+		if unit == null:
+			continue
+		var cell := _free_seat(unit)
+		# Capacity says there is room and the half says there is not, which can
+		# only mean the board is full: stop rather than walk the rest of the deck.
+		if not Hex.on_board(cell):
+			break
+		bench[slot] = null
+		unit.cell = cell
+		board.append(unit)
+		fielded.append(unit.champion.display_name)
+
+	if fielded.is_empty():
+		return
+
+	Events.board_changed.emit()
+	if fielded.size() == 1:
+		log_line("The bosun sends %s up from the deck." % fielded[0], &"good")
+		notify("%s JOINS THE LINE" % fielded[0].to_upper(), &"good")
+	else:
+		log_line("The bosun sends %s up from the deck." % ", ".join(fielded), &"good")
+		notify("%d PIRATES JOIN THE LINE" % fielded.size(), &"good")
+
+
+## The seat a pirate should take: its own rows first and the rest of the
+## player's half after, each filled from the centre out. Off the board when
+## there is no room left at all.
+func _free_seat(unit: RosterUnit) -> Vector2i:
+	var rows := [4, 5, 7, 6] if unit.champion.attack_range <= 1 else [7, 6, 4, 5]
+	for cell in Hex.seats(rows):
+		if unit_at(cell) == null:
+			return cell
+	return Vector2i(-1, -1)
+
+
 func _start_combat() -> void:
 	_sim_accumulator = 0.0
 	_overtime_announced = false
+
+	# Anything left on the deck with a seat going spare is sent up first, or it
+	# is not in `board` when the fleet is read out of it below.
+	_field_spare_crew()
 
 	var kind := round_type()
 	var enemy_board: Array = []

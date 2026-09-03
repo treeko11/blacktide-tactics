@@ -297,8 +297,8 @@ func formation() -> Array:
 		else:
 			ranged.append(u)
 
-	var front := _seats([4, 5])
-	var back := _seats([7, 6])
+	var front := Hex.seats([4, 5])
+	var back := Hex.seats([7, 6])
 	var out: Array = []
 	var f := 0
 	var b := 0
@@ -329,15 +329,6 @@ func formation() -> Array:
 
 	return out
 
-
-## Seats filled from the middle outward, so a small board still meets in the
-## centre rather than hugging one flank.
-func _seats(rows: Array) -> Array[Vector2i]:
-	var out: Array[Vector2i] = []
-	for row in rows:
-		for col in [3, 2, 4, 1, 5, 0, 6]:
-			out.append(Vector2i(col, row))
-	return out
 
 
 func _entry(u: RosterUnit, cell: Vector2i) -> Dictionary:

@@ -111,3 +111,15 @@ static func mirror(cell: Vector2i) -> Vector2i:
 ## Stable integer key for a cell, for occupancy dictionaries.
 static func key(cell: Vector2i) -> int:
 	return cell.y * COLS + cell.x
+
+
+## Seats in the given rows, filled from the middle of each row outward, so a
+## small board still meets in the centre rather than hugging one flank. The
+## rows are taken in the order given: a fleet fields melee through [4, 5] and
+## ranged through [7, 6], which is the player's half read front-to-back.
+static func seats(rows: Array) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for row in rows:
+		for col in [3, 2, 4, 1, 5, 0, 6]:
+			out.append(Vector2i(col, row))
+	return out
