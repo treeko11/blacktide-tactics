@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"sheltered_cove"
+display_name = "Sheltered Cove"
+icon = "⚓"
+herald = "A sheltered cove, out of the swell. Whoever is anchored in it when the bell goes is covered."
+description = "Anyone who starts the fight in the cove is shielded for {shield}% of their maximum Health for {duration} seconds."
+earliest_stage = 2
+marks_cells = true
+boon = true
+mark_color = Color(0.560784, 0.878431, 0.847059, 1)
+values = {
+&"duration": 8.0,
+&"shield": 25.0
+}

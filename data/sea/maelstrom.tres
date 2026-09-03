@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"maelstrom"
+display_name = "Maelstrom"
+icon = "🌀"
+herald = "A whirlpool opens in each half of the board. The water round them will not let go."
+description = "Every {interval} seconds each whirlpool drags everyone standing in its water one hex toward the eye."
+earliest_stage = 2
+marks_cells = true
+boon = false
+mark_color = Color(0.247059, 0.560784, 0.815686, 1)
+values = {
+&"first": 5.0,
+&"interval": 6.0
+}

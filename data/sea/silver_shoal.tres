@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"silver_shoal"
+display_name = "Silver Shoal"
+icon = "🐟"
+herald = "Baitfish boil silver in patches across the board. There is luck in that water."
+description = "Every {interval} seconds, anyone standing over the shoal gains {mana} Mana."
+earliest_stage = 2
+marks_cells = true
+boon = true
+mark_color = Color(0.811765, 0.882353, 0.960784, 1)
+values = {
+&"first": 3.0,
+&"hexes": 4.0,
+&"interval": 4.0,
+&"mana": 20.0
+}

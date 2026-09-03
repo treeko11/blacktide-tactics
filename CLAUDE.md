@@ -366,6 +366,32 @@ Each of these cost a debugging session or settles a design argument.
   a tax makes the herald a worse round with a nicer name. A following sea pays
   the lane, which is the opposite-shaped decision to getting out of one, and the
   system needs both to be a system.
+- **Ten of them, five hazards and five fair winds**, and the split is the point:
+  half the weather is answered by moving away from water and half by moving into
+  it, so a captain who reads the forecast is making a placement decision either
+  way rather than deciding how much of a tax to eat. They are levers rather than
+  variations — range (fog), health (red tide, sunlit shallows), position (rogue
+  waves, maelstrom), mana (doldrums, silver shoal), attack speed (following sea),
+  survival at the bell (sheltered cove) and damage held for (witchfire) — and a
+  new sea earns its place by being a lever or a *shape*, not by being a number.
+  The fair winds are deliberately paid in different shapes too: a pulse to
+  whoever is there, a trickle while they stand there, one payment at the bell to
+  whoever committed in the planning phase, and one that only means anything if
+  the ground is held. Ten is also more than a long run has stages, so the bag
+  never empties inside a run: no two weather rounds of one run are the same sea.
+- **The water is drawn symmetrically, and that is tested.** Cells are in board
+  coordinates and the sim never mirrors them, so a sea that draws its lanes
+  anywhere but evenly hands one captain a fair wind the other cannot reach, or a
+  hazard the other never has to answer — and nothing in a played round would
+  report it. Every marked sea draws the same count of hexes in each half of the
+  board over 25 seeds; a disc is drawn twice rather than reflected, because a
+  mirror flips the row parity and a reflected offset-grid disc is not a disc.
+- **`Hex.neighbours` returns only the neighbours that are on the board.** So
+  "every neighbour of this cell is marked" is quietly true of a cell lying
+  against the edge — the water it is missing is water nobody could have marked.
+  The maelstrom finds the eye of each whirlpool by looking for the marked cell
+  with a complete marked ring, and read that way it reported six eyes on a disc
+  the draw had put on the bottom row. It counts the ring as well as checking it.
 - **The phone's top bar has no slack at all.** It ended with the almanac button
   hard against the right edge, so the weather chip that fits on a desktop pushed
   that button off the screen — on the weather round, which is the round somebody

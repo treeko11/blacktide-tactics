@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"witchfire"
+display_name = "Witchfire"
+icon = "✨"
+herald = "Cold fire clings to the water over the middle ground. It builds on anything that stands in it."
+description = "Every {interval} seconds, anyone standing in the witchfire gains {damage_amp}% Damage for {duration} seconds. It stacks."
+earliest_stage = 2
+marks_cells = true
+boon = true
+mark_color = Color(0.843137, 0.721569, 1.0, 1)
+values = {
+&"damage_amp": 8.0,
+&"duration": 9.0,
+&"first": 2.0,
+&"hexes": 3.0,
+&"interval": 3.0
+}

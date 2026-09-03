@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SeaDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sea_def.gd" id="1_sea"]
+
+[resource]
+script = ExtResource("1_sea")
+id = &"doldrums"
+display_name = "Doldrums"
+icon = "🌞"
+herald = "The wind dies and the sea goes to glass. Nothing out here charges."
+description = "Every ability on the board needs {mana}% more Mana before it will cast."
+earliest_stage = 2
+marks_cells = false
+boon = false
+mark_color = Color(0.909804, 0.850980, 0.658824, 1)
+values = {
+&"mana": 35.0
+}

@@ -578,8 +578,8 @@ func entries(section: StringName) -> Array:
 					"id": def.id, "title": def.display_name, "icon": def.icon,
 					"group": "Fair winds" if def.boon else "Hazards",
 				})
-			# Hazards first: three of the four are, and a reader looking one up
-			# mid-round is far more often looking up the one hurting them.
+			# Hazards first. There are five of each now, and a reader looking one
+			# up mid-round is far more often looking up the one hurting them.
 			seas.sort_custom(func(a, b): return a["group"] > b["group"])
 			return seas
 		&"items":
@@ -1094,8 +1094,8 @@ Hover anything to inspect it — including a pirate mid-fight, which is the one 
 
 ## The rules of the weather, rather than the weather itself.
 ##
-## The four seas moved to their own section the moment there was something to
-## say about each of them beyond a line — this page is what a player wants the
+## The seas moved to their own section the moment there was something to say
+## about each of them beyond a line — this page is what a player wants the
 ## first time a herald appears, which is "what just happened to my round", not
 ## "what is the attack speed on a following sea".
 func _sea_page(found: Dictionary) -> String:
@@ -1114,7 +1114,7 @@ func _sea_page(found: Dictionary) -> String:
 		% _link(&"guide", &"monsters", "Monster waves"))
 	lines.append("")
 	lines.append(_heading("A different order every run"))
-	lines.append("[color=#8fa6b5]The seas are dealt from a shuffled hand rather than rolled fresh each stage, so you meet every one of them before any repeats — in an order you cannot plan for twice.[/color]")
+	lines.append("[color=#8fa6b5]The seas are dealt from a shuffled hand rather than rolled fresh each stage, so none of them comes round again until every one has been dealt. There are more seas in the hand than there are stages in a long run, so no two weather rounds of a run are ever the same one — and the order is different every time.[/color]")
 	lines.append("")
 	lines.append("[color=#8fa6b5]%s lists all of them.[/color]"
 		% _link(&"seas", &"", "The seas section"))

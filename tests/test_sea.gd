@@ -37,6 +37,18 @@ func _column(x: int) -> Array[Vector2i]:
 	return out
 
 
+## One whirlpool: a cell and the ring around it. Built here rather than drawn by
+## the sea, so a test knows where the eye is without having to work it out the
+## way the effect does — the point of the maelstrom tests is what the drag does,
+## not where the water landed.
+func _disc(eye: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for cell in Hex.in_range(eye, 1, true):
+		if Hex.on_board(cell):
+			out.append(cell)
+	return out
+
+
 # --- the definitions ---------------------------------------------------------
 
 ## Every sea says what it is, what it does, and has something to do it with.
@@ -312,3 +324,198 @@ func test_a_following_sea_only_pays_the_lane() -> void:
 	run_for(sim, first + 0.2)
 	assert_gt(inside.attack_speed, base, "the pirate in the lane got nothing")
 	assert_eq(outside.attack_speed, base, "the current reached three hexes out of its lane")
+
+
+## Both captains are offered the same water.
+##
+## The cells are drawn once, in board coordinates, and are never mirrored by the
+## sim — so a sea that draws its water anywhere but symmetrically hands one side
+## of the board a fair wind the other cannot reach, or a hazard the other never
+## has to answer. Nothing else would report that: the round plays, the marks come
+## up, and the sea simply favours whoever was seated on the lucky half.
+func test_every_marked_sea_offers_both_halves_the_same_water() -> void:
+	var rng := RandomNumberGenerator.new()
+	for def in content().seas():
+		if not def.marks_cells:
+			continue
+		var effect: SeaEffect = content().sea_effect(def.id)
+		for s in 25:
+			rng.seed = s
+			var mine := 0
+			var theirs := 0
+			for cell in effect.cells(def, rng):
+				if Hex.is_player_half(cell):
+					mine += 1
+				else:
+					theirs += 1
+			assert_eq(mine, theirs,
+				"%s on seed %d marked %d hexes down here and %d up there"
+					% [def.id, s, mine, theirs])
+
+
+## The doldrums lengthen every mana bar on the board.
+##
+## The one lever no other sea touches, and the quietest to break: a fight under
+## it looks exactly like a fight without it until somebody counts the casts.
+func test_the_doldrums_lengthen_a_mana_bar() -> void:
+	var clear := battle([entry(&"barnaby", Vector2i(3, 6))], [entry(&"rat", Vector2i(3, 1))])
+	var open_bar: float = clear.teams[Sim.Team.PLAYER][0].max_mana
+	assert_gt(open_bar, 0.0, "barnaby should have an ability to charge")
+
+	var sim := battle([entry(&"barnaby", Vector2i(3, 6))], [entry(&"rat", Vector2i(3, 1))],
+		12345, &"doldrums")
+	var extra: float = 1.0 + content().sea(&"doldrums").value(&"mana") / 100.0
+	assert_almost_eq(sim.teams[Sim.Team.PLAYER][0].max_mana, open_bar * extra, 0.01,
+		"the doldrums did not slow the charge")
+
+
+## A whirlpool has exactly one eye, and there is one in each half.
+##
+## The eye is worked out from the marked cells rather than remembered, so this is
+## the assertion holding that derivation up: a disc that came out with two eyes,
+## or with none, would drag its crew somewhere nobody was told about.
+func test_a_maelstrom_has_one_eye_in_each_half() -> void:
+	var def: SeaDef = content().sea(&"maelstrom")
+	var effect: SeaEffect = content().sea_effect(&"maelstrom")
+	var rng := RandomNumberGenerator.new()
+	for s in 30:
+		rng.seed = s
+		var cells: Array[Vector2i] = effect.cells(def, rng)
+		var eyes: Array[Vector2i] = effect._eyes({ "cells": cells })
+		assert_eq(eyes.size(), 2, "seed %d drew %d eyes" % [s, eyes.size()])
+		assert_ne(Hex.is_player_half(eyes[0]), Hex.is_player_half(eyes[1]),
+			"seed %d put both eyes in the same half" % s)
+
+
+## The maelstrom drags what is standing in its water toward the eye.
+func test_a_maelstrom_drags_a_unit_into_the_eye() -> void:
+	var eye := Vector2i(3, 5)
+	var rim := Vector2i(3, 6)
+	var clear_water := Vector2i(0, 7)
+	var sim := _becalmed(&"maelstrom", _disc(eye), [rim, clear_water])
+	var caught: SimUnit = sim.unit_at(rim)
+	var untouched: SimUnit = sim.unit_at(clear_water)
+	assert_not_null(caught, "nobody was seated on the rim of the whirlpool")
+
+	var first: float = content().sea(&"maelstrom").value(&"first")
+	run_for(sim, first + 0.5)
+	assert_eq(caught.cell, eye, "the whirlpool left the pirate where it found them")
+	assert_eq(sim.unit_at(eye), caught, "occupancy did not follow the drag")
+	assert_true(sim.cell_free(rim), "the pirate left a corpse on the rim")
+	assert_eq(untouched.cell, clear_water, "the whirlpool reached across open water")
+
+
+## A full eye is not dragged into itself, and nobody is pulled through anybody.
+func test_a_maelstrom_never_stacks_two_units_on_one_hex() -> void:
+	var eye := Vector2i(3, 5)
+	var rim := Vector2i(3, 6)
+	var sim := _becalmed(&"maelstrom", _disc(eye), [eye, rim])
+	var inside: SimUnit = sim.unit_at(eye)
+	var outside: SimUnit = sim.unit_at(rim)
+
+	var first: float = content().sea(&"maelstrom").value(&"first")
+	run_for(sim, first + 0.5)
+	assert_eq(inside.cell, eye, "the pirate in the eye was dragged out of it")
+	assert_eq(outside.cell, rim, "the rim was pulled into an occupied eye")
+
+
+## The sunlit shallows mend what is standing in them and nothing else.
+func test_the_sunlit_shallows_only_mend_the_bright_water() -> void:
+	var bright := Vector2i(2, 5)
+	var dark := Vector2i(5, 5)
+	var water: Array[Vector2i] = [bright]
+	var sim := _becalmed(&"sunlit_shallows", water, [bright, dark])
+	var healed: SimUnit = sim.unit_at(bright)
+	var dry: SimUnit = sim.unit_at(dark)
+	healed.hp = healed.max_hp * 0.5
+	dry.hp = dry.max_hp * 0.5
+
+	run_for(sim, 3.5)
+	assert_gt(healed.hp, healed.max_hp * 0.5, "the shallows did not mend anybody")
+	assert_eq(dry.hp, dry.max_hp * 0.5, "the shallows reached three hexes of open water")
+
+
+## The cove pays whoever is anchored in it at the bell, and only them.
+##
+## Asserted before a tick has run, because that is when it is paid: a cove that
+## handed its shield out on a timer would be a different sea, and one that pays
+## a pirate who walked in later is the one thing this sea is not.
+func test_the_sheltered_cove_shields_whoever_starts_in_it() -> void:
+	var inside := Vector2i(2, 4)
+	var outside := Vector2i(2, 6)
+	var cove: Array[Vector2i] = []
+	for x in Hex.COLS:
+		cove.append(Vector2i(x, 4))
+		cove.append(Vector2i(x, Hex.ROWS - 1 - 4))
+
+	var sim := battle([entry(&"barnaby", inside), entry(&"barnaby", outside)],
+		[entry(&"rat", Vector2i(0, 0))], 12345, &"sheltered_cove", cove)
+	var covered: SimUnit = sim.unit_at(inside)
+	var exposed: SimUnit = sim.unit_at(outside)
+
+	var share: float = content().sea(&"sheltered_cove").value(&"shield") / 100.0
+	assert_almost_eq(covered.shield, covered.max_hp * share, 1.0,
+		"the cove sheltered nobody")
+	assert_eq(exposed.shield, 0.0, "the cove covered a pirate two rows out of it")
+
+
+## The shoal charges an ability sooner for whoever is standing over it.
+func test_a_silver_shoal_only_pays_the_water_it_marked() -> void:
+	var over := Vector2i(2, 5)
+	var away := Vector2i(5, 5)
+	var water: Array[Vector2i] = [over]
+	var sim := _becalmed(&"silver_shoal", water, [over, away])
+	var lucky: SimUnit = sim.unit_at(over)
+	var plain: SimUnit = sim.unit_at(away)
+	assert_gt(lucky.max_mana, 0.0, "the test needs a champion with an ability")
+
+	var first: float = content().sea(&"silver_shoal").value(&"first")
+	run_for(sim, first + 0.2)
+	assert_gt(lucky.mana, plain.mana + 1.0, "the shoal gave nobody anything")
+
+
+## Witchfire builds while it is held.
+##
+## Every other fair wind pays the same amount every time it pays; this one is the
+## only one whose whole point is the second, third and fourth pulse. A version of
+## it that applied cleanly and refused to stack would look exactly like this one
+## while being worth a third as much.
+func test_witchfire_stacks_while_it_is_held() -> void:
+	var held := Vector2i(3, 4)
+	var cold_water := Vector2i(0, 7)
+	var water: Array[Vector2i] = [held]
+	var sim := _becalmed(&"witchfire", water, [held, cold_water])
+	var burning: SimUnit = sim.unit_at(held)
+	var cold: SimUnit = sim.unit_at(cold_water)
+	assert_eq(burning.damage_amp, 0.0, "the fight started with the fire already lit")
+
+	var def: SeaDef = content().sea(&"witchfire")
+	var stack: float = def.value(&"damage_amp") / 100.0
+	run_for(sim, def.value(&"first") + 0.2)
+	assert_almost_eq(burning.damage_amp, stack, 0.001, "the first pulse lit nothing")
+
+	run_for(sim, def.value(&"interval") * 2.0)
+	assert_almost_eq(burning.damage_amp, stack * 3.0, 0.001,
+		"the fire did not build on a pirate that held the ground")
+	assert_eq(cold.damage_amp, 0.0, "the fire reached across the board")
+
+
+## ...and it burns out once the ground is given up.
+##
+## Each pulse expires on its own clock, which is what stops a crew that crossed
+## the middle early carrying the middle's damage to the end of the fight.
+func test_witchfire_fades_once_the_ground_is_given_up() -> void:
+	var held := Vector2i(3, 4)
+	var water: Array[Vector2i] = [held]
+	var sim := _becalmed(&"witchfire", water, [held])
+	var burning: SimUnit = sim.teams[Sim.Team.PLAYER][0]
+
+	var def: SeaDef = content().sea(&"witchfire")
+	run_for(sim, def.value(&"first") + 0.2)
+	assert_gt(burning.damage_amp, 0.0, "the fire never lit")
+
+	# Out of the water, with the fight otherwise frozen.
+	sim.place(burning, Vector2i(0, 7))
+	run_for(sim, def.value(&"duration") + 0.5)
+	assert_almost_eq(burning.damage_amp, 0.0, 0.001,
+		"the fire followed a pirate that walked out of it")
