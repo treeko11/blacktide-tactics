@@ -648,10 +648,20 @@ pirate is a few dozen polygons in `UnitArt`, and the sea is a fragment shader.
   in the manifest and nowhere else. Bosun was on that list and came off it — a
   mark that is *worn* rather than drawn near the figure survives crossing four
   bodies, which is what makes it the one Class that could have one.
-  The one deliberate half-rule is `musket`, declared non-exclusive: every Gunner
-  carries one, but so do Vance and Voss, and an admiral with a firearm is not a
-  lie. Only the bodies outside `CREW_BODIES` can be read backwards, because
-  Corsair licenses `pirate` and `gunner` and so does having no faction at all.
+  Only the bodies outside `CREW_BODIES` can be read backwards, because Corsair
+  licenses `pirate` and `gunner` and so does having no faction at all.
+- **A mark whose only difference is length is not a mark.** `musket` was on
+  every Gunner and on nobody else worth mentioning, and it still told a player
+  nothing: `_weapon_gun` drew the same short stock for a musket and for the
+  pistol the same body falls back to, so the two differed by seven units of a
+  1.5-unit metal line — a pixel or two at a 43-point hex. It passed the
+  completeness test and failed the eye. A long gun now carries a **wooden
+  fore-end along two thirds of its barrel and a flared muzzle**, so the
+  difference is thickness and colour rather than length, and neither is
+  `detail`-gated because both are what the mark *is*. The other half was the
+  leak: Vance and Voss carried a musket without the trait, so both were given
+  the spyglass their Navigator class had a better claim to, and `musket` is now
+  declared exclusive — a long gun on the board means Gunner and nothing else.
 - **A worn mark is drawn by the body, at the layer the thing is worn at.**
   `storm` and `tide` are drawn by `draw_unit` after the body dispatch, because
   weather goes on top of everything. Bosun's `rope` is a bandolier, so `_human`,

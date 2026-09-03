@@ -30,10 +30,10 @@ const ART := {
 	# --- Royal Navy: the `officer` body, which is a different outline rather ---
 	# --- than a different hat. The bicorn and the shoulder boards come from   ---
 	# --- the body now, so neither is listed as a mark.                        ---
-	&"vance":     { "body": &"officer", "tint": "d6b84f", "marks": [&"musket", &"plume"] },
+	&"vance":     { "body": &"officer", "tint": "d6b84f", "marks": [&"spyglass", &"plume"] },
 	&"corvane":   { "body": &"officer", "tint": "2f5a9e", "marks": [&"musket", &"beard"] },
 	&"marlowe":   { "body": &"officer", "tint": "3f5f8f", "marks": [&"musket"] },
-	&"voss":      { "body": &"officer", "tint": "5a7a8f", "marks": [&"musket", &"keg"] },
+	&"voss":      { "body": &"officer", "tint": "5a7a8f", "marks": [&"spyglass", &"keg"] },
 	&"tuck":      { "body": &"officer", "tint": "4f86b8", "marks": [&"spyglass", &"parrot"] },
 	&"ned":       { "body": &"officer", "tint": "1f3f66", "marks": [&"anchor", &"beard", &"rope"] },
 
@@ -153,7 +153,7 @@ const TRAIT_MARKS := {
 	&"tidecaller": { "mark": &"tide", "exclusive": true },
 	&"stormborn": { "mark": &"storm", "exclusive": true },
 	&"ghost": { "mark": &"tattered", "exclusive": true },
-	&"gunner": { "mark": &"musket", "exclusive": false },
+	&"gunner": { "mark": &"musket", "exclusive": true },
 	&"bosun": { "mark": &"rope", "exclusive": true },
 }
 

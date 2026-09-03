@@ -979,13 +979,31 @@ static func _weapon_anchor(ci: CanvasItem, pal: Dictionary, hand: Vector2,
 
 static func _weapon_gun(ci: CanvasItem, pal: Dictionary, pose: Pose, hand: Vector2,
 		aim: Vector2, length: float) -> void:
-	# A stock as long as the barrel, and a lock between them. A bare pale line is
-	# a sword; what says firearm at this size is the wooden half.
+	# A stock, a lock, and a barrel. A bare pale line is a sword; what says
+	# firearm at this size is the wooden half.
+	#
+	# **A musket is more wood, not more wire.** The two guns used to differ only
+	# in how far a 1.5-unit metal line ran past the lock — seven units of it,
+	# which is a pixel or two at the 43-point hex a phone gives a unit. So the
+	# mark that carries the whole Gunner class was, in practice, "holding a
+	# stick", the same as the pistol Calypso and Thalassa carry without the
+	# trait. A long gun now gets a wooden fore-end along two thirds of its
+	# barrel and a flared muzzle at the end of it, both of which are silhouette
+	# and neither of which is `detail`-gated.
 	var across := aim.orthogonal()
 	_shape(ci, PackedVector2Array([hand - aim * 8.0 - across * 1.4, hand + aim * 4.0 - across * 2.2,
 		hand + aim * 4.0 + across * 2.2, hand - aim * 6.0 + across * 3.2]), pal["wood"])
 	ci.draw_circle(hand + aim * 3.0, 1.8, pal["metal"])
+	var fore: float = (length - 4.0) * 0.66
+	if fore > 4.0:
+		_limb(ci, hand + aim * 2.5, hand + aim * (2.5 + fore), 2.8, 2.1, pal["wood"])
 	_limb(ci, hand + aim * 2.0, hand + aim * length, 1.5, 1.2, pal["metal"])
+	if length > 13.0:
+		_shape(ci, PackedVector2Array([
+			hand + aim * (length - 2.5) - across * 1.3,
+			hand + aim * (length + 1.4) - across * 2.7,
+			hand + aim * (length + 1.4) + across * 2.7,
+			hand + aim * (length - 2.5) + across * 1.3]), pal["metal"])
 	if pose.swing > 0.35:
 		# The muzzle flash the fx layer draws is at the target's end of the shot;
 		# this is the other end, and without it a volley has no source.
