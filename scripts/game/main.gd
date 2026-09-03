@@ -70,6 +70,15 @@ var _hover_champion: ChampionDef = null
 ## of a fight is long enough for the text to be stale before it appears.
 var _hover_refresh: Callable = Callable()
 
+## The control the record came from, captured off the viewport when the hover
+## fired rather than taken from the caller — the panels pass wildly different
+## things as the tooltip's owner (the whole ShopBar, or nothing at all), and what
+## is wanted here is the innermost control, which is the one the finger is on.
+##
+## It is the answer to "is this second touch on the same thing as the last one",
+## which on a touchscreen is a question nothing else can answer. See `_input`.
+var _hover_owner: Control = null
+
 var _hold_origin := Vector2.ZERO
 var _hold_time: float = 0.0
 var _holding: bool = false
@@ -737,6 +746,45 @@ func _note_hover(kind: StringName, text: String, unit: RosterUnit = null,
 	# inspector from what the hover noted, a third of a second later, and the
 	# panel it is re-opening from has usually gone.
 	_hover_champion = champion
+	_hover_owner = get_viewport().gui_get_hovered_control()
+
+
+## Whether `at` is on the thing the hover record describes.
+##
+## The touchscreen's answer to "is this the same subject as last time". A tap
+## leaves the emulated cursor sitting inside whatever it landed on, so a second
+## touch on the same control produces no `mouse_entered` and no motion — and
+## therefore no second hover — which is why the record has to be reusable rather
+## than rebuilt. Reusing it anywhere else would pin whatever was last read to
+## whatever the finger is now on, so it is checked against the control's own rect
+## rather than against the fact that a record exists.
+func _hover_covers(at: Vector2) -> bool:
+	if _hover_kind == &"" or _hover_owner == null:
+		return false
+	if not is_instance_valid(_hover_owner) or not _hover_owner.is_inside_tree():
+		return false
+	return Rect2(_hover_owner.global_position, _hover_owner.size).has_point(at)
+
+
+## Puts the inspector back up from the record, for a touch that cannot re-hover.
+##
+## A frame late, and only if nothing else has claimed the inspector by then. The
+## finger's own emulated motion arrives after the touch event, so a tap that has
+## in fact landed on something new gets that thing's hover in the meantime — and
+## this bails rather than flashing the previous subject over the top of it.
+func _reopen_hover(at: Vector2) -> void:
+	await get_tree().process_frame
+	if tooltip.visible or tooltip.pinned or _hover_kind == &"":
+		return
+	var text := _hover_text
+	if _hover_refresh.is_valid():
+		text = _hover_refresh.call()
+	# Sold, bought, merged or killed while the inspector was shut. Nothing to
+	# put back, and the record is stale in every other way too.
+	if text == "":
+		_forget_hover()
+		return
+	tooltip.show_text(text, at, _hover_owner, _hover_refresh, _hover_champion)
 
 
 ## Closes the inspector whatever state it is in, pinned included.
@@ -776,6 +824,7 @@ func _forget_hover() -> void:
 	_hover_unit = null
 	_hover_champion = null
 	_hover_refresh = Callable()
+	_hover_owner = null
 
 
 # =============================================================================
@@ -805,8 +854,16 @@ func _input(event: InputEvent) -> void:
 			# desktop never comes: a tooltip opened on the way into a tap stayed up
 			# until the next tap somewhere else. A pinned one is exempt — that was
 			# opened deliberately by a hold and has its own way out.
+			#
+			# The panel is hidden and the *record* is kept, which is the other
+			# half of the same asymmetry and was missed. The cursor not leaving
+			# means no second `mouse_entered` is ever coming either, so throwing
+			# the record away here left the thing that had just been tapped
+			# unreadable: tapping it again showed nothing and holding it pinned
+			# nothing, until the player touched something else and came back.
+			# `_begin_hold` is what decides the record still applies.
 			if not tooltip.pinned:
-				_dismiss_inspector()
+				tooltip.hide_now()
 	elif event is InputEventScreenDrag and _holding:
 		# Past the slop this is a drag, and dragging a pirate somewhere is not a
 		# request to read about it.
@@ -826,6 +883,16 @@ func _begin_hold(at: Vector2) -> void:
 			tooltip.hide_now()
 			ShopBar.swallow_click = true
 		return
+
+	# A touchscreen gets no second hover on the same spot, so the record from the
+	# last one is reused when the finger is still on the control that made it,
+	# and dropped when it is not — whatever it *has* landed on will announce
+	# itself a moment later, through the ordinary hover path.
+	if _hover_covers(at):
+		_reopen_hover(at)
+	else:
+		_forget_hover()
+
 	_hold_origin = at
 	_hold_time = 0.0
 	_holding = true

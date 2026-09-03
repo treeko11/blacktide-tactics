@@ -34,6 +34,9 @@ extends "res://tools/tool_script.gd"
 ##                    on the way in is gone once the finger is off
 ##   --sequence=forge replay the reported lock-up: read the forge chart, close
 ##                    it, then try to buy from the shop
+##   --sequence=reread  read the same pirate twice running without moving the
+##                    pointer in between, which is what a phone does and what
+##                    stopped working
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
 ##                    with it, holds a dead pirate's last numbers, and still
 ##                    answers after VICTORY. Needs two or more in --units=
@@ -363,6 +366,8 @@ func _sequence(game: Node, which: String) -> void:
 			await _browse_the_almanac()
 		"buy":
 			await _tap_to_buy(game)
+		"reread":
+			await _read_the_same_pirate_twice(game)
 		_:
 			fail("unknown sequence '%s'" % which)
 			return
@@ -418,6 +423,70 @@ func _sequence(game: Node, which: String) -> void:
 		fail("the shop swallowed %d tap(s) after %s before responding" % [bought - 1, which])
 	else:
 		print("  the first tap after %s bought a pirate" % which)
+
+
+## Reads the same pirate twice running, which is what stopped working.
+##
+## A tap leaves the emulated cursor sitting inside whatever it landed on, so a
+## second touch on that same thing produces no `mouse_entered` and no motion —
+## and a phone's synthetic mouse events behave the same way, which is where this
+## was reported from. The inspector was opened only by that hover, and the record
+## of what the finger was on was thrown away on the release, so the thing just
+## tapped could not be read again at all: tapping it showed nothing, and holding
+## it pinned nothing, until the player touched something else and came back.
+##
+## **The pointer is deliberately not moved between the touches.** Moving it is
+## what hid this from every other sequence here — each of them reaches for a
+## different control every time, which is exactly the case that always worked.
+##
+## A bench pirate rather than a shop card, because a tap on a card buys it: the
+## card would then be empty, the refresh would return "" and close the inspector
+## for a completely legitimate reason, and the test would pass or fail on
+## something other than what it is asking about.
+func _read_the_same_pirate_twice(game: Node) -> void:
+	if game.bench[0] == null:
+		_bench(game, PackedStringArray([_a_champion(game)]))
+		await _frames(4)
+	var slot: Control = _scene.bench._slots[0]
+	var at := _centre_of(slot)
+
+	_hover_at(at)
+	await _frames(4)
+	if not _scene.tooltip.visible:
+		fail("the first hover never opened the inspector at all")
+		return
+
+	await _touch(at, 0.05)
+	if _scene.tooltip.visible:
+		fail("the tap did not close the inspector it had opened")
+		return
+
+	# The same pirate again, with nothing having moved in between. Held down
+	# across the check, because the release is what closes it again.
+	_touch_down(at)
+	await _frames(8)
+	var reopened: bool = _scene.tooltip.visible
+	_touch_up(at)
+	await _frames(4)
+	if not reopened:
+		fail("the same pirate could not be read a second time")
+	else:
+		print("  a second touch on the same pirate opened its inspector")
+
+	# And a hold on it still pins, which is the read gesture on a phone and the
+	# half that leaves nothing on screen at all when it fails.
+	_touch_down(at)
+	await _frames(40)
+	var pinned: bool = _scene.tooltip.pinned
+	_touch_up(at)
+	await _frames(4)
+	if not pinned:
+		fail("a press-and-hold on the same pirate pinned nothing")
+	else:
+		print("  a hold on the same pirate still pins")
+
+	_scene.tooltip.hide_now()
+	await _frames(4)
 
 
 ## Taps its way through the almanac and leaves by the scrim.
