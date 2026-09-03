@@ -327,6 +327,21 @@ Each of these cost a debugging session or settles a design argument.
   to be standing reads as a miss that somehow still hurt.
 - **`FxLayer` is one node that draws every effect.** A node per hit meant
   hundreds of allocations a second at 4x for things living a fifth of a second.
+- **A floating number is per event, not per tick.** Every regeneration in the
+  game — Hull of the Deep, the Tidecaller tide, the Navy's recovery — pays out
+  through `Sim.heal` once a tick, and the popup was written as
+  `if done_amount > 1.0`. So a 4,500 HP three-star under Tidecaller drew thirty
+  "+6"s a second stacked on one hex: the same healing, rendered as noise, and
+  text effects are the one kind `FxLayer` exempts from `MAX_EFFECTS`, so nothing
+  capped it either. The same line drew *nothing* for a unit small enough that a
+  tick came to less than a point, which made whether regeneration was visible at
+  all a fact about the healed unit's max health. `_bank_heal_popup` banks
+  healing per unit and shows it once it is worth reading — `HEAL_POPUP_FRACTION`
+  of max health, never a lower bar than `HEAL_POPUP_MIN` — or once
+  `HEAL_POPUP_WINDOW` is up, so a burst still lands on the frame it happened and
+  a trickle reports about once a second at the figure it actually healed for. It
+  banks only while `render` is true, which is what keeps the six unwatched
+  fights free and a watched fight identical to a headless one.
 - **A phase is announced after the state it needs exists.** `_open_armoury`
   emitted `phase_changed` and *then* filled `armoury_offer`, so Main opened the
   armoury on the array the previous stage's pickup had cleared: a modal with a
