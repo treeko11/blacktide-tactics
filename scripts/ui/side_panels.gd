@@ -136,6 +136,14 @@ class HoldPanel extends VBoxContainer:
 	signal item_hovered(item_id: StringName, at: Vector2)
 	signal item_unhovered()
 	signal forge_chart_requested()
+	signal preview_changed(text: String)
+	## An item picked up and held over another one that it pairs with. The hold
+	## cannot take the drop — forging happens on a pirate — but the question
+	## "what do these two make" is asked here, over the two components, long
+	## before either of them is anywhere near a pirate.
+	signal forge_previewed(item_id: StringName, with_id: StringName, unit: RosterUnit,
+		at: Vector2, source: Control)
+	signal forge_preview_cleared()
 
 	var _grid: Container = null
 	var _compact: bool = false
@@ -208,6 +216,10 @@ class HoldPanel extends VBoxContainer:
 			chip.fresh_since = _fresh.get(item_id, 0)
 			chip.hovered.connect(func(at): item_hovered.emit(item_id, at))
 			chip.unhovered.connect(func(): item_unhovered.emit())
+			chip.preview_changed.connect(func(text): preview_changed.emit(text))
+			chip.forge_previewed.connect(func(dragged, with_id, at, source):
+				forge_previewed.emit(dragged, with_id, null, at, source))
+			chip.forge_preview_cleared.connect(func(): forge_preview_cleared.emit())
 			_grid.add_child(chip)
 
 	## Drops timestamps the flash has outlived.
@@ -226,12 +238,20 @@ class HoldPanel extends VBoxContainer:
 class ItemChip extends Control:
 	signal hovered(at: Vector2)
 	signal unhovered()
+	signal preview_changed(text: String)
+	signal forge_previewed(item_id: StringName, with_id: StringName, at: Vector2,
+		source: Control)
+	signal forge_preview_cleared()
 
 	## How long a newly acquired item keeps its highlight, in milliseconds.
 	const FRESH_MS := 6000.0
 
 	var item: ItemDef = null
 	var fresh_since: int = 0
+	## True while a component being dragged would forge with this one, which is
+	## the answer drawn on the chip itself — the inspector says what it makes,
+	## the frame says which of the chips in the hold is the other half.
+	var _forge_lit: bool = false
 
 	func _init() -> void:
 		custom_minimum_size = Layout.item_chip()
@@ -263,7 +283,57 @@ class ItemChip extends Control:
 		var preview := ItemChip.new()
 		preview.item = item
 		set_drag_preview(preview)
-		return { "kind": &"item", "id": item.id }
+		# `from` is the chip the drag started on, not the item's id: two Corsair's
+		# Blades in the hold are two chips carrying the same id, and a pair of
+		# them is a real forge. Without the chip itself there is no way to tell
+		# "held over its twin" from "held over where it was picked up", and a
+		# component would offer to forge with itself.
+		return { "kind": &"item", "id": item.id, "from": self }
+
+	## Reports what the dragged component would make with this one, and never
+	## takes the drop.
+	##
+	## The hold is not where forging happens — two components become an item on
+	## the pirate they are both dropped on — so this always answers no. What it
+	## is for is the question asked before that: the player picks a component up,
+	## holds it over another, and finds out what the pair makes without having to
+	## weld them to somebody to see it.
+	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
+		if typeof(data) != TYPE_DICTIONARY or data.get("kind") != &"item":
+			return false
+		if item == null or data.get("from") == self:
+			return false
+		var dragged: StringName = data["id"]
+		var forged: StringName = GameState.content.forge(dragged, item.id)
+		if forged == &"":
+			_set_lit(false)
+			forge_preview_cleared.emit()
+			return false
+
+		_set_lit(true)
+		var made: ItemDef = GameState.content.item_def(forged)
+		preview_changed.emit("Forges %s %s — drop both on one pirate"
+			% [made.icon, made.display_name])
+		forge_previewed.emit(dragged, item.id,
+			global_position + Vector2(size.x, 0.0), self)
+		return false
+
+	## The frame goes out when the drag ends or the cursor leaves. Unlike the
+	## preview text, this is per chip and cannot be wiped by whichever chip the
+	## cursor moved on to, so it is safe to clear on the way out.
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_DRAG_END:
+			_set_lit(false)
+			preview_changed.emit("")
+			forge_preview_cleared.emit()
+		elif what == NOTIFICATION_MOUSE_EXIT:
+			_set_lit(false)
+
+	func _set_lit(lit: bool) -> void:
+		if _forge_lit == lit:
+			return
+		_forge_lit = lit
+		queue_redraw()
 
 	func _draw() -> void:
 		if item == null:
@@ -280,6 +350,14 @@ class ItemChip extends Control:
 				Color(border.r, border.g, border.b, pulse), false, 2.0)
 
 		draw_rect(Rect2(Vector2.ZERO, size), border, false, 1.5)
+
+		# The other half of the forge the cursor is carrying. Drawn over the
+		# ordinary frame rather than instead of it, so the chip does not change
+		# what it is while a drag passes over it.
+		if _forge_lit:
+			draw_rect(Rect2(Vector2(-2, -2), size + Vector2(4, 4)),
+				UITheme.GOLD_BRIGHT, false, 2.0)
+
 		var font := UITheme.emoji_font()
 		var glyph_size := roundi(size.y * 0.53)
 		var width := font.get_string_size(item.icon, HORIZONTAL_ALIGNMENT_LEFT, -1, glyph_size).x

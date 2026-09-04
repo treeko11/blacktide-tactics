@@ -284,3 +284,59 @@ func test_bonus_ability_power_shows_as_a_multiplier() -> void:
 	assert_true(boosted.contains("×1.80"),
 		"+80 ability power did not read as ×1.80")
 	assert_true(boosted.contains("180"), "the stat block lost the raw figure")
+
+
+# =============================================================================
+#  The forge preview
+# =============================================================================
+#
+# What two components make, answered from the drag rather than after the drop.
+# Equipping cannot be undone, so this is the one inspector in the game that has
+# to be right *before* the player commits to anything.
+
+
+## It is the forged item's own page, not a name.
+##
+## Naming the result was the old answer, and it is half of one: "Forges The
+## Bloodletter" says nothing about what the Bloodletter does, which is the whole
+## question. So the preview carries the same text the almanac and the forge
+## chart give for that item.
+func test_a_forge_preview_carries_the_forged_item_itself() -> void:
+	var made: ItemDef = content().item_def(content().forge(&"blade", &"blade"))
+	var text := Tooltip.forge_text(&"blade", &"blade")
+
+	assert_true(text.contains(made.display_name),
+		"the preview did not name what the pair forges into")
+	assert_true(text.contains(made.description),
+		"the preview named the item without saying what it does")
+	assert_true(text.contains(content().item_def(&"blade").display_name),
+		"the preview did not say which two components it was describing")
+
+
+## Two components that do not pair produce nothing at all.
+##
+## "" is also the tooltip's own signal that its subject has gone, so a preview
+## whose pairing stops being possible closes itself rather than sitting there
+## promising an item nobody can forge.
+func test_a_pair_that_does_not_forge_previews_nothing() -> void:
+	var finished: StringName = content().forge(&"blade", &"blade")
+	assert_eq(Tooltip.forge_text(&"blade", finished), "",
+		"a component and a finished item were offered as a forge")
+	assert_eq(Tooltip.forge_text(finished, finished), "",
+		"two finished items were offered as a forge")
+
+
+## Over a pirate it says whose slots it is about to fill; loose in the hold it
+## says where the drop has to go, because the hold is not where forging happens.
+func test_a_forge_preview_says_where_the_drop_goes() -> void:
+	var champion: ChampionDef = content().champion(&"ashmore")
+	var unit := RosterUnit.new(champion)
+	var on_pirate := Tooltip.forge_text(&"blade", &"plate", unit)
+	assert_true(on_pirate.contains(unit.champion.display_name),
+		"a forge on a pirate did not name the pirate")
+
+	var loose := Tooltip.forge_text(&"blade", &"plate")
+	assert_false(loose.contains(unit.champion.display_name),
+		"a forge with nobody involved named a pirate")
+	assert_true(loose.contains("pirate"),
+		"a forge previewed in the hold did not say a pirate is needed")

@@ -23,6 +23,11 @@ extends PanelContainer
 ## smallest comfortable touch target; five across is 64 and stays thumb-sized.
 
 signal preview_changed(text: String)
+## The forged item under the cursor, for the inspector Main puts up — and the
+## other half, for when whatever is under the cursor stops pairing.
+signal forge_previewed(item_id: StringName, with_id: StringName, unit: RosterUnit,
+	at: Vector2, source: Control)
+signal forge_preview_cleared()
 signal unit_dropped(unit: RosterUnit, slot: int)
 signal item_dropped(item_id: StringName, unit: RosterUnit)
 signal unit_sold(unit: RosterUnit)
@@ -74,6 +79,9 @@ func _ready() -> void:
 		if compact:
 			slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slot.preview_changed.connect(func(text): preview_changed.emit(text))
+		slot.forge_previewed.connect(func(item_id, with_id, unit, at, source):
+			forge_previewed.emit(item_id, with_id, unit, at, source))
+		slot.forge_preview_cleared.connect(func(): forge_preview_cleared.emit())
 		slot.unit_dropped.connect(func(unit): unit_dropped.emit(unit, slot.index))
 		slot.item_dropped.connect(func(item_id, unit): item_dropped.emit(item_id, unit))
 		slot.unit_hovered.connect(func(unit, at): unit_hovered.emit(unit, at))
@@ -103,6 +111,9 @@ func refresh() -> void:
 
 class BenchSlot extends PanelContainer:
 	signal preview_changed(text: String)
+	signal forge_previewed(item_id: StringName, with_id: StringName, unit: RosterUnit,
+		at: Vector2, source: Control)
+	signal forge_preview_cleared()
 	signal unit_dropped(unit: RosterUnit)
 	signal item_dropped(item_id: StringName, unit: RosterUnit)
 	signal unit_hovered(unit: RosterUnit, at: Vector2)
@@ -182,8 +193,20 @@ class BenchSlot extends PanelContainer:
 		if data["kind"] == &"item" and unit != null:
 			var preview: Dictionary = GameState.preview_equip(data["id"], unit)
 			preview_changed.emit(_describe(preview, data["id"]))
+			_report_forge(preview, data["id"], unit)
 			return preview.get("allowed", false)
+		forge_preview_cleared.emit()
 		return false
+
+	## The forged item's own inspector, while the cursor is over the pirate
+	## holding the other half. The line says what it makes; this says what the
+	## thing it makes does, which is the half the decision actually turns on.
+	func _report_forge(preview: Dictionary, item_id: StringName, unit: RosterUnit) -> void:
+		if preview.get("forges", &"") == &"":
+			forge_preview_cleared.emit()
+			return
+		forge_previewed.emit(item_id, preview["with"], unit,
+			global_position + Vector2(size.x * 0.5, 0.0), self)
 
 	## Says what the drop would produce, before it happens.
 	func _describe(preview: Dictionary, item_id: StringName) -> String:
@@ -197,11 +220,27 @@ class BenchSlot extends PanelContainer:
 		return "Equip %s" % item.display_name
 
 	func _drop_data(_at: Vector2, data: Variant) -> void:
-		preview_changed.emit("")
+		_clear_preview()
 		if data["kind"] == &"unit":
 			unit_dropped.emit(data["unit"])
 		elif data["kind"] == &"item" and unit != null:
 			item_dropped.emit(data["id"], unit)
+
+	## A drag that ended anywhere — dropped here, dropped elsewhere, or
+	## abandoned — leaves the line and the inspector describing a drop that is
+	## not going to happen. Godot tells every control the drag is over, which is
+	## the only notice a slot the cursor left long ago ever gets.
+	##
+	## Deliberately not on MOUSE_EXIT: the control being left is notified after
+	## the one being entered has already been asked whether it can take the drop,
+	## so clearing there wipes the preview the *next* slot has just set.
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_DRAG_END:
+			_clear_preview()
+
+	func _clear_preview() -> void:
+		preview_changed.emit("")
+		forge_preview_cleared.emit()
 
 
 # =============================================================================

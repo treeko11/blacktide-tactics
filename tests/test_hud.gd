@@ -398,3 +398,62 @@ func _marked_speed(bar: TopBar) -> int:
 		if bar._speed_buttons[i].button_pressed:
 			return bar.SPEEDS[i]
 	return 0
+
+
+## An item held over another item answers, and never takes the drop.
+##
+## The hold is not where forging happens — two components become an item on the
+## pirate they are both dropped on — so a chip that accepted the drop would be
+## promising a rule the game does not have. What it owes the player is the
+## answer: these two make that, before either is welded to anybody.
+##
+## The last act is the one that hid the bug this was written around: a hold
+## holding two Corsair's Blades is two chips carrying the same id, and a real
+## forge, so "am I over my twin" cannot be answered by comparing ids. The chip
+## the drag started on is carried in the payload for exactly that.
+func test_an_item_dragged_over_another_reports_what_they_forge() -> void:
+	var chip := SidePanels.ItemChip.new()
+	chip.show_item(&"plate")
+	Engine.get_main_loop().root.add_child(chip)
+
+	var previews := probe(chip.forge_previewed, 4)
+	var lines := probe(chip.preview_changed, 1)
+
+	var blade := { "kind": &"item", "id": &"blade", "from": null }
+	assert_false(chip._can_drop_data(Vector2.ZERO, blade),
+		"a chip in the hold took a drop it has no way to forge")
+	assert_eq(previews.size(), 1, "holding a component over its partner said nothing")
+	assert_eq(previews[0][0], &"blade", "the preview lost the item being dragged")
+	assert_eq(previews[0][1], &"plate", "the preview lost the item under the cursor")
+	assert_eq(lines.size(), 1, "no line was written for the drop")
+
+	# The same chip the drag started on: no pairing, however well the two ids go
+	# together, because there is only one of it.
+	var itself := { "kind": &"item", "id": &"plate", "from": chip }
+	assert_false(chip._can_drop_data(Vector2.ZERO, itself),
+		"a chip took a drop of itself")
+	assert_eq(previews.size(), 1, "an item offered to forge with itself")
+
+	# A twin is a different chip with the same id, and two plates do pair.
+	var other := SidePanels.ItemChip.new()
+	var twin := { "kind": &"item", "id": &"plate", "from": other }
+	assert_false(chip._can_drop_data(Vector2.ZERO, twin),
+		"a chip in the hold took a drop it has no way to forge")
+	assert_eq(previews.size(), 2, "a pair of identical components did not pair")
+
+	other.free()
+	chip.free()
+
+
+## A unit being dragged is not an offer to forge anything.
+func test_a_pirate_dragged_over_the_hold_previews_nothing() -> void:
+	var chip := SidePanels.ItemChip.new()
+	chip.show_item(&"plate")
+	Engine.get_main_loop().root.add_child(chip)
+
+	var previews := probe(chip.forge_previewed, 4)
+	assert_false(chip._can_drop_data(Vector2.ZERO, { "kind": &"unit" }),
+		"the hold offered to take a pirate")
+	assert_eq(previews.size(), 0, "a dragged pirate was previewed as a forge")
+
+	chip.free()

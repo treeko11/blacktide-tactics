@@ -563,6 +563,47 @@ static func _carrier_lines(trait_id: StringName) -> String:
 	return "\n".join(lines)
 
 
+## What two components would make, read from the item being dragged.
+##
+## The forge preview. The player picks a component up and holds it over another
+## one — loose in the hold, or already welded onto a pirate — and this is the
+## answer to "what do these two make", given before the drop rather than after
+## it. Equipping cannot be undone, so a pairing discovered by trying it is a
+## pairing discovered too late.
+##
+## It is the forged item's own inspector with a heading over it: the same text
+## the almanac and the forge chart give, so the thing being promised in the
+## preview reads identically to the thing being inspected afterwards. `unit` is
+## the pirate carrying the other half, or null when both halves are loose in the
+## hold — which is the one case the drop cannot actually be made, so it says
+## where the drop has to go instead.
+##
+## Returns "" when the two do not pair, which is also the tooltip's signal that
+## its subject has gone: a preview whose pairing stopped being possible closes
+## itself rather than promising an item nobody can forge.
+static func forge_text(item_id: StringName, with_id: StringName,
+		unit: RosterUnit = null) -> String:
+	var result_id: StringName = Content.forge(item_id, with_id)
+	if result_id == &"":
+		return ""
+	var item: ItemDef = Content.item_def(item_id)
+	var other: ItemDef = Content.item_def(with_id)
+	if item == null or other == null:
+		return ""
+
+	var lines := PackedStringArray()
+	lines.append("[color=#7c93a4]FORGES[/color]  %s %s  +  %s %s"
+		% [item.icon, item.display_name, other.icon, other.display_name])
+	lines.append("")
+	lines.append(item_text(result_id))
+	if unit != null:
+		lines.append("[color=#ffd98a]Drop to forge it on %s.[/color]"
+			% unit.champion.display_name)
+	else:
+		lines.append("[color=#8fa6b5]Drop both on the same pirate to forge it.[/color]")
+	return "\n".join(lines)
+
+
 ## An item, and — for a component — every pairing it takes part in.
 ##
 ## This is the "what do items combine into" answer. A player holding two
