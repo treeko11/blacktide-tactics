@@ -15,6 +15,12 @@ signal unit_dropped_on_cell(unit: RosterUnit, cell: Vector2i)
 signal item_dropped_on_unit(item_id: StringName, unit: RosterUnit)
 signal unit_sell_requested(unit: RosterUnit)
 signal preview_changed(text: String)
+## What the item being dragged would forge with, and where to anchor the answer.
+## `forge_preview_cleared` is the other half: nothing under the cursor pairs any
+## more, so the inspector describing a forge that is no longer on offer goes.
+signal forge_previewed(item_id: StringName, with_id: StringName, unit: RosterUnit,
+	at: Vector2, source: Control)
+signal forge_preview_cleared()
 signal unit_hovered(unit: RosterUnit, at: Vector2)
 signal sim_unit_hovered(unit: SimUnit, at: Vector2)
 signal unit_unhovered()
@@ -196,6 +202,10 @@ func _can_drop_data(at: Vector2, data: Variant) -> bool:
 	var cell := cell_at(at)
 	if cell.x < 0 or not Hex.is_player_half(cell):
 		set_drop_cell(Vector2i(-1, -1))
+		# Water, or the half of the board that is not yours. Nothing here pairs
+		# with what is being carried, and the cursor has not left the board, so
+		# nothing else is going to take the forge preview down.
+		forge_preview_cleared.emit()
 		return false
 
 	set_drop_cell(cell)
@@ -206,12 +216,29 @@ func _can_drop_data(at: Vector2, data: Variant) -> bool:
 		var unit := GameState.unit_at(cell)
 		if unit == null:
 			preview_changed.emit("Drop on a pirate")
+			forge_preview_cleared.emit()
 			return false
 		var preview: Dictionary = GameState.preview_equip(data["id"], unit)
 		preview_changed.emit(_describe_drop(preview, data["id"], unit))
+		_report_forge(preview, data["id"], unit, global_position + at)
 		return preview.get("allowed", false)
 
 	return false
+
+
+## Puts the forged item's own inspector up while the cursor is over the pirate
+## carrying the other half, and takes it down again over a pirate that is not.
+##
+## The line under the board names the result; this is the rest of the answer —
+## what the thing it names actually does — which is the part somebody deciding
+## whether to weld two components together is short of.
+func _report_forge(preview: Dictionary, item_id: StringName, unit: RosterUnit,
+		at: Vector2) -> void:
+	var forged: StringName = preview.get("forges", &"")
+	if forged == &"":
+		forge_preview_cleared.emit()
+		return
+	forge_previewed.emit(item_id, preview["with"], unit, at, self)
 
 
 ## Names the outcome before the drop. Equipping cannot be undone, and welding a
@@ -232,6 +259,7 @@ func _drop_data(at: Vector2, data: Variant) -> void:
 	var cell := cell_at(at)
 	set_drop_cell(Vector2i(-1, -1))
 	preview_changed.emit("")
+	forge_preview_cleared.emit()
 	if cell.x < 0:
 		return
 	if data["kind"] == &"unit":
@@ -250,6 +278,7 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_DRAG_END:
 		set_drop_cell(Vector2i(-1, -1))
 		preview_changed.emit("")
+		forge_preview_cleared.emit()
 
 
 # --- the grid ----------------------------------------------------------------

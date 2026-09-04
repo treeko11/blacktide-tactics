@@ -65,6 +65,14 @@ var _hover_unit: RosterUnit = null
 ## when the thing being read is a trait, an item or a rival captain.
 var _hover_champion: ChampionDef = null
 
+## The pairing the inspector is describing while an item is being dragged, so a
+## drop target asking the same question thirty times a second is answered once.
+## Empty when the inspector is not showing a forge preview, which is also what
+## says whether closing one is this handler's business.
+var _forge_item: StringName = &""
+var _forge_with: StringName = &""
+var _forge_unit: RosterUnit = null
+
 ## Rebuilds `_hover_text` from whatever it describes. The tooltip calls it while
 ## it is open; a hold that pins calls it once more, because a third of a second
 ## of a fight is long enough for the text to be stale before it appears.
@@ -429,6 +437,8 @@ func _connect_panels() -> void:
 	board.item_dropped_on_unit.connect(func(item_id, unit): GameState.equip_item(item_id, unit))
 	board.unit_sell_requested.connect(func(unit): GameState.sell(unit))
 	board.preview_changed.connect(_set_preview)
+	board.forge_previewed.connect(_on_forge_previewed)
+	board.forge_preview_cleared.connect(_clear_forge_preview)
 	board.unit_hovered.connect(_on_roster_unit_hovered)
 	board.sim_unit_hovered.connect(_on_sim_unit_hovered)
 	board.unit_unhovered.connect(_unhover)
@@ -438,6 +448,8 @@ func _connect_panels() -> void:
 	bench.item_dropped.connect(func(item_id, unit): GameState.equip_item(item_id, unit))
 	bench.unit_sold.connect(func(unit): GameState.sell(unit))
 	bench.preview_changed.connect(_set_preview)
+	bench.forge_previewed.connect(_on_forge_previewed)
+	bench.forge_preview_cleared.connect(_clear_forge_preview)
 	bench.unit_hovered.connect(_on_roster_unit_hovered)
 	bench.unit_unhovered.connect(_unhover)
 
@@ -446,6 +458,9 @@ func _connect_panels() -> void:
 	traits.trait_unhovered.connect(_unhover)
 	hold.item_hovered.connect(_on_item_hovered)
 	hold.item_unhovered.connect(_unhover)
+	hold.preview_changed.connect(_set_preview)
+	hold.forge_previewed.connect(_on_forge_previewed)
+	hold.forge_preview_cleared.connect(_clear_forge_preview)
 	hold.forge_chart_requested.connect(func(): modals.open_forge_chart())
 	modals.chart_item_hovered.connect(_on_chart_item_hovered)
 	modals.chart_item_unhovered.connect(_unhover)
@@ -601,8 +616,21 @@ func _process(delta: float) -> void:
 # called once to open the tooltip and then by the tooltip itself ten times a
 # second. Returning "" means the subject is gone, and closes the inspector.
 
+## Whether an ordinary hover is allowed to open the inspector.
+##
+## Not while something is pinned — that was opened deliberately and has its own
+## way out — and not while something is being dragged, because then the panel
+## belongs to the drop preview. Godot goes on reporting hovers under a drag, and
+## they arrive in the same motion event as the drop target's own question, so
+## without this the item chip the cursor is passing over describes *itself* over
+## the top of what the drag would make of it — the two answers racing, one of
+## them the wrong one.
+func _may_open_inspector() -> bool:
+	return not tooltip.pinned and not get_viewport().gui_is_dragging()
+
+
 func _on_shop_card_hovered(index: int, at: Vector2) -> void:
-	if tooltip.pinned:
+	if not _may_open_inspector():
 		return
 	# The one caller that used to hand over a finished string and nothing else,
 	# which made it the one inspector that could not tell it was describing a card
@@ -632,7 +660,7 @@ func _shop_card_text(index: int) -> String:
 
 
 func _on_roster_unit_hovered(unit: RosterUnit, at: Vector2) -> void:
-	if tooltip.pinned:
+	if not _may_open_inspector():
 		return
 	var refresh := func() -> String: return _roster_unit_text(unit)
 	var text := _roster_unit_text(unit)
@@ -653,7 +681,7 @@ func _roster_unit_text(unit: RosterUnit) -> String:
 ## Hovering a pirate mid-fight shows its *live* numbers, which is the only place
 ## the effect of an item or a trait is visible as a figure rather than as text.
 func _on_sim_unit_hovered(unit: SimUnit, at: Vector2) -> void:
-	if tooltip.pinned:
+	if not _may_open_inspector():
 		return
 	var refresh := func() -> String: return _sim_unit_text(unit)
 	var text := _sim_unit_text(unit)
@@ -682,7 +710,7 @@ func _sim_unit_text(unit: SimUnit) -> String:
 
 
 func _on_trait_hovered(trait_id: StringName, at: Vector2) -> void:
-	if tooltip.pinned:
+	if not _may_open_inspector():
 		return
 	var refresh := func() -> String: return _trait_tip_text(trait_id)
 	var text := _trait_tip_text(trait_id)
@@ -706,7 +734,7 @@ func _trait_tip_text(trait_id: StringName) -> String:
 ## A square of the forge chart. Same inspector as everywhere else, so press and
 ## hold pins it on a phone exactly as it does in the cargo hold.
 func _on_chart_item_hovered(item_id: StringName, at: Vector2, source: Control) -> void:
-	if tooltip.pinned:
+	if not _may_open_inspector():
 		return
 	# An item's text is live as well: the ticks against its pairings are the ones
 	# the player could forge right now, and equipping a component changes them.
@@ -717,7 +745,7 @@ func _on_chart_item_hovered(item_id: StringName, at: Vector2, source: Control) -
 
 
 func _on_item_hovered(item_id: StringName, at: Vector2) -> void:
-	if tooltip.pinned:
+	if not _may_open_inspector():
 		return
 	var refresh := func() -> String: return Tooltip.item_text(item_id)
 	var text := Tooltip.item_text(item_id)
@@ -725,10 +753,74 @@ func _on_item_hovered(item_id: StringName, at: Vector2) -> void:
 	tooltip.show_text(text, at, hold, refresh)
 
 
+## The forge preview: a component picked up and held over the other half of a
+## pairing, wherever that half is.
+##
+## The playtest note was that item combinations need explaining, and the answer
+## so far has been a line of text under the board naming the result. That names
+## it; it does not say what it does, which is the half the decision turns on —
+## and equipping cannot be undone, so the decision is made once. This puts the
+## forged item's own inspector up instead, from the drag, before the drop: the
+## same page the almanac and the forge chart give, so what is promised here and
+## what is read afterwards are the same words.
+##
+## Three places report it and none of them acts on it, which is the usual split:
+## the board and the bench over a pirate already carrying a component, and the
+## cargo hold over a loose one — that last is the only one where the drop cannot
+## actually be made, and `Tooltip.forge_text` says where it has to go instead.
+func _on_forge_previewed(item_id: StringName, with_id: StringName, unit: RosterUnit,
+		at: Vector2, source: Control) -> void:
+	if tooltip.pinned:
+		return
+	# Every motion over the target asks again. Re-showing on each one rebuilds the
+	# panel and re-places it a frame later, which under a moving cursor is a
+	# flicker, so an unchanged answer is left where it is. `tooltip.visible` is
+	# part of the question because the tooltip closes itself when the cursor
+	# leaves the control that owns it, and coming back has to put it up again.
+	var unchanged := _forge_item == item_id and _forge_with == with_id and _forge_unit == unit
+	if unchanged and tooltip.visible:
+		return
+
+	var refresh := func() -> String: return Tooltip.forge_text(item_id, with_id, unit)
+	var text: String = refresh.call()
+	if text == "":
+		_clear_forge_preview()
+		return
+	_forge_item = item_id
+	_forge_with = with_id
+	_forge_unit = unit
+	# Below the cursor by the height of the thing being dragged: the drag preview
+	# is drawn over everything else, from the cursor down, so a panel placed by
+	# the usual rule opens underneath the component being carried.
+	tooltip.show_text(text, at + Vector2(0.0, Layout.item_chip().y), source, refresh)
+
+
+## Drops the record of the forge preview, without touching the inspector — for
+## the callers that are closing it themselves.
+func _forget_forge_preview() -> void:
+	_forge_item = &""
+	_forge_with = &""
+	_forge_unit = null
+
+
+## Takes the forge preview down, and only that.
+##
+## A drop target reports "nothing pairs here" on every motion that is not over a
+## pairing, which is most of them, so this has to be able to tell a preview it
+## put up from an inspector somebody else owns — otherwise dragging a component
+## across the board closes whatever the player had open.
+func _clear_forge_preview() -> void:
+	if _forge_item == &"":
+		return
+	_forget_forge_preview()
+	if not tooltip.pinned:
+		tooltip.hide_now()
+
+
 ## A rival captain, whose hull and streak change under the tooltip every time a
 ## round resolves.
 func _on_captain_hovered(captain: Captain, at: Vector2) -> void:
-	if tooltip.pinned:
+	if not _may_open_inspector():
 		return
 	var refresh := func() -> String: return Tooltip.captain_text(captain)
 	var text := Tooltip.captain_text(captain)
@@ -805,6 +897,7 @@ func _on_wiki_visibility() -> void:
 
 func _dismiss_inspector() -> void:
 	_forget_hover()
+	_forget_forge_preview()
 	tooltip.hide_now()
 
 
@@ -814,6 +907,10 @@ func _unhover() -> void:
 	if tooltip.pinned:
 		return
 	_forget_hover()
+	# The inspector is going either way, so the forge preview has to admit it is
+	# no longer the one showing: left set, the next "nothing pairs here" would
+	# close whatever the cursor has moved on to and opened instead.
+	_forget_forge_preview()
 	tooltip.hide_now()
 
 

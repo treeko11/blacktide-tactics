@@ -26,7 +26,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac\|reread`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac\|reread\|drag`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `fight_pacing.gd` | How long fights actually last. `--runs=` measures real runs; `--matched` fights boards built to the same budget, which is the only way to tell a bad curve from an honest blowout; `--isolate` moves unit count, stars and items one at a time; `--blowouts` reports what the quickest fights looked like from the inside; `--creep` fights the monster waves with one *seeded* run's fleets, which is the only way to compare two builds on the same boards |
@@ -706,6 +706,44 @@ Each of these cost a debugging session or settles a design argument.
   stopped updating. `screenshot.gd --live` carries all three: it kills the
   pirate it is reading, ends the fight under the cursor, and hovers a survivor
   after the bell.
+- **A component picked up is a question, and the answer is the forged item's own
+  page.** Naming the result — "Forges The Bloodletter" — was half an answer: it
+  says which item and not what the item does, which is the half the decision
+  turns on, and equipping cannot be undone so the decision is made once. So a
+  drag that would forge puts the inspector up on the *result*, the same page the
+  almanac and the forge chart give, from three places: over a pirate on the
+  board, over one on the bench, and over another loose component in the hold.
+  The line under the board stays, because it is what a glance costs nothing to
+  read; the panel is for the player who stopped to think about it.
+  `screenshot.gd --sequence=drag` is the check, and it earns its keep by being
+  **specific about which panel it found**: a component's own inspector lists
+  every pairing it takes part in, so the forged item is named in it whether or
+  not any of this exists, and the first version of that assertion passed with
+  the whole feature reverted. Only the forged item's own page says what it was
+  forged *from*, which is what the check asks for now.
+- **The hold reports the pairing and never takes the drop.** Forging happens on
+  a pirate — two components dropped on the same one — and a chip that accepted
+  the drop would be promising a rule the game does not have. So
+  `SidePanels.ItemChip._can_drop_data` always answers no, and answers the
+  question anyway. It also has to know **which chip the drag started on**, which
+  is why the payload carries `from`: two Corsair's Blades in the hold are two
+  chips with the same id and a real forge between them, so "am I over my twin"
+  cannot be decided by comparing ids, and comparing them offers to forge an item
+  with itself.
+- **A drag owns the inspector, because Godot goes on reporting hovers under
+  one.** `mouse_entered` fires on whatever the cursor passes over mid-drag, and
+  it arrives in the same motion event as the drop target's own
+  `_can_drop_data` — so the chip being dragged over described *itself* over the
+  top of what the drag would make of it, two answers racing with no way to know
+  which one won. `Main._may_open_inspector` stands every ordinary hover down
+  while `gui_is_dragging()`, which leaves exactly one thing allowed to open the
+  panel during a drag. The clearing rule is its mirror: a drop target says
+  "nothing pairs here" on most of the motions it sees, so `_clear_forge_preview`
+  closes only a preview **it** put up, or dragging a component across the board
+  would shut whatever the player had open. And nothing clears on
+  `NOTIFICATION_MOUSE_EXIT`: the control being left is notified after the one
+  being entered has already been asked, so clearing there wipes the answer the
+  next control has just given.
 
 ### The art
 
@@ -964,7 +1002,7 @@ these; they are the reason several things are where they are.
 | Attacks need variation and direction | `Sim.ATTACK_STYLES` + `FxLayer` |
 | Feedback when an item is acquired | `ToastLayer`, plus a pulsing highlight on the new item in the hold |
 | Item effects need to be visible | Full item text in the champion tooltip; hovering a unit **mid-fight** shows live stats |
-| Item combinations need explaining | Forge chart modal, forge preview on the drag, and every pairing listed in a component's tooltip. Every square of the chart opens the full item inspector — it used to carry Godot's own one-line `tooltip_text`, which a phone never sees at all |
+| Item combinations need explaining | Forge chart modal, forge preview on the drag, and every pairing listed in a component's tooltip. Every square of the chart opens the full item inspector — it used to carry Godot's own one-line `tooltip_text`, which a phone never sees at all. The drag itself now answers in full: a component held over the other half — on a pirate, or loose in the hold — puts the forged item's whole page up before the drop |
 | The AI never seemed to use items | Bots now draw the same loot on the same rounds and forge it by the same rules. They previously got one random finished item per stage and never combined anything |
 | Round timer near the shop, warn before it ends | `ShopBar` clock, and `Events.plan_time_warning` turns it orange with 8s left |
 | Tooltips felt sticky | `Tooltip` watches its own owner — see above |

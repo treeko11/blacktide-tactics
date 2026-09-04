@@ -37,6 +37,10 @@ extends "res://tools/tool_script.gd"
 ##   --sequence=reread  read the same pirate twice running without moving the
 ##                    pointer in between, which is what a phone does and what
 ##                    stopped working
+##   --sequence=drag  pick a component up and hold it over the other half of a
+##                    pairing — another chip in the hold, then a pirate already
+##                    carrying one — and assert the inspector names what the two
+##                    would forge, before the drop
 ##   --live           hover a pirate mid-fight and prove the inspector keeps up
 ##                    with it, holds a dead pirate's last numbers, and still
 ##                    answers after VICTORY. Needs two or more in --units=
@@ -368,6 +372,8 @@ func _sequence(game: Node, which: String) -> void:
 			await _tap_to_buy(game)
 		"reread":
 			await _read_the_same_pirate_twice(game)
+		"drag":
+			await _forge_on_the_drag(game)
 		_:
 			fail("unknown sequence '%s'" % which)
 			return
@@ -487,6 +493,137 @@ func _read_the_same_pirate_twice(game: Node) -> void:
 
 	_scene.tooltip.hide_now()
 	await _frames(4)
+
+
+## Picks a component up and holds it over the other half of a pairing.
+##
+## The forge preview, end to end. Two components make a third, equipping cannot
+## be undone, and the answer has to arrive *before* the drop — so this is the
+## one check that the panel actually comes up under a live drag rather than the
+## builders being asked politely in a test.
+##
+## Both halves of the question the maintainer asked for: held over another chip
+## in the cargo hold, where the drop cannot be taken at all, and held over a
+## pirate already carrying the other component, where it can. The second one
+## finishes the drop, so the forge is asserted as well as the promise of it.
+func _forge_on_the_drag(game: Node) -> void:
+	game.give_item(&"blade")
+	game.give_item(&"plate")
+	await _frames(6)
+
+	var made = content().item_def(content().forge(&"blade", &"plate"))
+	var chips: Array = _scene.hold._grid.get_children()
+	if chips.size() < 2:
+		fail("the hold did not build a chip per item: %d for two items" % chips.size())
+		return
+
+	await _drag_from_to(_centre_of(chips[0]), _centre_of(chips[1]))
+	var complaint := _forge_panel_complaint(made)
+	if complaint != "":
+		fail("held over another chip in the hold, %s" % complaint)
+	else:
+		print("  over another chip: the inspector is %s's own page" % made.display_name)
+	_release_at(_centre_of(chips[1]))
+	await _frames(4)
+
+	if _scene.tooltip.visible:
+		fail("the forge preview stayed up after the drag ended")
+
+	# Now the same question over a pirate holding the other half. The hold has
+	# both components, so one of them goes on the pirate first.
+	if game.bench[0] == null:
+		_bench(game, PackedStringArray([_a_champion(game)]))
+		await _frames(4)
+	game.equip_item(&"blade", game.bench[0])
+	await _frames(6)
+	var remaining: Array = _scene.hold._grid.get_children()
+	if remaining.is_empty():
+		fail("equipping one component emptied the whole hold")
+		return
+
+	var slot: Control = _scene.bench._slots[0]
+	await _drag_from_to(_centre_of(remaining[0]), _centre_of(slot))
+	complaint = _forge_panel_complaint(made)
+	if complaint != "":
+		fail("held over the pirate carrying the other half, %s" % complaint)
+	else:
+		print("  over the pirate: the inspector is %s's own page" % made.display_name)
+
+	_release_at(_centre_of(slot))
+	await _frames(6)
+	if not game.bench[0].items.has(made.id):
+		fail("the drop the preview described did not forge %s" % made.display_name)
+	else:
+		print("  the drop forged %s" % made.display_name)
+	if _scene.tooltip.visible:
+		fail("the forge preview stayed up after the drop")
+	_scene.tooltip.hide_now()
+	await _frames(4)
+
+
+## What is wrong with the panel under the drag, or "" if nothing is.
+##
+## **Naming the forged item is not enough on its own**, and this is the trap the
+## first version of this check walked into: a component's own inspector lists
+## every pairing it takes part in, so "Ironclad Cutlass" appears in it whether or
+## not the preview exists — the assertion passed with the whole feature reverted.
+## What only the forged item's own page carries is the line saying what it was
+## forged from, so that is what is asked for.
+func _forge_panel_complaint(made) -> String:
+	if not _scene.tooltip.visible:
+		return "the inspector did not open at all"
+	var text: String = _scene.tooltip._body.text
+	if not text.contains(made.display_name):
+		return "the inspector did not name %s: %s" % [made.display_name, text.substr(0, 120)]
+	if not text.contains("Forged from"):
+		return ("the inspector is not %s's page — a component's own list of pairings "
+			+ "names it too: %s") % [made.display_name, text.substr(0, 120)]
+	return ""
+
+
+## Presses at one point, travels to another, and leaves the button down.
+##
+## Godot starts a drag only once the pointer has travelled far enough with the
+## button held, and it asks the control the press landed on — so the press, the
+## travel and the arrival all have to be real events a frame apart. The pointer
+## is warped as well as reported, for the same reason `_hover_at` warps: the
+## inspector closes itself when the *physical* pointer leaves the control that
+## owns it, so a preview aimed by parsed motion alone would be shut a frame
+## after it opened.
+func _drag_from_to(from: Vector2, to: Vector2, steps: int = 8) -> void:
+	_hover_at(from)
+	await _frames(2)
+	_mouse_button_at(from, true)
+	await _frames(2)
+
+	var step := (to - from) / float(steps)
+	var at := from
+	for i in steps:
+		at += step
+		var window_at := _to_window(at)
+		Input.warp_mouse(window_at)
+		var motion := InputEventMouseMotion.new()
+		motion.position = window_at
+		motion.global_position = window_at
+		motion.relative = root.get_final_transform().basis_xform(step)
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		Input.parse_input_event(motion)
+		await _frames(2)
+	_hover_home = at
+
+
+func _release_at(at: Vector2) -> void:
+	_mouse_button_at(at, false)
+
+
+func _mouse_button_at(at: Vector2, pressed: bool) -> void:
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+	click.pressed = pressed
+	click.position = _to_window(at)
+	click.global_position = _to_window(at)
+	Input.parse_input_event(click)
 
 
 ## Taps its way through the almanac and leaves by the scrim.
