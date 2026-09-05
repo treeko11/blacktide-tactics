@@ -9,7 +9,8 @@ is now **retired** — see **The retired JavaScript build** below.
 ## Environment
 
 The Godot binary is **not on PATH**, and its location is machine-specific.
-`Test.bat`, `Play.bat`, `Edit.bat` and `Playthrough.bat` in the project root
+`Test.bat`, `Play.bat`, `Edit.bat`, `Playthrough.bat` and `Export.bat` in the
+project root
 find it, in this order: a `GODOT_BIN` environment variable, then a
 `godot_path.txt` beside them holding the full path on one line, then
 `godot.exe` on PATH. **`godot_path.txt` is gitignored, and that is the
@@ -38,6 +39,40 @@ that needs no engine, and say plainly in the commit message that code is
 
 All extend `tools/tool_script.gd`. **Write new tools by extending it** — it
 carries the two headless traps below so no tool has to rediscover them.
+
+### The web export
+
+`Export.bat` builds it, and it is the only thing that should. The bare command
+underneath is three traps in a row. The shipped Godot exe is GUI-subsystem, so it
+prints nothing and is not waited for - **a failed export looks exactly like a good
+one**. A `SCRIPT ERROR` does not stop an export, so a build that boots to a broken
+script exports happily at exit 0, in the one place nobody can attach a debugger.
+And the pack step names every one of the ~700 files it stores, which buries the
+three lines worth reading. So the launcher runs the `_console.exe`, filters the
+pack log, fails the run on a `SCRIPT ERROR`, and then checks that `index.html`,
+`index.js`, `index.wasm` and `index.pck` were actually written and are not empty.
+A plain `ERROR` is not the failure signal: a clean export ends with "2 resources
+still in use at exit", which is Godot tidying up after itself.
+
+- **`--serve` is how a build gets checked.** A double-clicked `web/index.html`
+  hangs on the loader forever, because a browser will not fetch `index.pck` off
+  `file://`; the flag serves the folder over HTTP and opens a browser at it.
+  `--serve-only` skips the export and serves what is already there. Threads are
+  off in the preset, so nothing needs cross-origin isolation headers and any
+  static server will do.
+- **`web/` carries a `.gdignore`, and it earns one.** Without it the engine
+  imports the previous export's three icon PNGs as ordinary resources, and the
+  next export packs them into the pck - the output of the build feeding back into
+  its own input, carrying a copy of itself forward every time.
+- **Nothing is committed or pushed by it.** The live build is whatever is on
+  `main`, so it goes live when `web/` is pushed. A re-export with no content
+  change writes **no diff at all**: the only thing in `index.html` that varies is
+  the pck's own size.
+- The missing-template check only ever helps. A version string it cannot parse,
+  or templates installed somewhere else, prints nothing and the export goes ahead
+  and speaks for itself.
+- `--debug` swaps the release template for the debug one, which is worth having
+  when a browser crash needs more than the dev log says.
 
 ### The windowed tools borrow the screen and the mouse
 
@@ -262,6 +297,7 @@ scenes/main.tscn                   a bare Control; the HUD is built in code
 tests/                             test_*.gd, discovered automatically
 tools/                             entry points, all extending tool_script.gd
 tools/hooks/                       git hooks, via core.hooksPath. Not Godot
+web/                               the exported web build. Export.bat writes it
 js/, css/, index.html              the original JavaScript build (see below)
 ```
 

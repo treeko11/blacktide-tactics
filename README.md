@@ -115,7 +115,7 @@ scripts/ui/                        the HUD: board, ocean, unit art, shop, panels
 scripts/game/main.gd               assembles the HUD and wires it to GameState
 tests/                             test_*.gd, discovered automatically
 tools/                             the test runner, playthrough, soak, screenshot, balance
-web/                               the exported web build
+web/                               the exported web build - Export.bat rebuilds it
 ```
 
 Development notes — the architecture rules, the headless traps, and the reason behind
