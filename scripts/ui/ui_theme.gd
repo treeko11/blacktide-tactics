@@ -23,6 +23,7 @@ const SEA := Color("2f8fbb")
 const FOAM := Color("7fe3ff")
 const BLOOD := Color("c8394a")
 const GOOD := Color("4bd08a")
+const GREATER := Color("c98bff")
 
 ## Health bar colours, ours and theirs.
 const HP_MINE := Color("5fe08a")
@@ -213,6 +214,20 @@ static func panel_style(fill: Color = PANEL, border: Color = LINE,
 	box.content_margin_top = 6
 	box.content_margin_bottom = 6
 	return box
+
+
+## The colour an item is drawn in wherever one is shown small — the cargo hold,
+## the pips under a pirate on the board, the toast that announces a pickup.
+##
+## Three rungs need three colours. A greater item drawn in the same gold as the
+## finished items it is made of says nothing about what makes it different, and
+## the difference is a slot the player has spent.
+static func item_tier_color(tier: int) -> Color:
+	if tier >= 3:
+		return GREATER
+	if tier == 2:
+		return GOLD
+	return Color("2f5a72")
 
 
 static func label(text: String, size: int = FONT_BODY, color: Color = INK) -> Label:

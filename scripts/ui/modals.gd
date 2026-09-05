@@ -270,7 +270,8 @@ func _item_card(item: ItemDef) -> PanelContainer:
 ## player can make right now are marked, so the chart answers "what should I do
 ## with what I am holding" and not only "what exists".
 func open_forge_chart() -> void:
-	_open("The Forge", "Two components on one pirate combine. Green is what your hold can make now.")
+	_open("The Forge", "Two components on one pirate combine, and two finished "
+		+ "items combine again. Green is what you could make now.")
 
 	var content := GameState.content
 	var components: Array = content.components()
@@ -297,9 +298,84 @@ func open_forge_chart() -> void:
 			var makeable := _can_make(held, row_component.id, column_component.id)
 			grid.add_child(_chart_cell(result, makeable))
 
+	_build_capstone_list()
+
 	var close_button := UITheme.button("CLOSE", UITheme.FONT_BODY)
 	close_button.pressed.connect(close)
 	_add_action(close_button)
+
+
+## The greater items, as rows rather than as a second grid.
+##
+## Fifteen finished items would be a fifteen-by-fifteen grid, 225 cells of which
+## ten say anything — unreadable on a desktop and impossible on a phone. Ten rows
+## of "A + B » C" carry the same meaning at any width, which is the same reason
+## the almanac's stat blocks are rows of numbers and not a [table].
+func _build_capstone_list() -> void:
+	var content := GameState.content
+	var capstones: Array = content.capstones()
+	if capstones.is_empty():
+		return
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content.add_child(spacer)
+
+	var heading := UITheme.label("GREATER ITEMS", UITheme.FONT_SMALL, Color("ffd98a"))
+	_content.add_child(heading)
+
+	var note := UITheme.label("Two finished items on one pirate. A pirate may carry "
+		+ "two greater items, and two is all it may carry.",
+		UITheme.FONT_SMALL, UITheme.MUTED)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_content.add_child(note)
+
+	for item in capstones:
+		_content.add_child(_capstone_row(item))
+
+
+func _capstone_row(item: ItemDef) -> Control:
+	var left: ItemDef = GameState.content.item_def(item.recipe[0])
+	var right: ItemDef = GameState.content.item_def(item.recipe[1])
+	var makeable := Tooltip.reachable_pair(item.recipe[0], item.recipe[1])
+
+	var row := PanelContainer.new()
+	var border := UITheme.GOOD if makeable else Color("1d3b4e")
+	var fill := Color("0e2a1e") if makeable else Color("0d1c26")
+	row.add_theme_stylebox_override("panel", UITheme.panel_style(fill, border, 5))
+	_inspectable(row, item.id)
+
+	var text := "%s %s  +  %s %s" % [left.icon, left.display_name, right.icon, right.display_name]
+	# On a phone the line above already fills the width, so the result goes under
+	# it rather than off the edge of it.
+	if Layout.compact():
+		var column := VBoxContainer.new()
+		column.add_theme_constant_override("separation", 0)
+		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(_row_label(text, UITheme.MUTED))
+		column.add_child(_row_label("»  %s %s" % [item.icon, item.display_name],
+			UITheme.GOOD if makeable else UITheme.INK))
+		row.add_child(column)
+		return row
+
+	row.add_child(_row_label("%s  »  %s %s" % [text, item.icon, item.display_name],
+		UITheme.GOOD if makeable else UITheme.INK))
+	return row
+
+
+## A label inside a chart row, which must not eat the press the row is listening
+## for — the row is STOP so the inspector can open on it, and a STOP child would
+## take the hover before the row ever saw it.
+func _row_label(text: String, colour: Color) -> Label:
+	var label := UITheme.label(text, UITheme.FONT_SMALL, colour)
+	# No emoji-font override here. The theme already puts that font *behind* the
+	# text font, so the icons resolve on their own; forcing it to the front sets
+	# the whole line in it, and its Latin metrics are wrong enough that the words
+	# come out double-spaced.
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
 
 
 ## Makes a chart cell report what it is, so the real inspector can open on it.

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap08"]
+
+[resource]
+script = ExtResource("1_cap08")
+id = &"butchers_bill"
+display_name = "The Butcher's Bill"
+icon = "🔥"
+description = "+48 Attack Damage, +45% Attack Speed. Attacks burn the target for 2% max Health per second and reduce its healing by 50% for 5s. Killing blows grant 15 Attack Damage."
+recipe = Array[StringName]([&"bloodletter", &"grapeshot"])

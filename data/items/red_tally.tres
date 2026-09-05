@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap00"]
+
+[resource]
+script = ExtResource("1_cap00")
+id = &"red_tally"
+display_name = "The Red Tally"
+icon = "🔪"
+description = "+70 Attack Damage. Attacks grant 7% Attack Speed, stacking without limit. Killing blows grant 15 Attack Damage and 15% Attack Speed."
+recipe = Array[StringName]([&"bloodletter", &"rapier"])

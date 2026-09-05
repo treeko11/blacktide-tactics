@@ -579,10 +579,25 @@ func _merge_three(three: Array, star: int) -> void:
 		_remove_unit(u)
 
 	var upgraded := RosterUnit.new(three[0].champion, star + 1)
-	upgraded.items.assign(carried.slice(0, RosterUnit.MAX_ITEMS))
-	for spare in carried.slice(RosterUnit.MAX_ITEMS):
-		player.items.append(spare)
-		Events.item_gained.emit(spare, &"sale")
+	# Capstones first, then everything else, and stop at whatever the capstones
+	# leave room for. Taking the first three in hand order could hand the
+	# upgrade two capstones *and* a third item, which is the one loadout the
+	# slot rule exists to forbid — and it would arrive by star-up rather than by
+	# a drop, so nothing in equip_item would ever see it.
+	carried.sort_custom(func(a, b):
+		return content.item_tier(a) > content.item_tier(b))
+	for id in carried:
+		var after := upgraded.items.duplicate()
+		after.append(id)
+		# content is a Node, so both of these are Variants until they are typed.
+		var capstones: int = content.capstone_count(after)
+		var room: int = content.capacity(after)
+		var fits := capstones <= RosterUnit.MAX_CAPSTONES and after.size() <= room
+		if fits:
+			upgraded.items.append(id)
+			continue
+		player.items.append(id)
+		Events.item_gained.emit(id, &"sale")
 
 	if seat != RosterUnit.BENCHED:
 		upgraded.cell = seat
@@ -678,14 +693,7 @@ func give_item(item_id: StringName, source: StringName = &"salvage") -> void:
 func preview_equip(item_id: StringName, unit: RosterUnit) -> Dictionary:
 	if unit == null or item_id == &"":
 		return { "allowed": false, "reason": "" }
-	if content.is_component(item_id):
-		for held in unit.items:
-			var forged: StringName = content.forge(item_id, held)
-			if forged != &"":
-				return { "allowed": true, "forges": forged, "with": held }
-	if not unit.can_take_item():
-		return { "allowed": false, "reason": "Carrying three items" }
-	return { "allowed": true, "forges": &"" }
+	return content.plan_equip(item_id, unit.items)
 
 
 func equip_item(item_id: StringName, unit: RosterUnit) -> bool:
@@ -695,24 +703,26 @@ func equip_item(item_id: StringName, unit: RosterUnit) -> bool:
 	if index < 0 or unit == null:
 		return false
 
-	if content.is_component(item_id):
-		for i in unit.items.size():
-			var forged: StringName = content.forge(item_id, unit.items[i])
-			if forged != &"":
-				unit.items[i] = forged
-				player.items.remove_at(index)
-				log_line("Forged %s" % content.item_def(forged).display_name, &"good")
-				Events.item_forged.emit(forged, unit.uid)
-				Events.board_changed.emit()
-				return true
-
-	if not unit.can_take_item():
-		notify("That pirate is carrying three items")
+	# The same call the preview showed, so what the drag promised and what the
+	# drop does cannot come apart.
+	var plan: Dictionary = content.plan_equip(item_id, unit.items)
+	if not plan["allowed"]:
+		notify(plan["reason"])
 		return false
 
-	unit.items.append(item_id)
+	unit.items.assign(plan["items"])
 	player.items.remove_at(index)
-	Events.item_equipped.emit(item_id, unit.uid)
+
+	var forged: StringName = plan["forges"]
+	if forged != &"":
+		var made: ItemDef = content.item_def(forged)
+		if content.is_capstone(forged):
+			log_line("Forged %s, a greater item." % made.display_name, &"good")
+		else:
+			log_line("Forged %s" % made.display_name, &"good")
+		Events.item_forged.emit(forged, unit.uid)
+	else:
+		Events.item_equipped.emit(item_id, unit.uid)
 	Events.board_changed.emit()
 	return true
 

@@ -43,7 +43,7 @@ func test_every_champion_trait_and_item_is_listed() -> void:
 		assert_true(listed.has("traits/%s" % trait_def.id),
 			"the almanac does not list the %s trait" % trait_def.id)
 
-	for item in content().components() + content().forged_items():
+	for item in content().components() + content().forged_items() + content().capstones():
 		assert_true(listed.has("items/%s" % item.id),
 			"the almanac does not list the item %s" % item.id)
 

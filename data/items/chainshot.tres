@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap01"]
+
+[resource]
+script = ExtResource("1_cap01")
+id = &"chainshot"
+display_name = "Chainshot Bandolier"
+icon = "💣"
+description = "+65% Attack Speed, +15 Mana. Attacks burn the target for 2% max Health per second and reduce its healing by 50% for 5s. Every third attack chains lightning to 4 enemies for 150 magic damage and shreds 40% Magic Resist for 5s."
+recipe = Array[StringName]([&"grapeshot", &"windrunner"])

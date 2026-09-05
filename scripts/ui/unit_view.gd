@@ -247,11 +247,15 @@ func _draw_items(fade: float) -> void:
 		if item == null:
 			continue
 		var centre := Vector2(start + i * spacing, y)
-		var forged := not item.is_component
+		var tier: int = _content.item_tier(items[i])
 		draw_rect(Rect2(centre - Vector2(7, 7), Vector2(14, 14)), Color(0.05, 0.13, 0.19, fade))
-		var edge := UITheme.GOLD if forged else Color("2f5a72")
+		var edge := UITheme.item_tier_color(tier)
 		edge.a = fade
-		draw_rect(Rect2(centre - Vector2(7, 7), Vector2(14, 14)), edge, false, 1.0)
+		# A greater item gets a heavier rim as well as its own colour: this is a
+		# fourteen-pixel square on a phone, where a hue on its own is one pixel of
+		# difference and the outline is what actually reads.
+		draw_rect(Rect2(centre - Vector2(7, 7), Vector2(14, 14)), edge, false,
+			2.0 if tier >= 3 else 1.0)
 		var width := font.get_string_size(item.icon, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		draw_string(font, centre + Vector2(-width * 0.5, size * 0.36), item.icon,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, fade))

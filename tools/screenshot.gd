@@ -742,11 +742,14 @@ func _almanac_entry(id: String) -> void:
 	var section: StringName = &"pirates"
 	var champion = content().champion(StringName(id))
 	var sea: Variant = content().sea(StringName(id))
-	if champion == null and sea == null:
+	var item: Variant = content().item_def(StringName(id))
+	if champion == null and sea == null and item == null:
 		fail("nothing in the almanac is called '%s'" % id)
 		return
-	if champion == null:
+	if champion == null and sea != null:
 		section = &"seas"
+	elif champion == null:
+		section = &"items"
 	elif champion.cost == 0:
 		section = &"monsters"
 
@@ -770,6 +773,29 @@ func _almanac_entry(id: String) -> void:
 			fail("the %s page dropped its herald line" % id)
 		else:
 			print("  the almanac opened %s, %d characters" % [id, page.length()])
+		return
+
+	# An item has no figure either. What is asserted is that the page names the
+	# item and — for anything forged — the things it is forged from, because a
+	# recipe section that renders empty is exactly what a tier the page builder
+	# has no branch for looks like, and it throws nothing.
+	if section == &"items":
+		var page: String = wiki.page_for(section, StringName(id))
+		if not page.contains(item.display_name):
+			fail("the %s page came up without the item in it" % id)
+			return
+		for part_id in item.recipe:
+			var part: ItemDef = content().item_def(part_id)
+			if not page.contains(part.display_name):
+				fail("the %s page does not say it is forged from %s"
+					% [id, part.display_name])
+				return
+		var tier: int = content().item_tier(StringName(id))
+		if tier >= 3 and not page.to_lower().contains("greater item"):
+			fail("the %s page never says it is a greater item" % id)
+			return
+		print("  the almanac opened %s, tier %d, %d characters"
+			% [id, tier, page.length()])
 		return
 
 	var portrait: Control = wiki._page_portrait
@@ -1582,7 +1608,7 @@ func _open_modal(which: String, game: Node) -> void:
 			# two seconds, so relying on one left that tab a column of zeroes —
 			# indistinguishable from the tab being broken.
 			for unit in game.board:
-				if unit.can_take_item():
+				if content().has_room(unit):
 					unit.items.append(&"hull_of_the_deep")
 					break
 			game.start_combat_now()

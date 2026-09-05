@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap04"]
+
+[resource]
+script = ExtResource("1_cap04")
+id = &"tidewardens_bulwark"
+display_name = "Tidewarden's Bulwark"
+icon = "🐚"
+description = "+40 Ability Power, +400 Health, +35 Armor and Magic Resist, +20 Mana. Gain a 420 Health shield for the first 10 seconds. After casting, shield this unit and the 2 lowest-Health allies for 380 for 6 seconds."
+recipe = Array[StringName]([&"coral_aegis", &"drowned_anchor"])

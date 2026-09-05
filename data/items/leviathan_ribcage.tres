@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap03"]
+
+[resource]
+script = ExtResource("1_cap03")
+id = &"leviathan_ribcage"
+display_name = "Leviathan's Ribcage"
+icon = "🐋"
+description = "+1100 Health, +12% Attack Speed. Regenerate 4% max Health per second. Each attack made or taken grants 4 Armor and Magic Resist (max 25 stacks)."
+recipe = Array[StringName]([&"hull_of_the_deep", &"boarding_hooks"])

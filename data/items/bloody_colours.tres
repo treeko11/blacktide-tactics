@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap06"]
+
+[resource]
+script = ExtResource("1_cap06")
+id = &"bloody_colours"
+display_name = "The Bloody Colours"
+icon = "👑"
+description = "+45 Attack Damage, +25 Ability Power, +350 Health, +32% Omnivamp. At 50% Health, gain a shield equal to 30% max Health and 25% Attack Damage."
+recipe = Array[StringName]([&"ironclad", &"reckoning"])

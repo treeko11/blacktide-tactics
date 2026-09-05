@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap07"]
+
+[resource]
+script = ExtResource("1_cap07")
+id = &"duellists_warrant"
+display_name = "The Duellist's Warrant"
+icon = "📜"
+description = "+45 Attack Damage, +20 Mana. Attacks restore 8 bonus Mana and grant 6% Attack Speed, stacking without limit."
+recipe = Array[StringName]([&"buccaneers_edge", &"rapier"])

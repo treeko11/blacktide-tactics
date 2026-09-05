@@ -604,43 +604,81 @@ static func forge_text(item_id: StringName, with_id: StringName,
 	return "\n".join(lines)
 
 
-## An item, and — for a component — every pairing it takes part in.
+## An item: what it does, what it was forged from, and what it forges into.
 ##
 ## This is the "what do items combine into" answer. A player holding two
 ## components had no way to find out what they made short of trying it, and
-## equipping cannot be undone.
+## equipping cannot be undone. A finished item asks the same question one rung
+## up, so both halves are shown for anything in the middle of the tree — the
+## middle rung is the only one that has both, and leaving the upward half off it
+## is what would make greater items invisible to anyone not already looking.
 static func item_text(item_id: StringName) -> String:
 	var item: ItemDef = Content.item_def(item_id)
 	if item == null:
 		return ""
+	var tier: int = Content.item_tier(item_id)
 
 	var lines := PackedStringArray()
 	lines.append("[font_size=17][b]%s %s[/b][/font_size]" % [item.icon, item.display_name])
+	if tier >= 3:
+		# Said on the item rather than only in the almanac, because the slot cost
+		# is what makes taking one a decision, and it is not something a player can
+		# be expected to discover by filling a pirate up and finding it full.
+		lines.append("[color=#ffd98a]GREATER ITEM[/color]  [color=#8fa6b5]a pirate "
+			+ "may carry two, and two is all it may carry[/color]")
 	lines.append("")
 	lines.append("[color=#b9cbd8]%s[/color]" % item.description)
 	lines.append("")
 
-	if item.is_component:
+	if tier >= 2:
+		var parts := PackedStringArray()
+		for part_id in item.recipe:
+			var part: ItemDef = Content.item_def(part_id)
+			if part != null:
+				parts.append("%s %s" % [part.icon, part.display_name])
+		lines.append("[color=#7c93a4]Forged from %s[/color]" % " + ".join(parts))
+
+	var pairings: Array = Content.forges_using(item.id) if tier < 3 else []
+	if not pairings.is_empty():
+		if tier >= 2:
+			lines.append("")
 		lines.append("[color=#7c93a4]FORGES INTO[/color]")
-		var held: Dictionary = {}
-		for other in GameState.player.items:
-			held[other] = int(held.get(other, 0)) + 1
-		for pairing in Content.forges_using(item.id):
+		for pairing in pairings:
 			var other: ItemDef = Content.item_def(pairing["with"])
 			var result: ItemDef = Content.item_def(pairing["makes"])
-			# Mark the ones the player could make right now.
-			var have: bool = held.has(other.id) and (other.id != item.id or int(held[other.id]) >= 2)
+			var have := reachable_pair(item.id, other.id)
 			var marker := "[color=#4bd08a]✔[/color] " if have else "[color=#3d4d59]·[/color] "
 			lines.append("%s+ %s %s  »  [b]%s %s[/b]"
 				% [marker, other.icon, other.display_name, result.icon, result.display_name])
-	else:
-		var parts := PackedStringArray()
-		for component_id in item.recipe:
-			var component: ItemDef = Content.item_def(component_id)
-			parts.append("%s %s" % [component.icon, component.display_name])
-		lines.append("[color=#7c93a4]Forged from %s[/color]" % " + ".join(parts))
 
 	return "\n".join(lines)
+
+
+## Whether the player could forge `a` with `b` right now.
+##
+## Forging happens on a pirate, so one half has to be loose in the hold — the
+## other may be loose too, or already worn by somebody. Two halves sitting on two
+## different pirates cannot be brought together at all, which is exactly what a
+## check against the hold alone got wrong once greater items existed: by the time
+## a finished item is worth combining it is usually already equipped.
+static func reachable_pair(a: StringName, b: StringName) -> bool:
+	var held: Dictionary = {}
+	for id in GameState.player.items:
+		held[id] = int(held.get(id, 0)) + 1
+	if a == b:
+		return int(held.get(a, 0)) >= 2
+	if held.has(a) and held.has(b):
+		return true
+	var worn: Dictionary = {}
+	for unit in GameState.board:
+		for id in unit.items:
+			worn[id] = true
+	for unit in GameState.bench:
+		if unit == null:
+			continue
+		for id in unit.items:
+			worn[id] = true
+	return (held.has(a) and worn.has(b)) or (held.has(b) and worn.has(a))
 
 
 ## A rival captain: their standing, their traits, their board, and their items.

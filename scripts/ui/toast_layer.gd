@@ -48,8 +48,9 @@ func _on_item_gained(item_id: StringName, source: StringName) -> void:
 	if item == null:
 		return
 	var heading := "SALVAGED" if source == &"salvage" else "FROM THE ARMOURY"
+	var tier: int = GameState.content.item_tier(item_id)
 	_push(item.icon, "%s\n%s" % [item.display_name, item.description], heading,
-		UITheme.GOLD if not item.is_component else UITheme.FOAM)
+		UITheme.FOAM if tier <= 1 else UITheme.item_tier_color(tier))
 
 
 func _on_item_forged(item_id: StringName, _unit_uid: int) -> void:

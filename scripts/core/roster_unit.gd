@@ -16,6 +16,10 @@ const BENCHED := Vector2i(-1, -1)
 
 const MAX_ITEMS := 3
 
+## Capstones one pirate may carry. The second one costs the third slot rather
+## than filling it — see Content.capacity, which is where the whole rule lives.
+const MAX_CAPSTONES := 2
+
 static var _next_uid: int = 1
 
 var uid: int = 0
@@ -38,10 +42,6 @@ func id() -> StringName:
 
 func on_board() -> bool:
 	return cell != BENCHED
-
-
-func can_take_item() -> bool:
-	return items.size() < MAX_ITEMS
 
 
 ## Gold returned for selling: the champion's cost, tripling per star.

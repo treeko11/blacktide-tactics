@@ -338,7 +338,8 @@ class ItemChip extends Control:
 	func _draw() -> void:
 		if item == null:
 			return
-		var border := UITheme.GOLD if not item.is_component else Color("2f5a72")
+		var tier: int = GameState.content.item_tier(item.id)
+		var border := UITheme.item_tier_color(tier)
 		draw_rect(Rect2(Vector2.ZERO, size), Color("11283a"))
 
 		# A newly acquired item pulses for a few seconds. The playtest note was

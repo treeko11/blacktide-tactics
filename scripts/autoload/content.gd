@@ -42,7 +42,9 @@ var _trait_list: Array[TraitDef] = []
 var _items: Dictionary = {}          ## id -> ItemDef
 var _components: Array[ItemDef] = []
 var _forged: Array[ItemDef] = []
+var _capstones: Array[ItemDef] = []
 var _recipes: Dictionary = {}        ## "blade+lens" -> item id
+var _tiers: Dictionary = {}          ## item id -> 1 component, 2 forged, 3 capstone
 var _seas: Dictionary = {}           ## id -> SeaDef
 var _sea_list: Array[SeaDef] = []
 
@@ -80,13 +82,60 @@ func _load_definitions() -> void:
 		if item.is_component:
 			_components.append(item)
 		else:
-			_forged.append(item)
 			_recipes[item.key()] = item.id
 
 	for def in _load_dir(SEA_DIR):
 		var sea_def: SeaDef = def
 		_seas[sea_def.id] = sea_def
 		_sea_list.append(sea_def)
+
+	_sort_item_tiers()
+
+
+## Splits the forged items into tier 2 and tier 3, which is derived from the
+## recipe rather than declared on the resource.
+##
+## A tier is a fact about what an item is *made of*, so a field for it would be a
+## second copy of something the recipe already says, and the copy is the one that
+## goes stale the first time a recipe is retuned. This runs after every def is
+## loaded because a capstone's recipe names two forged items, and the file it
+## names may not have been read when its own file was.
+func _sort_item_tiers() -> void:
+	for id in _items:
+		_tiers[id] = _resolve_tier(id, {})
+	for item in _items.values():
+		if item.is_component:
+			continue
+		if _tiers.get(item.id, 2) >= 3:
+			_capstones.append(item)
+		else:
+			_forged.append(item)
+	_forged.sort_custom(func(a, b): return String(a.id) < String(b.id))
+	_capstones.sort_custom(func(a, b): return String(a.id) < String(b.id))
+
+
+## One more than the deeper of the two things it is forged from.
+##
+## `seen` breaks a recipe cycle rather than recursing until the stack gives out:
+## a pair of items each listing the other is an authoring mistake, and the shape
+## it should take is a startup error, not a hang.
+func _resolve_tier(id: StringName, seen: Dictionary) -> int:
+	var item: ItemDef = _items.get(id)
+	if item == null:
+		return 0
+	if item.is_component:
+		return 1
+	if item.recipe.size() != 2:
+		return 2
+	if seen.has(id):
+		push_error("Content: item '%s' is in a recipe cycle" % id)
+		return 2
+	seen[id] = true
+	var deepest := 1
+	for part in item.recipe:
+		deepest = maxi(deepest, _resolve_tier(part, seen))
+	seen.erase(id)
+	return deepest + 1
 
 
 func _load_dir(path: String) -> Array:
@@ -141,6 +190,15 @@ func _verify() -> void:
 	if _forged.size() != expected:
 		push_warning("Content: %d components should forge %d items, found %d"
 			% [_components.size(), expected, _forged.size()])
+
+	# A capstone is two *finished* items. One naming a component would load
+	# happily, sort itself into tier 2 and quietly become a sixteenth forged
+	# item — a recipe the forge chart would draw in the wrong grid.
+	for item in _capstones:
+		for part in item.recipe:
+			if item_tier(part) != 2:
+				push_error("Content: capstone '%s' is forged from '%s', which is tier %d"
+					% [item.id, part, item_tier(part)])
 
 
 ## Behaviour scripts with nothing to attach to.
@@ -216,28 +274,134 @@ func forged_items() -> Array[ItemDef]:
 	return _forged
 
 
+func capstones() -> Array[ItemDef]:
+	return _capstones
+
+
 func is_component(id: StringName) -> bool:
-	var item := item_def(id)
-	return item != null and item.is_component
+	return item_tier(id) == 1
 
 
-## The item two components forge into, or "" if they do not pair.
+func is_capstone(id: StringName) -> bool:
+	return item_tier(id) >= 3
+
+
+## 1 for a component, 2 for an item forged from two of them, 3 for a capstone
+## forged from two finished items. 0 for an id nothing knows.
+func item_tier(id: StringName) -> int:
+	return _tiers.get(id, 0)
+
+
+## The item two others forge into, or "" if they do not pair.
+##
+## Tier is not a parameter: the recipe table is keyed by the pair of ids and does
+## not care which rung they are on, so one lookup answers both "two components
+## make a finished item" and "two finished items make a capstone".
 func forge(a: StringName, b: StringName) -> StringName:
 	return _recipes.get(ItemDef.recipe_key(a, b), &"")
 
 
-## Every forge a component can take part in: [{ "with", "makes" }, ...].
+## Every forge an item can take part in: [{ "with", "makes" }, ...].
 ##
 ## This is what the forge chart reads. A player holding two components could not
 ## previously tell what they made without trying it, which is a bad way to learn
-## that you just welded your carry's slots shut.
-func forges_using(component_id: StringName) -> Array[Dictionary]:
+## that you just welded your carry's slots shut — and the same is truer one rung
+## up, where the two things being spent are finished items.
+##
+## Partners are looked for at the item's own tier, because that is the only place
+## they can be: a recipe is two things of one tier making one of the next.
+func forges_using(item_id: StringName) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for other in _components:
-		var result := forge(component_id, other.id)
+	for other in _peers(item_id):
+		var result := forge(item_id, other.id)
 		if result != &"":
 			out.append({ "with": other.id, "makes": result })
 	return out
+
+
+func _peers(item_id: StringName) -> Array[ItemDef]:
+	match item_tier(item_id):
+		1: return _components
+		2: return _forged
+	return []
+
+
+# --- Item slots --------------------------------------------------------------
+#
+# The rule lives here, in one function, rather than on RosterUnit — a unit knows
+# what it is carrying but not what tier any of it is, and a `can_take_item()`
+# that answered only the easy half of the question was a half-truth every caller
+# would have believed. RosterUnit deliberately has no such method now.
+
+## Capstones in a loadout.
+func capstone_count(items: Array[StringName]) -> int:
+	var n := 0
+	for id in items:
+		if is_capstone(id):
+			n += 1
+	return n
+
+
+## How many items a unit carrying `items` may hold in total.
+##
+## Three, until the second capstone: a capstone is worth about two finished
+## items, and the price of the second one is the slot it stands in front of.
+func capacity(items: Array[StringName]) -> int:
+	if capstone_count(items) >= RosterUnit.MAX_CAPSTONES:
+		return RosterUnit.MAX_ITEMS - 1
+	return RosterUnit.MAX_ITEMS
+
+
+func has_room(unit: RosterUnit) -> bool:
+	return unit != null and unit.items.size() < capacity(unit.items)
+
+
+## What dropping `item_id` on a unit holding `items` would do, without doing it.
+##
+## The one place the drop is decided. `preview_equip` shows the answer and
+## `equip_item` acts on it, so the panel that says "this forges Ironclad
+## Cutlass" and the code that forges it cannot come apart — they are the same
+## call. Returns:
+##   allowed  bool          whether the drop lands at all
+##   items    Array         the loadout afterwards
+##   forges   StringName    what was made, or "" for a plain equip
+##   with     StringName    the held item it was made with
+##   reason   String        why not, when not
+func plan_equip(item_id: StringName, items: Array[StringName]) -> Dictionary:
+	var no := func(why: String) -> Dictionary:
+		return { "allowed": false, "items": items, "forges": &"", "with": &"", "reason": why }
+	if item_def(item_id) == null:
+		return no.call("No such item")
+
+	# A capstone is the top of the tree and pairs with nothing, so it only ever
+	# takes a slot. Everything below it looks for a partner first, because
+	# forging costs no slot and is almost always what the player meant.
+	if not is_capstone(item_id):
+		for i in items.size():
+			var forged: StringName = forge(item_id, items[i])
+			if forged == &"":
+				continue
+			var after := items.duplicate()
+			after[i] = forged
+			if capstone_count(after) > RosterUnit.MAX_CAPSTONES:
+				return no.call("Already carrying two greater items")
+			if after.size() > capacity(after):
+				# Only reachable forging a second capstone onto a unit that is
+				# also holding a third item: the forge frees no slot, and the
+				# second capstone takes the one that item is standing in.
+				return no.call("A second greater item leaves no room for the third slot")
+			return { "allowed": true, "items": after, "forges": forged,
+				"with": items[i], "reason": "" }
+
+	var appended := items.duplicate()
+	appended.append(item_id)
+	if capstone_count(appended) > RosterUnit.MAX_CAPSTONES:
+		return no.call("Already carrying two greater items")
+	if appended.size() > capacity(appended):
+		if capstone_count(appended) >= RosterUnit.MAX_CAPSTONES:
+			return no.call("Two greater items fill that pirate")
+		return no.call("Carrying three items")
+	return { "allowed": true, "items": appended, "forges": &"", "with": &"", "reason": "" }
 
 
 # --- Behaviour ---------------------------------------------------------------

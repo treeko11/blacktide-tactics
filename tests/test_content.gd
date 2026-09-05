@@ -43,6 +43,8 @@ func _item_ids() -> Array:
 		out.append(item.id)
 	for item in content().forged_items():
 		out.append(item.id)
+	for item in content().capstones():
+		out.append(item.id)
 	return out
 
 

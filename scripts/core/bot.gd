@@ -248,30 +248,38 @@ func equip_items(state: Node) -> void:
 	items = remaining
 
 
-## Prefers a unit that can forge this component with something it already holds,
-## then simply the strongest unit with a free slot.
+## Prefers a unit that can forge this with something it already holds — a
+## capstone above a plain forge, since that is the bigger prize — and otherwise
+## simply the strongest unit with a free slot.
+##
+## `carries` is strongest first, so the first hit at each rank is also the best
+## one. Every candidate is put through the same plan_equip the player's drops go
+## through, which is what keeps a bot from building a loadout the rules forbid.
 func _best_holder(carries: Array[RosterUnit], item_id: StringName,
 		content_node: Node) -> RosterUnit:
-	if content_node.is_component(item_id):
-		for u in carries:
-			for held in u.items:
-				if content_node.forge(item_id, held) != &"":
-					return u
+	var forger: RosterUnit = null
+	var plain: RosterUnit = null
 	for u in carries:
-		if u.can_take_item():
+		var plan: Dictionary = content_node.plan_equip(item_id, u.items)
+		if not plan["allowed"]:
+			continue
+		var makes: StringName = plan["forges"]
+		if makes == &"":
+			if plain == null:
+				plain = u
+		elif content_node.is_capstone(makes):
 			return u
-	return null
+		elif forger == null:
+			forger = u
+	if forger != null:
+		return forger
+	return plain
 
 
 func _give(holder: RosterUnit, item_id: StringName, content_node: Node) -> void:
-	if content_node.is_component(item_id):
-		for i in holder.items.size():
-			var forged: StringName = content_node.forge(item_id, holder.items[i])
-			if forged != &"":
-				holder.items[i] = forged
-				return
-	if holder.can_take_item():
-		holder.items.append(item_id)
+	var plan: Dictionary = content_node.plan_equip(item_id, holder.items)
+	if plan["allowed"]:
+		holder.items.assign(plan["items"])
 	else:
 		items.append(item_id)
 

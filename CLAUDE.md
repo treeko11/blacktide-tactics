@@ -29,6 +29,7 @@ that needs no engine, and say plainly in the commit message that code is
 | `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac\|reread\|drag`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
+| `capstone_balance.gd` | What a greater item is worth. Fights each against the two finished items it is forged from, then two of them against one plus the loose halves of another. **Read the margin, not the win rate** — see the note under Items |
 | `fight_pacing.gd` | How long fights actually last. `--runs=` measures real runs; `--matched` fights boards built to the same budget, which is the only way to tell a bad curve from an honest blowout; `--isolate` moves unit count, stars and items one at a time; `--blowouts` reports what the quickest fights looked like from the inside; `--creep` fights the monster waves with one *seeded* run's fleets, which is the only way to compare two builds on the same boards |
 | `art_sheet.gd` | Draws **every champion**, or every body in every animation state (`--poses`). Must run **without** `--headless`. The only check that a polygon still triangulates |
 | `assign_art.gd` | Stamps `ArtTable` into `data/champions/*.tres`. Idempotent, and preserves balance where `generate_content.gd` would not |
@@ -236,7 +237,7 @@ scripts/core/                      Hex, Sim, SimUnit, Captain, Bot, RosterUnit,
                                    four extension-point base classes
 scripts/core/abilities/            one file per champion (44)
 scripts/core/traits/               one file per trait (13)
-scripts/core/items/                one file per item (20)
+scripts/core/items/                one file per item (30)
 scripts/core/sea/                  one file per sea state (4)
 scripts/ui/                        UITheme, Layout, BoardView, UnitView,
                                    UnitArt, UnitPortrait, Ocean, DeckPlate,
@@ -322,6 +323,97 @@ Each of these cost a debugging session or settles a design argument.
 - **Opponent boards are mirrored** onto the top half. A test fixture that seats
   both sides at row 6 puts them six hexes apart, and every proximity ability then
   legitimately finds nothing.
+
+### Items
+
+- **There are three rungs, and the tier is derived, never declared.** Five
+  components forge fifteen finished items; ten of those pairs forge again into a
+  **greater item**. `ItemDef.recipe` is just two ids and the recipe table is
+  keyed by the pair, so one `Content.forge` lookup answers both rungs and nothing
+  in it knows what a tier is. `Content._sort_item_tiers` walks the recipes at load
+  and works the tier out from what an item is *made of* — a field for it would be
+  a second copy of what the recipe already says, and the copy is the one that
+  goes stale the first time a recipe is retuned. `_verify` fails a capstone whose
+  recipe names a component, because that one loads happily, sorts itself into
+  tier 2, and becomes a sixteenth forged item that every list in the game files
+  in the wrong place without throwing.
+- **A greater item is worth about two finished ones, and the price is a slot: a
+  pirate may carry two, and two is all it may carry.** One costs nothing — one
+  greater item and two ordinary ones is still three items. It is the *second*
+  that shuts the third slot. The rule catches a case a plain count misses: a
+  forge turns two items into one, so a pirate holding a greater item, half of a
+  second, and a spare is not *gaining* an item by forging — and a size check
+  waves it through into exactly the loadout the rule forbids.
+- **The slot rule lives in `Content`, and `RosterUnit` has no `can_take_item()`
+  any more.** A unit knows what it is carrying and not what tier any of it is, so
+  it could only ever answer half the question — and a half-answer with a
+  confident name is one every caller believes. `Content.plan_equip` is the only
+  thing that decides a drop; `preview_equip` shows its answer and `equip_item`
+  acts on it, so what the drag promises and what the drop does are the same call.
+  Bots go through it too.
+- **Every door into a loadout has to obey it, not just the drop.** The star-up
+  merge carries the items of all three copies and used to keep whichever three
+  came first, which could hand the upgrade two greater items and a third
+  besides — arriving by merge, where nothing was looking. It now sorts capstones
+  forward and stops at whatever they leave room for.
+- **Every finished item is half of at least one greater item.** The rung above
+  "a component is never a dead end", and for the same reason: a finished item
+  that combines with nothing is a build that stops, and the player cannot tell
+  which those are without reading the chart. Ten recipes over fifteen items, so
+  five of the carry items appear in two.
+- **Greater items are forged only, never handed out.** The armoury keeps offering
+  tier 2 — `Content.forged_items()` excludes capstones, which is what makes that
+  true without the armoury knowing capstones exist. A run pays roughly seven
+  armoury items and ten salvage components, and a naive player who equips
+  whatever comes to hand builds about one greater item a run in two runs out of
+  three. A player who holds a half back for a pairing does better, which is the
+  point.
+- **The forge chart lists them; it does not grid them.** Fifteen finished items
+  is a fifteen-by-fifteen grid of which ten cells say anything — unreadable on a
+  desktop and impossible on a phone. Ten rows of `A + B » C` carry the same
+  meaning at any width, which is the same argument that keeps `[table]` out of
+  the almanac's stat blocks.
+- **"Can I make this now" is a different question one rung up.** A component's
+  green tick asked the hold and nothing else, which is right while both halves
+  are loose. By the time a *finished* item is worth combining it is usually
+  already worn, so `Tooltip.reachable_pair` asks the hold **and** the board: one
+  half must be loose, because forging happens on a pirate, and two halves on two
+  different pirates cannot be brought together at all. The almanac calls the same
+  function, so the tick cannot mean one thing in the inspector and another on the
+  page.
+- **Three rungs need three colours.** A greater item drawn in the same gold as
+  the finished items it is made of says nothing about what makes it different,
+  and the difference is a slot the player has spent.
+  `UITheme.item_tier_color` is the one place that decides, and the pip under a
+  pirate on the board gets a heavier rim as well — that is a fourteen-pixel
+  square on a phone, where a hue on its own is one pixel of difference and the
+  outline is what actually reads.
+- **`apply_burn`'s healing cut is a parameter, not a constant.** The capstone
+  burns cut harder than the components' do, and a number an item's own
+  description quotes has to come from the item.
+- **Read the margin, not the win rate.** In `capstone_balance.gd` both boards are
+  identical apart from the loadout, so a small persistent edge decides every seed
+  the same way: an item one percent stronger than its parents reports 100%, and
+  one twice as strong reports 100% as well. The win rate says *which* is
+  stronger and nothing about by how much. The two questions the tool asks turn
+  the same dial, so they cannot both sit at their ideal — an item exactly equal
+  to its parents makes committing to the second one a coin flip *and* makes
+  forging the first one pointless. Current state: every greater item beats its
+  own parts, and committing to the second finishes about 0.13 of a board ahead
+  of spreading the same four items over three slots.
+- **A compounding effect is the one shape a greater item should not have.** The
+  Drowned Star used to pay permanent ability power on every cast, so what it was
+  worth depended on how long the fight ran, and it measured half again as far
+  ahead of its own parents as any other. Flat power instead.
+- **`capstone_balance.gd` needs its control, and the control is why it exists.**
+  `Hex.mirror` flips the row as well as the column, so a formation on row 5 lands
+  on row 2 — the other parity of an offset grid, where the neighbours are not the
+  same neighbours. The two halves are therefore **not adjacency-identical**, and
+  a board fought against a copy of itself wins only 7.5% of the time from the
+  near side once the loadout is heavy enough to care where it is standing. Every
+  figure the tool printed before the control went in was measuring that and not
+  the item — four greater items were reported as weaker than their own parts and
+  none of them was. Playing each seed both ways and pooling cancels it exactly.
 
 ### The sea
 
@@ -1270,6 +1362,13 @@ refers to the JavaScript at all, and only in a comment.
   assertion is on a number, and the one that matters most fights two boards of
   healers and fails if they reach the time limit. That test genuinely fails with
   the ramp turned off: the fight runs to exactly 42.000s.
+- `test_capstones.gd` holds the third rung. Both halves of it fail silently:
+  the **tier graph** is derived, so a capstone whose recipe named a component
+  would file itself under tier 2 and throw nothing, and the **slot rule** is the
+  whole cost of a greater item, so a path that quietly allows two of them plus a
+  third item does not look like a bug — it looks like a strong board. It also
+  covers the two doors that do not go through `equip_item`, the star-up merge and
+  the bots, and casts every capstone to fail one that changes no number.
 - `test_economy.gd` checks that **no champion copies are lost** over forty rounds
   of bot shopping. A card rolled and neither bought nor returned drains the
   shared pool silently, and the shop slowly stops offering that champion to

@@ -571,9 +571,14 @@ func apply_shred_mr(u: SimUnit, pct: float, duration: float) -> void:
 
 ## Burns do not stack — a fresh application replaces the old one, along with the
 ## healing cut that rides with it.
-func apply_burn(u: SimUnit, pct_per_second: float, duration: float, source: SimUnit) -> void:
+##
+## `heal_cut` is a parameter rather than the constant it used to be because the
+## capstone burns cut harder than the components' do, and a number the item's own
+## description quotes must come from the item.
+func apply_burn(u: SimUnit, pct_per_second: float, duration: float, source: SimUnit,
+		heal_cut: float = 0.33) -> void:
 	u.burns = [{ "pct": pct_per_second, "time": duration, "tick": 1.0, "source": source }]
-	u.heal_cut = 0.33
+	u.heal_cut = heal_cut
 	u.heal_cut_time = duration
 
 

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap02"]
+
+[resource]
+script = ExtResource("1_cap02")
+id = &"drowned_star"
+display_name = "The Drowned Star"
+icon = "🌟"
+description = "+130 Ability Power, +15% Attack Speed. After casting, gain 40% Attack Speed for 5 seconds."
+recipe = Array[StringName]([&"abyssal_prism", &"stormglass"])

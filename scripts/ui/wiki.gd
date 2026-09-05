@@ -596,6 +596,13 @@ func entries(section: StringName) -> Array:
 					"id": item.id, "title": item.display_name,
 					"icon": item.icon, "group": "Forged",
 				})
+			var greater: Array = Content.capstones().duplicate()
+			greater.sort_custom(func(a, b): return a.display_name < b.display_name)
+			for item in greater:
+				items.append({
+					"id": item.id, "title": item.display_name,
+					"icon": item.icon, "group": "Greater",
+				})
 			return items
 	return []
 
@@ -897,43 +904,56 @@ func _item_page(id: StringName) -> String:
 	if item == null:
 		return ""
 
+	var tier: int = Content.item_tier(id)
+	var kind := "Component"
+	if tier == 2:
+		kind = "Forged"
+	elif tier >= 3:
+		kind = "Greater item"
+
 	var lines := PackedStringArray()
 	lines.append(_title(item.icon, item.display_name,
-		"[color=#7c93a4]%s[/color]" % ("Component" if item.is_component else "Forged")))
+		"[color=#7c93a4]%s[/color]" % kind))
 	lines.append("")
 	lines.append("[color=#b9cbd8]%s[/color]" % item.description)
 	lines.append("")
 
-	var held: Dictionary = {}
-	for owned in GameState.player.items:
-		held[owned] = int(held.get(owned, 0)) + 1
+	if tier >= 3:
+		# The slot cost is the whole decision a greater item asks for, so it is
+		# said on the item's own page and not only on the SAILING one.
+		lines.append("[color=#ffd98a]A pirate may carry two greater items, and two "
+			+ "is all it may carry — the second one spends the third slot.[/color]")
+		lines.append("")
 
-	if item.is_component:
+	if tier >= 2:
+		lines.append(_heading("Forged from"))
+		var parts := PackedStringArray()
+		for part_id in item.recipe:
+			var part: ItemDef = Content.item_def(part_id)
+			parts.append(_link(&"items", part_id,
+				"%s %s" % [part.icon, part.display_name]))
+		lines.append(" + ".join(parts))
+
+	if tier < 3:
+		if tier >= 2:
+			lines.append("")
 		lines.append(_heading("Forges into"))
 		for pairing in Content.forges_using(item.id):
 			var other: ItemDef = Content.item_def(pairing["with"])
 			var result: ItemDef = Content.item_def(pairing["makes"])
-			# Ticked when the hold can make it now — the same mark the inspector
+			# Ticked when the player could make it now — the same mark the inspector
 			# uses, because "what can I build with what I have" is the question
-			# actually being asked.
-			var have: bool = held.has(other.id) \
-				and (other.id != item.id or int(held[other.id]) >= 2)
+			# actually being asked. Tooltip owns the rule so the two cannot disagree
+			# about what "now" means once a half can be worn rather than held.
+			var have := Tooltip.reachable_pair(item.id, other.id)
 			var mark := "[color=#4bd08a]✔[/color]" if have else "[color=#3d4d59]·[/color]"
 			lines.append("%s + %s  »  %s" % [mark,
 				_link(&"items", other.id, "%s %s" % [other.icon, other.display_name]),
 				_link(&"items", result.id, "[b]%s %s[/b]" % [result.icon, result.display_name])])
-	else:
-		lines.append(_heading("Forged from"))
-		var parts := PackedStringArray()
-		for component_id in item.recipe:
-			var component: ItemDef = Content.item_def(component_id)
-			parts.append(_link(&"items", component_id,
-				"%s %s" % [component.icon, component.display_name]))
-		lines.append(" + ".join(parts))
 
 	lines.append("")
 	lines.append(_heading("Carrying"))
-	lines.append("[color=#8fa6b5]A pirate holds three items. Two components dropped on the same pirate forge on contact, and that cannot be undone — check the %s first.[/color]"
+	lines.append("[color=#8fa6b5]A pirate holds three items, or two greater ones. Items dropped on the same pirate forge on contact, and that cannot be undone — check the %s first.[/color]"
 		% _link(&"guide", &"items", "forge rules"))
 	return "\n".join(lines)
 
@@ -1065,9 +1085,13 @@ Beating another captain pays 1 more; a monster wave pays %s instead. Refreshing 
 		&"items":
 			body = """Monster waves drop [b]components[/b]. Drag two of them onto the same pirate and they [b]forge[/b] into a full item on contact. Five components make every one of the fifteen finished items, so a component is never a dead end.
 
+Two [b]finished[/b] items on one pirate combine again, into a [b]greater item[/b]. Not every pair does — there are ten of them, listed under the forge chart — but every finished item is half of at least one, so a finished item is not a dead end either.
+
+A greater item is worth about two ordinary ones, and the price is a slot: [b]a pirate may carry two greater items, and two is all it may carry[/b]. One greater item costs nothing — one greater item and two ordinary ones is still three. It is the second that shuts the third slot.
+
 Forging cannot be undone, and a pirate holds three items — so a component welded onto the wrong carry is gone. The [b]Forge chart[/b] button over the cargo hold shows every pairing at once, and every square of it can be inspected.
 
-At the end of a stage the [b]armoury[/b] offers three finished items and 2 gold; take one. Every item in the game is listed %s.""" % _link(&"items", &"", "here")
+At the end of a stage the [b]armoury[/b] offers three finished items and 2 gold; take one. Greater items are never handed out — the only way to have one is to have made it. Every item in the game is listed %s.""" % _link(&"items", &"", "here")
 		&"monsters":
 			body = """Every other round is fought against a wave of sea monsters rather than another captain. They do not level, they carry no items, and they are the same for everybody in the lobby.
 

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/item_def.gd" id="1_cap05"]
+
+[resource]
+script = ExtResource("1_cap05")
+id = &"drowned_choir"
+display_name = "The Drowned Choir"
+icon = "🔱"
+description = "+45 Ability Power, +50 Mana. After casting, restore 50 Mana and gain 10 permanent Ability Power."
+recipe = Array[StringName]([&"krakens_compass", &"sirens_locket"])
