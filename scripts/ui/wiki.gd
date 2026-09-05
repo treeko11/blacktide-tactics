@@ -772,11 +772,16 @@ func _champion_page(id: StringName) -> String:
 
 ## What the marks beside the ability numbers mean, on the reference page.
 ##
-## Deliberately not the tooltip's version. The inspector answers "what is this
-## pirate in front of me worth right now" and puts live numbers in its legend;
-## this page shows all three stars at once and has no single unit to read, so a
-## number here would have to pick a star and would be wrong at the other two.
-## What it can do instead is name the stat and point at the page explaining it.
+## The inspector has none. It answers "what is this pirate in front of me worth
+## right now", so it resolves each figure against the caster and puts the answer
+## in brackets after the mark - which leaves nothing for a glossary underneath to
+## add, on a panel that is most of the screen on a phone.
+##
+## This page cannot do that. It shows all three stars at once and has no single
+## unit to read, so a resolved number here would have to pick a star and be wrong
+## at the other two. What it can do instead is name the stat and point at the
+## page explaining it, which is what a reference is for and why the two came
+## apart.
 func _scaling_legend(scaling: Dictionary) -> String:
 	var used := PackedStringArray()
 	for stat in [&"ad", &"ap"]:
