@@ -19,8 +19,8 @@ extends PanelContainer
 ## stay open with nothing holding it there. A pinned tooltip stops watching the
 ## cursor, takes input instead of ignoring it, and grows a footer with a close
 ## button — and a SELL button when the thing being inspected is a pirate the
-## player owns, because selling is otherwise bound to a right-click a phone does
-## not have.
+## player owns, because the only other way to sell is to drag it over the plank,
+## and the pinned inspector is where a phone reads what it is about to sell.
 ##
 ## **It re-reads what it is showing rather than remembering it.** The text was
 ## built once, at the moment of the hover, which made every number in it a

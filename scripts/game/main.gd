@@ -435,7 +435,6 @@ func _connect_panels() -> void:
 	# --- the board
 	board.unit_dropped_on_cell.connect(func(unit, cell): GameState.move_to_board(unit, cell))
 	board.item_dropped_on_unit.connect(func(item_id, unit): GameState.equip_item(item_id, unit))
-	board.unit_sell_requested.connect(func(unit): GameState.sell(unit))
 	board.preview_changed.connect(_set_preview)
 	board.forge_previewed.connect(_on_forge_previewed)
 	board.forge_preview_cleared.connect(_clear_forge_preview)

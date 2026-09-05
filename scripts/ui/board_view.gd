@@ -13,7 +13,6 @@ extends Control
 
 signal unit_dropped_on_cell(unit: RosterUnit, cell: Vector2i)
 signal item_dropped_on_unit(item_id: StringName, unit: RosterUnit)
-signal unit_sell_requested(unit: RosterUnit)
 signal preview_changed(text: String)
 ## What the item being dragged would forge with, and where to anchor the answer.
 ## `forge_preview_cleared` is the other half: nothing under the cursor pairs any
@@ -140,11 +139,6 @@ func _gui_input(event: InputEvent) -> void:
 			hover_cell = cell
 			queue_redraw()
 		_report_hover(event.position)
-	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			var unit := roster_unit_at(event.position)
-			if unit != null:
-				unit_sell_requested.emit(unit)
 
 
 ## Announces whatever the cursor is over, so the inspector can follow it. During

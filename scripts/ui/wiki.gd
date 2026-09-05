@@ -1108,7 +1108,7 @@ They are a [b]floor, not a wall[/b]: field anything at all and you should win. O
 
 [b]FLEET[/b] in the top bar opens the standings and the battle log. The clock beside the shop turns orange with eight seconds left in the planning phase."""
 			else:
-				body = """[b]Drag[/b] pirates between the bench and the board, and drag items onto a pirate to equip them. [b]Right-click[/b] a pirate to sell it.
+				body = """[b]Drag[/b] pirates between the bench and the board, and drag items onto a pirate to equip them — or over [b]the plank[/b] beside the bench to sell them.
 
 [b]D[/b] refreshes the shop, [b]F[/b] buys XP, [b]Space[/b] starts the battle early, and [b]1 / 2 / 4[/b] set the battle speed.
 
