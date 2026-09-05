@@ -55,6 +55,15 @@ const REFRESH_SECONDS := 0.1
 const PORTRAIT_SIZE := Vector2(48.0, 56.0)
 const PORTRAIT_GAP := 8
 
+## What a gathered stat is called in the panel. The words the stat block a few
+## lines above uses, so the two halves of one inspector do not name the same
+## number differently - the item descriptions say "Attack Damage" and "Magic
+## Resist", but those sit further away than the block does.
+const GATHERED_LABELS := {
+	&"ad": "Attack", &"ap": "Ability Power",
+	&"armor": "Armour", &"mr": "Resist", &"as": "Attack Speed",
+}
+
 var pinned: bool = false
 
 ## The body's width with no portrait beside it. Kept so showing one can take the
@@ -405,10 +414,7 @@ static func champion_text(champion: ChampionDef, star: int,
 		lines.append("")
 		lines.append("[color=#7fe3ff][b]%s[/b][/color]" % champion.ability_name)
 		lines.append("[color=#b9cbd8]%s[/color]" % Content.format_description(
-			champion.ability_desc, champion.ability_values, star, scaling))
-		var legend := _scaling_legend(scaling)
-		if legend != "":
-			lines.append(legend)
+			champion.ability_desc, champion.ability_values, star, scaling, live))
 
 	if not items.is_empty():
 		lines.append("")
@@ -419,8 +425,44 @@ static func champion_text(champion: ChampionDef, star: int,
 				continue
 			lines.append("%s [b]%s[/b]" % [item.icon, item.display_name])
 			lines.append("[color=#8fa6b5]%s[/color]" % item.description)
+			if live != null:
+				var gathered := _gathered_line(live, item_id)
+				if gathered != "":
+					lines.append(gathered)
 
 	return "\n".join(lines)
+
+
+## What a growing item has actually gathered this fight, under its description.
+##
+## Six items snowball and none of them said by how much. The promise is in the
+## description - "gain 10 Attack Damage whenever this unit lands a killing blow"
+## - and the total was buried inside the Attack figure at the top of the panel,
+## mixed in with the champion's own star curve, its traits, and everything else
+## it is carrying. There is no subtraction a player can do from the outside to
+## get it back out, so an item whose whole design is a snowball read exactly the
+## same in the tenth second of a fight as in the first.
+##
+## Only during a fight, and only after the first proc. The growth is fight-scoped
+## - items are re-applied in `Sim._init` every round, so a stack gathered last
+## round is already gone - and a row of zeroes on every item in the game would
+## cost the panel a line each to say nothing.
+##
+## Attack speed reads as a multiplier because that is how it is granted; the
+## other four are sums.
+static func _gathered_line(live: SimUnit, item_id: StringName) -> String:
+	var book := ItemEffect.gathered(live, item_id)
+	if book.is_empty():
+		return ""
+	var parts := PackedStringArray()
+	for stat in [&"ad", &"ap", &"armor", &"mr"]:
+		if book.has(stat):
+			parts.append("+%d %s" % [roundi(book[stat]), GATHERED_LABELS[stat]])
+	if book.has(&"as"):
+		parts.append("×%.2f %s" % [book[&"as"], GATHERED_LABELS[&"as"]])
+	if parts.is_empty():
+		return ""
+	return "[color=#ffd98a]GATHERED  %s[/color]" % "   ".join(parts)
 
 
 ## Ability power in the stat block, on every champion rather than only on the
@@ -438,36 +480,6 @@ static func champion_text(champion: ChampionDef, star: int,
 static func _power_line(ability_power: float) -> String:
 	return "Ability Power [b]%d[/b]  [color=#c9a2ff]×%.2f[/color]" % [
 		roundi(ability_power), ability_power / SimUnit.BASE_AP]
-
-
-## What the marks beside the ability numbers mean.
-##
-## One line, and no numbers in it. The figures are already directly above — the
-## stat block carries Attack and Ability Power, which are exactly the two stats
-## a mark can name — and repeating them here would cost three more lines of a
-## panel that is most of the screen on a phone. What is missing without this is
-## only the decoding: what "AP" is short for, and which colour is which.
-##
-## Only the stats this ability uses are listed, so it is one entry for most
-## champions and two for the four hybrids. Tuck, whose ability scales off
-## nothing, gets no line at all rather than a heading with nothing under it.
-static func _scaling_legend(scaling: Dictionary) -> String:
-	# Walked in a fixed order rather than collected and sorted, so a hybrid's two
-	# entries come out the same way round on every champion instead of following
-	# whatever order that ability happened to declare its keys in. Attack damage
-	# first: it is the number an AD figure is a percentage of, and ability power
-	# is the thing that multiplies the rest.
-	var used := PackedStringArray()
-	for stat in [&"ad", &"ap"]:
-		if not scaling.values().has(stat):
-			continue
-		var mark: Dictionary = Ability.SCALING[stat]
-		used.append("[color=#%s]%s[/color] %s"
-			% [mark["colour"], String(mark["tag"]).strip_edges(), mark["name"]])
-	if used.is_empty():
-		return ""
-	return "\n[color=#7c93a4]SCALES WITH[/color]  [color=#8fa6b5]%s[/color]" \
-		% "   ".join(used)
 
 
 static func trait_text(trait_id: StringName, count: int, tier: int) -> String:

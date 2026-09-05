@@ -449,24 +449,50 @@ func item_effect(item_id: StringName) -> ItemEffect:
 ## hybrids: Corvane, Finn, Hookjaw and Selka each read one figure off attack
 ## damage and another off ability power in the same sentence, and a single line
 ## underneath saying "scales with both" cannot say which is which.
+##
+## `unit`, when there is one, is the caster the numbers are being read on, and
+## turns each mark into a figure: "150% AD (143)". Only ever a pirate in a fight
+## — a SimUnit exists nowhere else — which is also the only place the caster's
+## real attack and ability power exist to multiply by.
 static func format_description(text: String, values: Dictionary, star: int = 0,
-		scaling: Dictionary = {}) -> String:
+		scaling: Dictionary = {}, unit: SimUnit = null) -> String:
 	var out := text
 	for key in values:
 		var arr: Array = values[key]
 		if arr.is_empty():
 			continue
+		var stat: StringName = scaling.get(key, &"")
 		var replacement := ""
 		if star > 0:
-			replacement = "[b]%s[/b]" % _num(arr[clampi(star - 1, 0, arr.size() - 1)])
+			var base := float(arr[clampi(star - 1, 0, arr.size() - 1)])
+			replacement = "[b]%s[/b]%s%s" % [
+				_num(base), scaling_tag(stat), resolved_tag(stat, base, unit)]
 		else:
+			# Every star at once, for a shop card or an almanac page. No caster
+			# to resolve against, and three resolved figures beside three
+			# authored ones would be six numbers in one sentence anyway.
 			var parts := PackedStringArray()
 			for value in arr:
 				parts.append(_num(value))
-			replacement = "[b]%s[/b]" % " / ".join(parts)
-		replacement += scaling_tag(scaling.get(key, &""))
+			replacement = "[b]%s[/b]%s" % [" / ".join(parts), scaling_tag(stat)]
 		out = out.replace("{%s}" % key, replacement)
 	return out
+
+
+## What a number comes to on this caster right now, as a parenthetical after the
+## mark, in the mark's own colour so the two stay paired on the four hybrids.
+##
+## The authored figure stays in front of it. Replacing it outright would read
+## more directly but would cost the player the only on-screen sign that their
+## ability power is doing anything at all — with the base gone, a resolved
+## number is just a number, and there is nothing to compare it against without
+## reading the stat block and multiplying, which is the arithmetic this exists
+## to spare them.
+static func resolved_tag(stat: StringName, base: float, unit: SimUnit) -> String:
+	if unit == null or not Ability.SCALING.has(stat):
+		return ""
+	return " [color=#%s](%d)[/color]" % [
+		Ability.SCALING[stat]["colour"], roundi(Ability.resolve(stat, base, unit))]
 
 
 ## The coloured mark that goes after a number, or "" for one that scales off

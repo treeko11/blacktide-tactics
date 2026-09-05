@@ -21,8 +21,8 @@ func apply(sim: Sim, u: SimUnit) -> void:
 		if stacks >= 25:
 			return
 		unit.scratch[&"leviathan_ribcage"] = stacks + 1
-		unit.armor += 4.0
-		unit.magic_resist += 4.0
+		grant(unit, &"armor", 4.0)
+		grant(unit, &"mr", 4.0)
 
 	u.hooks_on_attack.append(func(unit: SimUnit, _target: SimUnit) -> void: grow.call(unit))
 	u.hooks_on_damaged.append(func(unit: SimUnit, _amount: float, _source: SimUnit) -> void: grow.call(unit))

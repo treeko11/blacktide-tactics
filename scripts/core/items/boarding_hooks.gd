@@ -18,8 +18,8 @@ func apply(sim: Sim, u: SimUnit) -> void:
 		if stacks >= 25:
 			return
 		unit.scratch[&"boarding_hooks"] = stacks + 1
-		unit.armor += 3.0
-		unit.magic_resist += 3.0
+		grant(unit, &"armor", 3.0)
+		grant(unit, &"mr", 3.0)
 
 	# The two hooks are called with different arities, so each gets a shim.
 	u.hooks_on_attack.append(func(unit: SimUnit, _target: SimUnit) -> void: grow.call(unit))

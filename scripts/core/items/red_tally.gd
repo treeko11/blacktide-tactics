@@ -14,11 +14,11 @@ func apply(sim: Sim, u: SimUnit) -> void:
 	u.ad += 70.0
 
 	var on_attack := func(unit: SimUnit, _target: SimUnit) -> void:
-		unit.attack_speed *= 1.07
+		grant_attack_speed(unit, 1.07)
 
 	var on_kill := func(unit: SimUnit, _victim: SimUnit) -> void:
-		unit.ad += 15.0
-		unit.attack_speed *= 1.15
+		grant(unit, &"ad", 15.0)
+		grant_attack_speed(unit, 1.15)
 		sim.proc_text(unit, "+15 AD")
 
 	u.hooks_on_attack.append(on_attack)

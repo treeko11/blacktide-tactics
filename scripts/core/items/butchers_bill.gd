@@ -17,7 +17,7 @@ func apply(sim: Sim, u: SimUnit) -> void:
 			sim.apply_burn(target, 0.02, 5.0, unit, 0.50)
 
 	var on_kill := func(unit: SimUnit, _victim: SimUnit) -> void:
-		unit.ad += 15.0
+		grant(unit, &"ad", 15.0)
 		sim.proc_text(unit, "+15 AD")
 
 	u.hooks_on_attack.append(on_attack)

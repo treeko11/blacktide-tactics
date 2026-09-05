@@ -14,7 +14,7 @@ func apply(sim: Sim, u: SimUnit) -> void:
 
 	var on_cast := func(unit: SimUnit) -> void:
 		unit.gain_mana(50.0)
-		unit.ability_power += 10.0
+		grant(unit, &"ap", 10.0)
 		sim.proc_text(unit, "CHOIR")
 
 	u.hooks_on_cast.append(on_cast)

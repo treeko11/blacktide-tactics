@@ -211,11 +211,14 @@ func test_the_carrier_list_marks_what_the_player_owns() -> void:
 # --- ability scaling ---------------------------------------------------------
 #
 # The marks beside the ability numbers are the only thing in the HUD that says
-# what a figure is driven by, and every way they break is silent: a tag that
-# never renders leaves a bare number that looks finished, and a legend built off
-# an empty scaling map leaves a heading with nothing under it. Neither throws.
+# what a figure is driven by, and the way they break is silent: a tag that never
+# renders leaves a bare number that looks finished, and throws nothing.
+#
+# The legend that used to spell the marks out underneath is gone - two lines of
+# glossary on a panel that is most of the screen on a phone, above a stat block
+# already naming both stats - so what is asserted here is the marks themselves.
 
-## An ability power number is marked, and the legend under it decodes the mark.
+## An ability power number is marked with the stat that drives it.
 func test_an_ability_number_is_marked_with_the_stat_that_drives_it() -> void:
 	var nautica: ChampionDef = content().champion(&"nautica")
 	var text := Tooltip.champion_text(nautica, 1)
@@ -224,9 +227,6 @@ func test_an_ability_number_is_marked_with_the_stat_that_drives_it() -> void:
 	# and the colour is the half a glance reads before the letters do.
 	assert_true(text.contains(Content.scaling_tag(&"ap")),
 		"the ability power mark is missing from the ability text")
-	assert_true(text.contains("SCALES WITH"), "the legend is missing")
-	assert_true(text.contains("Ability Power"),
-		"the legend did not spell the stat out")
 	assert_false(text.contains(Content.scaling_tag(&"ad")),
 		"an ability that reads nothing off attack damage was marked for it")
 
@@ -242,18 +242,18 @@ func test_a_hybrid_ability_marks_each_number_separately() -> void:
 		"the attack damage mark is missing")
 	assert_true(text.contains(Content.scaling_tag(&"ap")),
 		"the ability power mark is missing")
-	assert_true(text.contains("Attack Damage"), "the legend lost the attack entry")
-	assert_true(text.contains("Ability Power"), "the legend lost the power entry")
 
 
-## An ability that scales off nothing gets no legend at all, rather than a
-## heading with nothing under it. Tuck hands out mana and haste, and both are the
-## same figure however the pirate is built.
-func test_an_unscaled_ability_gets_no_legend() -> void:
+## An ability that scales off nothing carries no mark at all. Tuck hands out
+## mana and haste, and both are the same figure however the pirate is built, so
+## a mark on either would be a lie in the shape of a helpful annotation.
+func test_an_unscaled_ability_gets_no_marks() -> void:
 	var tuck: ChampionDef = content().champion(&"tuck")
 	var text := Tooltip.champion_text(tuck, 1)
-	assert_false(text.contains("SCALES WITH"),
-		"an ability that scales off nothing was given a legend")
+	assert_false(text.contains(Content.scaling_tag(&"ad")),
+		"an ability that scales off nothing was marked for attack damage")
+	assert_false(text.contains(Content.scaling_tag(&"ap")),
+		"an ability that scales off nothing was marked for ability power")
 
 
 ## Ability power is in the stat block on every champion, at its baseline, so it

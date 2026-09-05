@@ -65,3 +65,24 @@ func v(unit: SimUnit, key: StringName) -> float:
 ## every damage and healing figure wants.
 func scaled(unit: SimUnit, key: StringName) -> float:
 	return unit.def.value(key, unit.star) * unit.power()
+
+
+## What one of this ability's numbers actually comes to on a given caster.
+##
+## The inverse of the SCALING table at the top: `tag` says which stat drives a
+## number, this says what that stat does to it. An attack-damage figure is a
+## percentage of the caster's attack — SCALING already declares there is no
+## other kind — and an ability-power figure is multiplied by the caster's power,
+## which is `scaled()` above written out.
+##
+## Only the inspector calls it. A cast deliberately does not: an ability that
+## computed its damage through the same function the tooltip prints would be one
+## indirection away from the number it applies, and the whole point of keeping
+## `scaling()` in the ability is that a description cannot change what a cast
+## does. The cost of that split is that this is arithmetic in two places, so a
+## third scaling stat is added here, in SCALING, and nowhere else.
+static func resolve(stat: StringName, base: float, unit: SimUnit) -> float:
+	match stat:
+		&"ad": return unit.ad * base / 100.0
+		&"ap": return base * unit.power()
+	return base
