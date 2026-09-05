@@ -56,36 +56,54 @@ func test_merging_keeps_the_board_seat() -> void:
 	assert_eq(s.board[0].star, 2)
 
 
+## One item per copy, and deliberately only one that could pair with anything:
+## every component forges with every other, so two of them on the three copies
+## would test the merge's forging rather than that it carries anything at all.
+## That case is `test_capstones.gd`.
 func test_merging_carries_items_across() -> void:
 	var s := state()
 	var a := _give(&"barnaby")
 	a.items.append(&"blade")
 	var b := _give(&"barnaby")
-	b.items.append(&"lens")
+	b.items.append(&"bloodletter")
 	_give(&"barnaby")
 	s._check_upgrades()
 
 	var upgraded: RosterUnit = s.owned_units()[0]
 	assert_eq(upgraded.star, 2)
 	assert_true(upgraded.items.has(&"blade"), "items should survive the merge")
-	assert_true(upgraded.items.has(&"lens"))
+	assert_true(upgraded.items.has(&"bloodletter"))
 
 
 ## Three items is the hard limit; a fourth has to go back to the hold rather
 ## than vanish.
+##
+## Four *finished* items that pair with nothing between them, because a merge
+## forges now: any two components combine, so five of those come out the other
+## side as three items and nothing overflows at all. The pairings are asserted
+## rather than assumed, so adding a recipe between any two of these fails here
+## saying so instead of failing the overflow count and looking like a merge bug.
 func test_merge_overflow_items_return_to_the_hold() -> void:
 	var s := state()
 	s.player.items.clear()
+	var loose: Array[StringName] = [&"bloodletter", &"hull_of_the_deep",
+		&"coral_aegis", &"krakens_compass"]
+	for i in loose.size():
+		for j in range(i + 1, loose.size()):
+			assert_eq(content().forge(loose[i], loose[j]), &"",
+				"%s and %s now forge, so this fixture no longer overflows"
+					% [loose[i], loose[j]])
+
 	var a := _give(&"barnaby")
-	a.items.assign([&"blade", &"lens", &"plate"])
+	a.items.assign(loose.slice(0, 3))
 	var b := _give(&"barnaby")
-	b.items.assign([&"keg", &"sextant"])
+	b.items.assign(loose.slice(3))
 	_give(&"barnaby")
 	s._check_upgrades()
 
 	var upgraded: RosterUnit = s.owned_units()[0]
 	assert_eq(upgraded.items.size(), RosterUnit.MAX_ITEMS)
-	assert_eq(s.player.items.size(), 2, "the two that did not fit should be held")
+	assert_eq(s.player.items.size(), 1, "the one that did not fit should be held")
 
 
 # --- positioning -------------------------------------------------------------

@@ -579,22 +579,33 @@ func _merge_three(three: Array, star: int) -> void:
 		_remove_unit(u)
 
 	var upgraded := RosterUnit.new(three[0].champion, star + 1)
-	# Capstones first, then everything else, and stop at whatever the capstones
-	# leave room for. Taking the first three in hand order could hand the
-	# upgrade two capstones *and* a third item, which is the one loadout the
-	# slot rule exists to forbid — and it would arrive by star-up rather than by
-	# a drop, so nothing in equip_item would ever see it.
+	# Every item the three copies were carrying goes back through plan_equip —
+	# the same call a drop makes — rather than being counted into free slots.
+	#
+	# Two bugs lived in the counting version. It never forged, so a star-up that
+	# gathered a Buccaneer's Edge from one copy and a Rapier from another left
+	# both worn side by side, and they could never be combined afterwards:
+	# forging only ever happens at the moment an item is equipped, and both were
+	# already on. And an earlier version took the first three in hand order,
+	# which could hand the upgrade two capstones *and* a third item — the one
+	# loadout the slot rule exists to forbid, arriving by a door equip_item
+	# never sees. One call answers both, because it is the only thing that
+	# decides a loadout.
+	#
+	# Capstones are still offered first, because they pair with nothing and what
+	# fits is settled by how many of them there are.
 	carried.sort_custom(func(a, b):
 		return content.item_tier(a) > content.item_tier(b))
 	for id in carried:
-		var after := upgraded.items.duplicate()
-		after.append(id)
-		# content is a Node, so both of these are Variants until they are typed.
-		var capstones: int = content.capstone_count(after)
-		var room: int = content.capacity(after)
-		var fits := capstones <= RosterUnit.MAX_CAPSTONES and after.size() <= room
-		if fits:
-			upgraded.items.append(id)
+		# content is a Node, so this is a Variant until it is typed.
+		var plan: Dictionary = content.plan_equip(id, upgraded.items)
+		if plan["allowed"]:
+			upgraded.items.assign(plan["items"])
+			var forged: StringName = plan["forges"]
+			if forged != &"":
+				var made: ItemDef = content.item_def(forged)
+				log_line("Forged %s" % made.display_name, &"good")
+				Events.item_forged.emit(forged, upgraded.uid)
 			continue
 		player.items.append(id)
 		Events.item_gained.emit(id, &"sale")

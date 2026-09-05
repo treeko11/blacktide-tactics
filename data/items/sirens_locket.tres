@@ -7,5 +7,5 @@ script = ExtResource("1_fnjim")
 id = &"sirens_locket"
 display_name = "Siren's Locket"
 icon = "📿"
-description = "+25 Ability Power, +20 Mana. After casting, restore 20 Mana and gain 10 permanent Ability Power."
+description = "+25 Ability Power, +20 Mana. After casting, restore 20 Mana and gain 18 Ability Power for 8 seconds."
 recipe = Array[StringName]([&"lens", &"sextant"])

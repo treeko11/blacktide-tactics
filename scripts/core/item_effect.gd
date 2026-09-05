@@ -67,6 +67,27 @@ func grant(unit: SimUnit, stat: StringName, amount: float) -> void:
 	book[stat] = float(book.get(stat, 0.0)) + amount
 
 
+## Grant a bonus that expires, and record it the same way.
+##
+## The shape a growing item has to have. A grant that lasts the whole fight is
+## unbounded in the only variable nobody controls — how long the fight runs — so
+## what the item is worth depends on that and not on what it cost. An expiring
+## stack plateaus at roughly `amount / cast interval * duration` instead: the
+## item is worth more in the first ten seconds than the old one was, and the
+## same at second forty as it was at second twelve.
+##
+## The growth book is handed to `Sim`, which adds to it here and takes back out
+## of it when the stack expires — so the panel reports the stacks that are live
+## rather than every stack ever granted.
+func grant_temporary(sim: Sim, unit: SimUnit, stat: StringName, amount: float,
+		duration: float) -> void:
+	if not ADDITIVE.has(stat):
+		push_error("ItemEffect.grant_temporary: %s cannot grant %s" % [id(), stat])
+		return
+	sim.add_flat(unit, StringName(ADDITIVE[stat]), amount, duration,
+		_book(unit), stat)
+
+
 ## The same, for attack speed, which is granted as a multiplier.
 ##
 ## So what it has gathered is a multiplier too: 1.07 twice is 1.145 and not

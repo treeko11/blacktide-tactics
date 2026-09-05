@@ -234,6 +234,101 @@ func test_a_star_up_never_builds_a_loadout_the_rules_forbid() -> void:
 		"and the greater items are what it should have kept")
 
 
+## A star-up gathers the items of all three copies onto one pirate, which is
+## exactly the arrangement a drop forges — and it did not, so a merge that
+## brought a Buccaneer's Edge and a Rapier together left both worn side by side
+## with no way to combine them ever again: forging only happens at the moment an
+## item is equipped, and by then both were already on.
+func test_a_star_up_forges_a_pair_it_gathers() -> void:
+	var s := state()
+	var capstone := _any_capstone()
+	var a := _give(&"barnaby")
+	var b := _give(&"barnaby")
+	var c := _give(&"barnaby")
+	a.items.assign([capstone.recipe[0]])
+	b.items.assign([capstone.recipe[1]])
+	c.items.assign([])
+
+	s._check_upgrades()
+
+	var owned: Array = s.owned_units()
+	assert_eq(owned.size(), 1, "the three copies should have merged")
+	var upgraded: RosterUnit = owned[0]
+	assert_eq(upgraded.items.size(), 1,
+		"the two halves the merge gathered should have become one item")
+	assert_eq(upgraded.items[0], capstone.id,
+		"and that item should be the greater item they forge")
+
+
+## The rung below, through the same door: two components the merge brings
+## together are a finished item, not two occupied slots.
+func test_a_star_up_forges_two_components_it_gathers() -> void:
+	var s := state()
+	var forged: ItemDef = content().forged_items()[0]
+	var a := _give(&"barnaby")
+	var b := _give(&"barnaby")
+	var c := _give(&"barnaby")
+	a.items.assign([forged.recipe[0]])
+	b.items.assign([forged.recipe[1]])
+	c.items.assign([])
+
+	s._check_upgrades()
+
+	var upgraded: RosterUnit = s.owned_units()[0]
+	assert_eq(upgraded.items.size(), 1, "the pair should have become one item")
+	assert_eq(upgraded.items[0], forged.id)
+
+
+## Bots merge through their own copy of this and had both halves of the bug: it
+## never forged, and it kept the first three items in hand order, which could
+## seat two greater items and a third besides.
+func test_a_bot_star_up_forges_a_pair_it_gathers() -> void:
+	var s := state()
+	var bot: Bot = s.bots[0]
+	bot.level = 6
+	bot.units.clear()
+	bot.items.clear()
+	var capstone := _any_capstone()
+	for i in 3:
+		bot.units.append(RosterUnit.new(content().champion(&"barnaby"), 1))
+	bot.units[0].items.assign([capstone.recipe[0]])
+	bot.units[1].items.assign([capstone.recipe[1]])
+
+	bot._merge(s)
+
+	assert_eq(bot.units.size(), 1, "the three copies should have merged")
+	assert_eq(bot.units[0].items.size(), 1,
+		"the two halves the merge gathered should have become one item")
+	assert_eq(bot.units[0].items[0], capstone.id)
+
+
+## The other half. Three copies carrying two greater items and a third item
+## between them is exactly what the old slice let through.
+func test_a_bot_star_up_obeys_the_slot_rule() -> void:
+	var s := state()
+	var bot: Bot = s.bots[0]
+	bot.level = 6
+	bot.units.clear()
+	bot.items.clear()
+	var all: Array = content().capstones()
+	for i in 3:
+		bot.units.append(RosterUnit.new(content().champion(&"barnaby"), 1))
+	bot.units[0].items.assign([all[0].id])
+	bot.units[1].items.assign([all[1].id])
+	bot.units[2].items.assign([&"bloodletter"])
+
+	bot._merge(s)
+
+	var upgraded: RosterUnit = bot.units[0]
+	var room: int = content().capacity(upgraded.items)
+	assert_eq(content().capstone_count(upgraded.items), 2,
+		"the two greater items are what it should have kept")
+	assert_true(upgraded.items.size() <= room,
+		"the upgrade is carrying more than its capstones leave room for")
+	assert_true(bot.items.has(&"bloodletter"),
+		"and the item they left no room for should be back in the hold")
+
+
 ## Bots equip through the same plan the player's drops go through, so the rule
 ## cannot hold on one side of the board and not the other.
 func test_a_bot_never_builds_a_loadout_the_rules_forbid() -> void:

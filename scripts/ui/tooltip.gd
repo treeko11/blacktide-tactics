@@ -443,10 +443,17 @@ static func champion_text(champion: ChampionDef, star: int,
 ## get it back out, so an item whose whole design is a snowball read exactly the
 ## same in the tenth second of a fight as in the first.
 ##
-## Only during a fight, and only after the first proc. The growth is fight-scoped
-## - items are re-applied in `Sim._init` every round, so a stack gathered last
-## round is already gone - and a row of zeroes on every item in the game would
-## cost the panel a line each to say nothing.
+## Only during a fight, and only while something is actually held. The growth is
+## fight-scoped - items are re-applied in `Sim._init` every round, so a stack
+## gathered last round is already gone - and a row of zeroes on every item in the
+## game would cost the panel a line each to say nothing.
+##
+## A stat is skipped once it rounds to zero rather than once it is absent,
+## because the two growing items hold their stacks for a few seconds now and give
+## them back: `Sim`'s expiry takes the amount out of the book as well as off the
+## unit, so a book that has been through a full cycle still has the key, sitting
+## at nought. Reported on `has` alone the panel said "+0 AP" for the rest of the
+## fight, which reads as an item that has stopped working.
 ##
 ## Attack speed reads as a multiplier because that is how it is granted; the
 ## other four are sums.
@@ -456,9 +463,9 @@ static func _gathered_line(live: SimUnit, item_id: StringName) -> String:
 		return ""
 	var parts := PackedStringArray()
 	for stat in [&"ad", &"ap", &"armor", &"mr"]:
-		if book.has(stat):
+		if roundi(book.get(stat, 0.0)) != 0:
 			parts.append("+%d %s" % [roundi(book[stat]), GATHERED_LABELS[stat]])
-	if book.has(&"as"):
+	if book.has(&"as") and absf(float(book[&"as"]) - 1.0) >= 0.005:
 		parts.append("×%.2f %s" % [book[&"as"], GATHERED_LABELS[&"as"]])
 	if parts.is_empty():
 		return ""

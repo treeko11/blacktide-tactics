@@ -31,6 +31,7 @@ that needs no engine, and say plainly in the commit message that code is
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `capstone_balance.gd` | What a greater item is worth. Fights each against the two finished items it is forged from, then two of them against one plus the loose halves of another. **Read the margin, not the win rate** — see the note under Items |
+| `stacking_balance.gd` | Whether the four per-cast grants — Siren's Locket, The Drowned Choir, Meredine and Nautica — have a ceiling. **Read the long/short ratio, not the totals**: a grant that plateaus banks the same in a short fight and a long one, and one near 1.00x has stopped compounding. Fights a stacking fleet against a mirror, because against an ordinary board it wins in five seconds and measures nothing |
 | `fight_pacing.gd` | How long fights actually last. `--runs=` measures real runs; `--matched` fights boards built to the same budget, which is the only way to tell a bad curve from an honest blowout; `--isolate` moves unit count, stars and items one at a time; `--blowouts` reports what the quickest fights looked like from the inside; `--creep` fights the monster waves with one *seeded* run's fleets, which is the only way to compare two builds on the same boards |
 | `art_sheet.gd` | Draws **every champion**, or every body in every animation state (`--poses`). Must run **without** `--headless`. The only check that a polygon still triangulates |
 | `assign_art.gd` | Stamps `ArtTable` into `data/champions/*.tres`. Idempotent, and preserves balance where `generate_content.gd` would not |
@@ -398,11 +399,20 @@ Each of these cost a debugging session or settles a design argument.
   thing that decides a drop; `preview_equip` shows its answer and `equip_item`
   acts on it, so what the drag promises and what the drop does are the same call.
   Bots go through it too.
-- **Every door into a loadout has to obey it, not just the drop.** The star-up
-  merge carries the items of all three copies and used to keep whichever three
-  came first, which could hand the upgrade two greater items and a third
-  besides — arriving by merge, where nothing was looking. It now sorts capstones
-  forward and stops at whatever they leave room for.
+- **Every door into a loadout has to obey it, not just the drop — and "obey it"
+  means going through `plan_equip`, not reimplementing it.** The star-up merge
+  carries the items of all three copies onto one pirate, and it counted them
+  into free slots instead. That was wrong twice. It kept whichever three came
+  first, which could hand the upgrade two greater items and a third besides;
+  that was fixed by sorting capstones forward, and the *second* bug survived it
+  untouched, because a slot count cannot forge. So a merge that gathered a
+  Buccaneer's Edge from one copy and a Rapier from another left both worn side
+  by side, and they could never be combined afterwards — forging only ever
+  happens at the moment an item is equipped, and by then both were already on.
+  Both merges now feed every gathered item through `Content.plan_equip`, the
+  same call a drop makes, which answers the slot question and the forge question
+  together because it is the only thing that decides a loadout. The bot's copy
+  had both halves of the bug for longer, since its version never even sorted.
 - **Every finished item is half of at least one greater item.** The rung above
   "a component is never a dead end", and for the same reason: a finished item
   that combines with nothing is a build that stops, and the player cannot tell
@@ -1162,6 +1172,35 @@ these; they are the reason several things are where they are.
   cannot read a shop or plan ahead. **Worth re-measuring now that they also use
   items** — that was added after the handicap was tuned, and nothing has
   confirmed it is still the right number.
+- **A grant that lasts the fight is unbounded in the one variable nobody
+  controls.** Four things hand out a stat on every cast — Siren's Locket, The
+  Drowned Choir, Meredine's Hymn and Nautica's Flagship Broadside — and all four
+  granted for the rest of combat, so what each was worth depended on how long the
+  fight ran and they multiplied each other: two of them also hand back the mana
+  that buys the next cast. Measured, Empress Nautica with two mana items banked
+  **+2,835 armour and +2,835 magic resist on every ally**, against +105 for the
+  same fleet with nothing equipped. That is not a strong five-cost, it is a loop,
+  and it was a large part of why two such boards ran to the time limit — the
+  overtime ramp racing a number that grew faster than it did. The whole failure
+  is invisible from inside a played round and invisible to the suite, because a
+  grant that compounds applies exactly as cleanly as one that does not.
+- **A duration is the fix for an item; a fleet-wide buff needs a refresh.** A
+  duration caps a grant at `amount × casts that fit inside it` — but the cast
+  *rate* is still in that, and raising the rate is exactly what the mana items
+  are for. Nautica with two of them cast about twice a second, so a ten-second
+  grant still meant nineteen live stacks. So `Sim.refresh_flat` replaces rather
+  than adds: a fleet-wide buff is a **state** the fleet is in, casting more often
+  keeps it up rather than piling it higher, and the extra casts pay in nuke
+  damage instead. An item that grows on its own carrier still **stacks**, because
+  that is the whole shape of the item and one unit at a bounded rate is a bounded
+  number. `tools/stacking_balance.gd` is what tells the two apart.
+- **A greater item's per-cast rate is not where it beats its parents.** The
+  Drowned Choir is forged from Siren's Locket and Kraken's Compass and grants the
+  same 18 a cast the Locket does; what makes it the better item is that fifty
+  mana back keeps more of those stacks live at once. Set above the Locket's it
+  measured **100% against its own parents** in `capstone_balance.gd` — the trap
+  in the other direction from a capstone that is weaker than its parts, and one
+  the win rate alone hides, since 100% is what any persistent edge reports.
 - **Monster rounds are a floor, not a wall.** A player who fields anything at
   all should win them; only an empty board should lose. Round 1-1 is the one
   that has to be checked by hand — level 1 seats **one** pirate, so the opening
@@ -1409,6 +1448,15 @@ refers to the JavaScript at all, and only in a comment.
   assertion is on a number, and the one that matters most fights two boards of
   healers and fails if they reach the time limit. That test genuinely fails with
   the ramp turned off: the fight runs to exactly 42.000s.
+- `test_stacking.gd` holds the ceilings on the four per-cast grants. Both
+  mechanisms fail silently and in opposite directions: an expiring grant that is
+  never taken back off makes the whole change cosmetic, and a refresh keyed
+  wrongly makes Nautica overwrite Meredine so a fleet quietly loses a buff it
+  paid for. The plateau is asserted as a **ratio** — what an item has gathered at
+  thirty seconds against what it had at eight — so retuning `STACK_AP` does not
+  fail the test that guards its shape. `tools/stacking_balance.gd` is the other
+  half, and measures whether the ceilings are in the right *place*, which no
+  assertion can.
 - `test_capstones.gd` holds the third rung. Both halves of it fail silently:
   the **tier graph** is derived, so a capstone whose recipe named a component
   would file itself under tier 2 and throw nothing, and the **slot rule** is the

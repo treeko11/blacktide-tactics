@@ -21,9 +21,9 @@ attack_range = 3
 mana_start = 40.0
 mana_max = 100.0
 ability_name = "Flagship Broadside"
-ability_desc = "The flagship fires: {dmg} magic damage to all enemies in a huge area. Allies gain {res} Armor and Magic Resist and {ap} Ability Power permanently."
+ability_desc = "The flagship fires: {dmg} magic damage to all enemies in a huge area. Allies gain {res} Armor and Magic Resist and {ap} Ability Power for 10 seconds."
 ability_values = {
-&"ap": [20, 30, 120],
+&"ap": [37, 55, 220],
 &"dmg": [400, 600, 2400],
-&"res": [25, 35, 120]
+&"res": [43, 60, 206]
 }

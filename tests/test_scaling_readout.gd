@@ -173,15 +173,20 @@ func test_the_locket_reports_what_it_has_gathered() -> void:
 		[entry(&"brine", Vector2i(3, 1))])
 	var unit: SimUnit = sim.units[0]
 
+	# Read off the item rather than written out here. The stacks expire now, so
+	# this figure is a balance number that moves; a copy of it in the test would
+	# fail the readout the next time anybody tunes the item, which says nothing
+	# about whether the readout works.
+	var per_cast: float = load("res://scripts/core/items/sirens_locket.gd").STACK_AP
 	for i in 3:
 		for hook in unit.hooks_on_cast:
 			hook.call(unit)
 
 	assert_almost_eq(ItemEffect.gathered(unit, &"sirens_locket").get(&"ap", 0.0),
-		30.0, 0.001, "three casts did not record 30 ability power")
+		per_cast * 3.0, 0.001, "three casts did not record three stacks")
 
 	var text := Tooltip.champion_text(unit.def, unit.star, unit.items, unit)
-	assert_true(text.contains("+30 Ability Power"),
+	assert_true(text.contains("+%d Ability Power" % roundi(per_cast * 3.0)),
 		"the inspector did not report the locket's growth: %s" % text)
 
 

@@ -7,5 +7,5 @@ script = ExtResource("1_cap05")
 id = &"drowned_choir"
 display_name = "The Drowned Choir"
 icon = "🔱"
-description = "+45 Ability Power, +50 Mana. After casting, restore 50 Mana and gain 10 permanent Ability Power."
+description = "+45 Ability Power, +50 Mana. After casting, restore 50 Mana and gain 18 Ability Power for 8 seconds."
 recipe = Array[StringName]([&"krakens_compass", &"sirens_locket"])

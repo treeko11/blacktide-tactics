@@ -537,9 +537,64 @@ func add_buff(u: SimUnit, stat: StringName, mult: float, duration: float) -> voi
 	u.buffs.append({ "stat": stat, "mult": mult, "time": duration })
 
 
-func add_flat(u: SimUnit, stat: StringName, amount: float, duration: float) -> void:
+## A flat stat bonus that expires.
+##
+## `book` and `key` are how a bonus stays reportable while it is temporary. An
+## item that grows hands in its `gathered` book; the amount goes in here and the
+## expiry takes it back out, as well as off the unit — so the inspector's growth
+## line reports what is *live* rather than everything ever granted, which once
+## the stacks expire is a number the unit does not have. The book is a Dictionary
+## and therefore a reference, which is the only reason a lambda-free hand-off
+## like this works at all.
+func add_flat(u: SimUnit, stat: StringName, amount: float, duration: float,
+		book: Variant = null, key: StringName = &"") -> void:
+	_push_flat(u, stat, amount, duration, book, key, &"")
+
+
+## The same, but one at a time from a given source: a second grant replaces the
+## first rather than standing beside it.
+##
+## Which of the two an effect wants is the difference between an accumulator and
+## a state, and it decides whether the effect has a ceiling at all. Giving a
+## grant a duration caps it at `amount × casts that fit inside the duration` —
+## but that still has the cast *rate* in it, and the rate is exactly what the
+## mana items exist to raise. Empress Nautica with two of them cast about twice a
+## second, so a ten-second grant meant nineteen live stacks: +1,140 armour on
+## every ally, from an ability that grants sixty.
+##
+## So a fleet-wide buff refreshes. It is a state the fleet is in — buffed or not
+## — and casting more often keeps it up rather than piling it higher, which
+## leaves the nuke as the reward for the extra casts. An item that grows on its
+## own carrier still stacks, because that is the whole shape of the item and one
+## unit at a bounded rate is a bounded number.
+##
+## Keyed by source rather than by stat, so the three stats one ability grants
+## refresh independently and two different abilities never overwrite each other.
+func refresh_flat(u: SimUnit, stat: StringName, amount: float, duration: float,
+		source: StringName) -> void:
+	for i in range(u.flats.size() - 1, -1, -1):
+		var old: Dictionary = u.flats[i]
+		if old.get("source", &"") == source and old["stat"] == stat:
+			u.set(stat, u.get(stat) - float(old["amount"]))
+			u.flats.remove_at(i)
+	_push_flat(u, stat, amount, duration, null, &"", source)
+
+
+func _push_flat(u: SimUnit, stat: StringName, amount: float, duration: float,
+		book: Variant, key: StringName, source: StringName) -> void:
 	u.set(stat, u.get(stat) + amount)
-	u.flats.append({ "stat": stat, "amount": amount, "time": duration })
+	# Both directions of the book are here, and the expiry above is the other
+	# one. Recording it where the grant is made and giving it back somewhere else
+	# is two halves of one number in two files, which is the shape that goes out
+	# of step the first time either is touched.
+	_book_add(book, key, amount)
+	u.flats.append({ "stat": stat, "amount": amount, "time": duration,
+		"book": book, "key": key, "source": source })
+
+
+func _book_add(book: Variant, key: StringName, amount: float) -> void:
+	if book is Dictionary and key != &"":
+		book[key] = float(book.get(key, 0.0)) + amount
 
 
 func add_max_hp(u: SimUnit, amount: float) -> void:
@@ -999,6 +1054,8 @@ func _tick_statuses(u: SimUnit, dt: float) -> void:
 		if u.flats[i]["time"] <= 0.0:
 			var f: Dictionary = u.flats[i]
 			u.set(f["stat"], u.get(f["stat"]) - f["amount"])
+			# And out of the growth book, if the grant was being reported.
+			_book_add(f.get("book", null), f.get("key", &""), -float(f["amount"]))
 			u.flats.remove_at(i)
 
 	for i in range(u.burns.size() - 1, -1, -1):

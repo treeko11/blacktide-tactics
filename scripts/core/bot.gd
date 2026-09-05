@@ -166,7 +166,15 @@ func _score(champion_id: StringName, state: Node) -> float:
 
 
 ## Merges three of a kind, then sells down to the bench limit.
+##
+## The gathered items go through `plan_equip` for the same two reasons the
+## player's star-up does: it is the only thing that forges, and it is the only
+## thing that knows what a capstone costs in slots. Slicing the first three off
+## the pile did neither — it left a pair the merge had brought together sitting
+## unforged, and it could seat two greater items plus a third item, which is the
+## one loadout the rule forbids.
 func _merge(state: Node) -> void:
+	var content_node: Node = state.content
 	for star in [1, 2]:
 		var merged := true
 		while merged:
@@ -189,10 +197,16 @@ func _merge(state: Node) -> void:
 					carried.append_array(u.items)
 					units.erase(u)
 				var upgraded := RosterUnit.new(three[0].champion, star + 1)
-				upgraded.items.assign(carried.slice(0, RosterUnit.MAX_ITEMS))
+				carried.sort_custom(func(a, b):
+					return content_node.item_tier(a) > content_node.item_tier(b))
+				for id in carried:
+					var plan: Dictionary = content_node.plan_equip(id, upgraded.items)
+					if plan["allowed"]:
+						upgraded.items.assign(plan["items"])
+					else:
+						# Anything that would not fit goes back in the hold.
+						items.append(id)
 				units.append(upgraded)
-				# Anything that would not fit goes back in the hold.
-				items.append_array(carried.slice(RosterUnit.MAX_ITEMS))
 				merged = true
 				break
 

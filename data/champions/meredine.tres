@@ -21,8 +21,8 @@ attack_range = 3
 mana_start = 40.0
 mana_max = 100.0
 ability_name = "Hymn of the Deep"
-ability_desc = "Heal all allies for {heal} and grant them {ap} Ability Power for the rest of combat."
+ability_desc = "Heal all allies for {heal} and grant them {ap} Ability Power for 10 seconds."
 ability_values = {
-&"ap": [15, 22, 45],
+&"ap": [27, 40, 82],
 &"heal": [300, 450, 850]
 }
