@@ -133,12 +133,22 @@ player, which is exactly what a real bug looks like — the game was fine.
   they follow intent and output from context but are not a fluent reader.
 - **Ask before building, not after.** A fork that changes what gets built and is
   not settled by these docs is a question, not a default reported later.
-- **Run routine commands freely** — reads, tests, builds, commits, pushes.
+- **Run routine headless commands freely** — reads, builds, git, and the
+  `--headless` tools.
+- **Ask before anything that opens a window.** `screenshot.gd`, `art_sheet.gd`, a
+  windowed `soak.gd`, `Play.bat` and `Edit.bat` borrow the maintainer's screen,
+  and `_hover_at` warps the physical pointer — so a run started while they are
+  using the machine both interrupts them and reports a failure that is only their
+  hand on the mouse. Batch the request: the four `--size=` layouts are one ask,
+  not four.
 - **Refactor freely.** The maintainer would rather existing code be reshaped
   than worked around.
 - **The maintainer does not touch git or GitHub at all.** Branches, PRs and
   cleanup are Claude's job start to finish. On the maintainer's machine, commit
-  and push straight to `main` as work lands.
+  and push straight to `main` — but **at the end of the session, after the test
+  batch**, not as each piece lands. See the testing policy: changes stack in the
+  working tree until the suite has run once and is green. One larger commit is
+  the accepted cost of not testing continuously.
 - **Keep commit messages short** — subject, then a few lines of what and why.
 
 ## The repository is public
@@ -1179,11 +1189,19 @@ refers to the JavaScript at all, and only in a comment.
 ## Testing policy
 
 - The suite must be green before a commit.
-- **While working, run the files the change touches, not all thirteen.**
-  `Test.bat tooltip` is a second; the whole suite is a minute of waiting for
-  an answer about something else. Run the lot once, before the commit — that
-  is the point at which a test in an unrelated file failing is information.
-  `Test.bat` exits non-zero on a failure, so it can be chained.
+- **Do not test while working. Batch it to the end of the session.** A run
+  mid-task is a minute of waiting for an answer about something the maintainer is
+  not asking about yet, and it interrupts the work being explained as it is
+  written. So: keep writing, then at the end run the whole of `Test.bat` once,
+  and in the same message list the windowed checks the change earned for the
+  maintainer to approve or trim. Commits wait for that batch to come back green —
+  which is why the working agreement above holds them rather than pushing as each
+  piece lands. `Test.bat` exits non-zero on a failure, so it can be chained.
+- **The exception is a test whose answer decides what to write next.** A single
+  targeted `Test.bat tooltip` is a second, and it is worth it when a change is
+  risky enough that the next thing written depends on the result. Say why it is
+  being run. Everything else waits, and a session that is going to be interrupted
+  runs its batch early rather than leaving work both uncommitted and unchecked.
 - **A test that asserts nothing did not pass.** The runner fails any test that
   made no assertions, because a GDScript runtime error abandons a method and
   returns to the runner as if it had finished.
