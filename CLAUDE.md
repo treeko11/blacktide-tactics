@@ -26,7 +26,7 @@ that needs no engine, and say plainly in the commit message that code is
 |---|---|
 | `run_tests.gd` | The suite. `Test.bat`, or `--script res://tools/run_tests.gd`. A bare word filters to the files whose path contains it — `Test.bat tooltip` — and `-v` lists every test rather than a per-file line |
 | `playthrough.gd` | Plays a whole run through the real round loop; fails on a stall |
-| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac\|reread\|drag`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation |
+| `screenshot.gd` | Renders a PNG. Must run **without** `--headless`. Also the only check of the phone layout, of touch, and of sound: `--size=`, `--touch=yes\|no`, `--measure`, `--rotate=`, `--hold=card\|bench\|trait\|item\|chart`, `--sequence=buy\|forge\|item\|almanac\|reread\|drag`, `--live`, `--modal=dps`, `--briefing`, `--sfx`, `--sea=`, `--almanac=`, `--overtime`, all of which assert. **`--live` and `--overtime` need a board — pass `--units=` with them** (`--live` wants two or more, since it kills one), or the player's side is empty, the fight is over on the first tick, and both fail describing the game rather than the invocation. **`--items=` hangs a loadout on the first fielded pirate**, through the real `equip_item` so the slot rule and the forge both apply — and `--live` then asserts that every scaled number in the ability text resolved, and that growth the fight recorded reached the panel. Without it a `--live` run fields bare pirates and neither line is drawn at all |
 | `soak.gd` | Plays 40+ rounds with the **real HUD** up, reporting objects, nodes, memory and the worst frame of every round. Runs either way; `--headless` is faster and still builds the whole HUD. The only thing watching for a frame that never ends |
 | `creep_balance.gd` | Win rate against every monster wave, per stage and round |
 | `capstone_balance.gd` | What a greater item is worth. Fights each against the two finished items it is forged from, then two of them against one plus the loose halves of another. **Read the margin, not the win rate** — see the note under Items |
@@ -53,6 +53,17 @@ tolerable:
   invocation that forgets, clears WINDOW_FLAG_NO_FOCUS so it stops taking the
   keyboard, and puts the pointer back where it found it when the tool exits.
   `GODOT_TOOL_SCREEN` overrides the screen; `-1` opts out.
+- **On Windows, run them through `Godot_..._console.exe`, not the plain exe.**
+  The shipped `Godot_v4.7.2-stable_win64.exe` is a GUI-subsystem binary: it
+  detaches from the console, so it prints **nothing** to a terminal and
+  PowerShell does not wait for it to finish. A batch of four layouts launched
+  that way returns instantly, with no output and an empty `$LASTEXITCODE`, and
+  looks exactly like four runs that failed. `Test.bat` is unaffected only
+  because it redirects to a file. The `_console.exe` sitting beside it is a
+  198 KB shim that keeps the console attached — use it for anything whose
+  output or exit code is being read:
+  `(Get-Content .\godot_path.txt -TotalCount 1) -replace '\.exe$','_console.exe'`.
+
 - **Run the hover checks on an idle machine.** `_hover_at` moves the *real*
   pointer, because `get_viewport().get_mouse_position()` on the root viewport
   reports where the pointer physically is and not what was last parsed — so a

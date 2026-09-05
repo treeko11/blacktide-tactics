@@ -14,6 +14,9 @@ extends "res://tools/tool_script.gd"
 ##   --gold=<n>       start the player with this much gold
 ##   --units=<ids>    comma-separated champion ids to field, e.g. lyra,kraken
 ##   --bench=<ids>    comma-separated champion ids to sit on the bench
+##   --items=<ids>    comma-separated item ids to hang on the first fielded
+##                    pirate, so a shot can show a loadout. Goes through the
+##                    real equip, so the slot rule and the forge both apply
 ##   --stars=<n>      what star the fielded crew is (default 2)
 ##   --size=<WxH>     resize the window first, e.g. --size=390x844 for a phone
 ##   --touch=yes|no   pretend the device does or does not have a touchscreen.
@@ -122,6 +125,11 @@ func run() -> void:
 	if benched != "":
 		_bench(game, benched.split(","))
 
+	# After the board, because it equips onto what is standing on it.
+	var carried := arg("items")
+	if carried != "":
+		_equip(game, carried.split(","))
+
 	var counter := arg("shop")
 	if counter != "":
 		_stock_shop(game, counter.split(","))
@@ -217,6 +225,34 @@ func _bench(game: Node, ids: PackedStringArray) -> void:
 		var champion = content().champion(StringName(ids[i].strip_edges()))
 		if champion != null:
 			game.bench[i] = RosterUnit.new(champion, int(arg("stars", "2")))
+	events().board_changed.emit()
+
+
+## Hangs named items on the first pirate on the board.
+##
+## Through `GameState.equip_item` rather than by appending to `unit.items`,
+## because that is the one call that decides a drop - the slot rule, and the
+## forge when two halves meet. A tool that wrote the array directly could build
+## a loadout the game will not let a player build, and then photograph it.
+func _equip(game: Node, ids: PackedStringArray) -> void:
+	if game.board.is_empty():
+		fail("--items= needs somebody to carry them - pass --units= too")
+		return
+	var unit = game.board[0]
+	for raw in ids:
+		var item_id := StringName(raw.strip_edges())
+		if content().item_def(item_id) == null:
+			fail("no such item '%s'" % item_id)
+			return
+		# equip_item takes it out of the hold, so it has to be in the hold.
+		game.player.items.append(item_id)
+		if not game.equip_item(item_id, unit):
+			# Asked again through the tool's own handle rather than reaching
+			# into the run for one. A message that cannot be built is a failure
+			# reporting a different failure than the one that happened.
+			var plan: Dictionary = content().plan_equip(item_id, unit.items)
+			fail("the game refused to equip %s: %s" % [item_id, plan["reason"]])
+			return
 	events().board_changed.emit()
 
 
@@ -1073,6 +1109,9 @@ func _watch_a_fight(game: Node) -> void:
 		fail("the inspector froze: it still reads %s" % _line_with(before, "Health"))
 	_capture()
 
+	await _check_the_numbers_resolve(unit)
+	await _check_gathered_reaches_the_panel(unit)
+
 	# **A pirate that dies keeps its stat block, marked.** It used to close, on
 	# the grounds that the subject was gone — but the numbers a pirate had when
 	# it went down are the last ones there will be, and are what somebody
@@ -1089,6 +1128,82 @@ func _watch_a_fight(game: Node) -> void:
 		fail("the inspector kept the dead pirate's numbers without saying it had fallen")
 
 	await _read_after_the_fight(game, board)
+
+
+## An ability's numbers have to say what they come to on the pirate in front of
+## you, not what the .tres was written with.
+##
+## The failure this catches is silent in the worst way: a frozen figure is still
+## a figure. A description printing its authored number reads exactly like one
+## resolving correctly, and the only way to know which you are looking at is to
+## know what the pirate's attack and ability power are and do the multiplication
+## - which is the arithmetic the brackets exist to spare anybody.
+##
+## Asserted against the caster rather than against a constant, so retuning a
+## champion in its .tres cannot break this.
+func _check_the_numbers_resolve(unit) -> void:
+	var ability = content().ability(unit.def.id)
+	if ability == null or ability.scaling().is_empty():
+		return
+	var text: String = _scene.tooltip._body.text
+
+	var re := RegEx.new()
+	re.compile("\\((\\d+)\\)")
+	var found := re.search_all(text)
+	if found.is_empty():
+		fail("the ability numbers did not resolve: no figure in %s"
+			% _line_with(text, unit.def.ability_name))
+		return
+
+	# Every scaled key gets one, so a hybrid that resolved only half of its
+	# sentence is a failure rather than a pass with one bracket in it.
+	if found.size() < ability.scaling().size():
+		fail("%s scales off %d numbers and only %d resolved: %s"
+			% [unit.def.id, ability.scaling().size(), found.size(),
+				_line_with(text, unit.def.ability_name)])
+	# Located by one of its own resolved figures, not by the ability's name: the
+	# name is a heading on its own line, so looking for that prints the title
+	# and never the sentence the check is actually about.
+	print("  ability line: %s" % _line_with(text, found[0].get_string()))
+
+
+## An item that grew during the fight has to say by how much.
+##
+## The sim is asked rather than a list of which items snowball being kept here:
+## whatever the fight recorded under `gathered`, the panel has to report. So an
+## item that starts growing later cannot quietly slip past this, and an item
+## that stops growing does not fail it.
+##
+## Waited for rather than assumed. Which frame a proc lands on depends on attack
+## timing, and a fixed frame count would make this a coin toss - the one thing a
+## check like this must not be, because a flaky assertion gets ignored.
+func _check_gathered_reaches_the_panel(unit) -> void:
+	if unit.items.is_empty():
+		return
+
+	# Capped well short of the fight's own length: a round that ends under this
+	# moves the phase on and closes the panel, which would report as the panel
+	# failing rather than as the wait being too long.
+	var book: Dictionary = {}
+	for i in 120:
+		book = unit.scratch.get(&"gathered", {})
+		if not book.is_empty():
+			break
+		await _frames(1)
+
+	if book.is_empty():
+		fail("nothing on %s grew in 120 frames of fighting - pass --items= " % unit.def.id
+			+ "something that snowballs, or this check is measuring nothing")
+		return
+
+	# The panel is re-read on its own timer, so give it one.
+	await _frames(10)
+	var text: String = _scene.tooltip._body.text
+	if not text.contains("GATHERED"):
+		fail("the fight recorded %s on %s and the inspector did not report it"
+			% [str(book), unit.def.id])
+		return
+	print("  %s" % _line_with(text, "GATHERED"))
 
 
 ## The reported bug: every tooltip on the board stops answering once VICTORY or
